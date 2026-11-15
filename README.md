@@ -2,9 +2,11 @@
 
 High Country is a native-WebGPU, no-assets eagle-soaring showcase set in a sunny, original Appalachian-inspired wilderness. Terrain, forest, eagle, and atmosphere are generated in `index.html`; it makes no runtime requests.
 
-Serve `index.html` through localhost or HTTPS in a current WebGPU-capable browser. Use **A/D** or **Left/Right** to steer, **Up/Down** to adjust altitude, **Space** or **Esc** to pause, **H** to hide the HUD, **F3** for renderer statistics, and **R** to reset the flight.
+Serve `index.html` through localhost or HTTPS in a current WebGPU-capable browser. Use **A/D** or **Left/Right** to steer, **Space** or **Esc** to pause, **R** to restart, **H** to hide the HUD, **P** to save a view, and **F3** for renderer statistics.
 
 Terrain and the 128×128 nearby forest window are generated in an inline worker and transferred without assets or network requests. Terrain upload is budgeted in ≤1 MiB animation-frame chunks, so the last complete world remains visible until the replacement atomically swaps in. The synthetic terrain is calibrated against the retained research measurements: across 24 km, its height p05/p50/p95 is 576/1051/1510 m, slope p25/p50/p75/p95 is 12/18.8/26.5/37.4°, and eastward 1.5 km RMS height change is 233.6 m (research reference: 235.4 m).
+
+See [procedural techniques](docs/PROCEDURAL_TECHNIQUES.md) for implemented streaming patterns and clearly marked research leads for future trees, clouds, and water.
 
 ## Reference material used during art research
 
