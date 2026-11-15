@@ -1,7 +1,9 @@
 # High Country
 
-A no-assets WebGPU eagle flight game set in an original, procedural Appalachian-inspired ridge landscape.
+High Country is a native-WebGPU, no-assets eagle-soaring showcase set in a sunny, original Appalachian-inspired wilderness. Terrain, forest, eagle, and atmosphere are generated in `index.html`; it makes no runtime requests.
 
-Open `index.html` through a localhost server or a secure context in a current WebGPU-capable browser. Use **A/D** or **Left/Right** to bank, **W/S** or **Up/Down** to dive and climb, **Space** to flap, **Shift** to tuck into a dive, **R** to reset, and **Esc** to pause.
+Serve `index.html` through localhost or HTTPS in a current WebGPU-capable browser. Use **A/D** or **Left/Right** to steer, **Up/Down** to adjust altitude, **Space** or **Esc** to pause, **H** to hide the HUD, **F3** for renderer statistics, and **R** to reset the flight.
 
-`Take Flight` is free flight. `Ridge Run` is a three-minute gate course. Everything—terrain, forest, eagle, effects, and audio—is generated in the file.
+## Reference material used during art research
+
+`references/north-cove-nps.jpg` is a local visual reference from the U.S. National Park Service’s North Cove overlook page. `references/terrain-10-*.png` are local Terrarium-format elevation tiles for the Mt. Mitchell / Black Mountains area, obtained from the AWS elevation-tiles collection. They are retained as research material only and are not loaded by the game. Terrarium’s format and attribution notes are documented by the Tilezen/Joerd project; source terrain attribution includes USGS 3DEP, GMTED2010, and SRTM.
