@@ -1,0 +1,21 @@
+# Local browser profiles, logs, and temporary validation output
+.qa-profile*/
+node_modules/
+.venv/
+work/
+scratch/
+tmp/
+temp/
+logs/
+*.log
+*.pid
+
+# Credentials and machine-only configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+secrets/
