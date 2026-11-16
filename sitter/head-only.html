@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sitter — procedural portrait</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0a09;overflow:hidden;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#d9d2c8}
+  canvas{display:block;width:100vw;height:100vh;cursor:grab;image-rendering:auto}
+  canvas:active{cursor:grabbing}
+  #panel{position:fixed;top:14px;left:14px;width:230px;padding:14px 16px 12px;background:rgba(18,16,14,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.07);border-radius:10px;font-size:12px;line-height:1.3;user-select:none}
+  #panel h1{font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;margin:0 0 10px;color:#efe7dc}
+  #panel label{display:block;margin:9px 0 3px;color:#a89f94}
+  #panel input[type=range]{width:100%;accent-color:#c9a27e}
+  #panel select{width:100%;background:#1d1a17;color:#e6ded3;border:1px solid #3a342e;border-radius:5px;padding:3px 4px;font-size:12px}
+  #panel .row{display:flex;gap:8px;align-items:center;margin-top:10px}
+  #panel .hint{margin-top:10px;color:#7d756c;font-size:11px}
+  #stat{position:fixed;right:12px;bottom:10px;font-size:11px;color:#6f675e;font-variant-numeric:tabular-nums}
+  #load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;letter-spacing:.3em;text-transform:uppercase;color:#8a8076;pointer-events:none}
+  #hide{position:fixed;top:14px;left:14px;display:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="load">sculpting…</div>
+<div id="panel">
+  <h1>Sitter</h1>
+  <label>Skin tone</label>
+  <input id="skin" type="range" min="0" max="1" step="0.001" value="0.36">
+  <label>Eyes</label>
+  <select id="iris"><option value="blue">Blue-grey</option><option value="green">Green</option><option value="hazel" selected>Hazel</option><option value="brown">Brown</option></select>
+  <label>Hair</label>
+  <select id="hair"><option value="dark" selected>Dark brown</option><option value="black">Black</option><option value="auburn">Auburn</option><option value="blond">Dirty blond</option><option value="grey">Salt &amp; pepper</option></select>
+  <label>Stubble</label>
+  <input id="stub" type="range" min="0" max="1" step="0.01" value="0.3">
+  <label>Key light</label>
+  <input id="light" type="range" min="-1.6" max="1.6" step="0.01" value="-0.75">
+  <div class="row"><input id="follow" type="checkbox" checked><span>Watches your cursor</span></div>
+  <div class="hint">Drag to orbit · scroll to zoom · H hides this panel</div>
+</div>
+<div id="stat"></div>
+
+<script id="fs" type="x-shader/x-fragment">#version 300 es
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec3 uCamPos, uCamFwd, uCamRight, uCamUp;
+uniform float uTanHalf;
+uniform mat3 uHeadRot;      // world -> head space
+uniform vec3 uGazeL, uGazeR; // head-space gaze directions
+uniform float uBlink;       // 1 open, 0 closed
+uniform vec3 uKeyDir;
+uniform vec3 uSkin, uIris, uHair;
+uniform float uStubble;
+out vec4 outColor;
+
+const vec3 PIVOT = vec3(0.0,-0.95,-0.1);
+const vec3 EYE_R = vec3(0.24,0.08,0.59);
+const vec3 EYE_L = vec3(-0.24,0.08,0.59);
+const float PI = 3.14159265;
+
+// ---------------------------------------------------------------- noise
+float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
+float vnoise(vec3 p){
+  vec3 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(hash13(i),hash13(i+vec3(1,0,0)),f.x), mix(hash13(i+vec3(0,1,0)),hash13(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash13(i+vec3(0,0,1)),hash13(i+vec3(1,0,1)),f.x), mix(hash13(i+vec3(0,1,1)),hash13(i+vec3(1,1,1)),f.x),f.y), f.z);
+}
+float sstep(float a, float b, float x){ float t = clamp((x-a)/(b-a), 0.0, 1.0); return t*t*(3.0-2.0*t); }
+float dot2(vec3 v){ return dot(v,v); }
+float dot2(vec2 v){ return dot(v,v); }
+
+// ---------------------------------------------------------------- sdf kit
+float sdEll(vec3 p, vec3 r){ float k0=length(p/r); float k1=length(p/(r*r)); return k0*(k0-1.0)/k1; }
+float smin(float a,float b,float k){ float h=max(k-abs(a-b),0.0)/k; return min(a,b)-h*h*k*0.25; }
+float smax(float a,float b,float k){ return -smin(-a,-b,k); }
+float sdCap(vec3 p, vec3 a, vec3 b, float r){ vec3 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h)-r; }
+float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2){
+  vec3 ba=b-a; float l2=dot(ba,ba); float rr=r1-r2; float a2=l2-rr*rr; float il2=1.0/l2;
+  vec3 pa=p-a; float y=dot(pa,ba); float z=y-l2; vec3 xv=pa*l2-ba*y; float x2=dot(xv,xv); float y2=y*y*l2; float z2=z*z*l2;
+  float k=sign(rr)*rr*rr*x2;
+  if(sign(z)*a2*z2>k) return sqrt(x2+z2)*il2-r2;
+  if(sign(y)*a2*y2<k) return sqrt(x2+y2)*il2-r1;
+  return (sqrt(x2*a2*il2)+y*rr)*il2-r1;
+}
+
+// ---------------------------------------------------------------- anatomy
+vec3 lipSpace(vec3 p){ return vec3(p.x, p.y, p.z + 2.2*p.x*p.x); }
+float upperLip(vec3 p){ vec3 l=lipSpace(p); l.y -= 0.012*exp(-l.x*l.x/0.0012); return sdEll(l-vec3(0.0,-0.342,0.712), vec3(0.20,0.046,0.058)); }
+float lowerLip(vec3 p){ vec3 l=lipSpace(p); return sdEll(l-vec3(0.0,-0.412,0.688), vec3(0.175,0.05,0.06)); }
+
+float eyelidOpen(vec3 e, out float ry){
+  float bl = max(uBlink, 0.03);
+  float ey = e.y - 0.006 + 0.022*(1.0-bl) - 0.1*e.x;
+  ry = (ey > 0.0 ? 0.050 : 0.036) * bl;
+  return (length(vec2(e.x/0.098, ey/ry)) - 1.0) * ry;
+}
+float eyelid(vec3 q){
+  vec3 e = q - EYE_R;
+  float sh = abs(length(e) - 0.098) - 0.0065;
+  float ry; float op = eyelidOpen(e, ry);
+  float lid = smax(sh, -op, 0.004);
+  return smax(lid, -e.z - 0.03, 0.01);
+}
+float ear(vec3 q){
+  vec3 e = (q - vec3(0.6,0.02,-0.06))/1.12;
+  float c=cos(0.3), s=sin(0.3);
+  e.xz = vec2(e.x*c + e.z*s, -e.x*s + e.z*c);
+  float cb=cos(0.18), sb=sin(0.18);
+  e.xy = vec2(e.x*cb - e.y*sb, e.x*sb + e.y*cb);
+  float top  = sdEll(e - vec3(0.0,0.05,0.0), vec3(0.04,0.14,0.115));
+  float lobe = sdEll(e - vec3(-0.005,-0.11,0.025), vec3(0.035,0.07,0.06));
+  float d = smin(top, lobe, 0.05);
+  d = smax(d, -sdEll(e - vec3(0.032,0.04,0.0), vec3(0.025,0.105,0.085)), 0.015);
+  d = smax(d, -sdEll(e - vec3(0.02,-0.03,0.02), vec3(0.03,0.055,0.045)), 0.012);
+  d = smin(d, sdCap(e, vec3(0.012,0.12,-0.02), vec3(0.012,-0.02,0.0), 0.012), 0.015);
+  return d*1.12;
+}
+float skinHead(vec3 p){
+  vec3 q = vec3(abs(p.x), p.yz);
+  float d = sdEll(p-vec3(0.0,0.2,0.02), vec3(0.60,0.80,0.77));                  // cranium
+  d = smin(d, sdEll(p-vec3(0.0,0.40,0.38), vec3(0.44,0.32,0.36)), 0.15);         // frontal bone
+  d = smin(d, sdEll(p-vec3(0.0,-0.04,0.22), vec3(0.47,0.60,0.56)), 0.2);         // face mass
+  d = smin(d, sdEll(p-vec3(0.0,-0.36,0.16), vec3(0.355,0.32,0.48)), 0.15);       // jaw mass
+  float man = sdEll(q-vec3(0.37,-0.42,-0.03), vec3(0.085,0.15,0.15));            // gonial angle
+  man = smin(man, sdCap(q, vec3(0.355,-0.49,0.0), vec3(0.11,-0.66,0.50), 0.05), 0.08); // mandible border
+  d = smin(d, man, 0.14);
+  d = smin(d, sdEll(p-vec3(0.0,-0.615,0.515), vec3(0.155,0.11,0.13)), 0.17);      // chin
+  d = smin(d, sdEll(q-vec3(0.35,-0.02,0.44), vec3(0.16,0.09,0.16)), 0.10);       // zygoma
+  d = smin(d, sdEll(q-vec3(0.215,-0.20,0.585), vec3(0.11,0.09,0.09)), 0.07);     // cheek fat
+  d = smin(d, sdEll(q-vec3(0.32,-0.29,0.12), vec3(0.085,0.18,0.16)), 0.12);      // masseter
+  d = smin(d, sdEll(p-vec3(0.0,-0.35,0.48), vec3(0.23,0.16,0.18)), 0.10);        // muzzle
+  d = smin(d, sdEll(q-vec3(0.21,0.22,0.68), vec3(0.19,0.055,0.10)), 0.08);       // brow ridge
+  d = smax(d, -sdEll(q-vec3(0.62,0.26,0.32), vec3(0.09,0.15,0.16)), 0.12);       // temple hollow
+  d = smax(d, -sdEll(q-vec3(0.24,0.095,0.62), vec3(0.135,0.098,0.16)), 0.03);    // orbit
+  d = smin(d, length(q-EYE_R) - 0.1045, 0.085);                                   // lids draped over the globe
+  // nose
+  float n = sdRoundCone(p, vec3(0.0,0.19,0.745), vec3(0.0,-0.15,0.905), 0.042, 0.048);
+  n = smin(n, sdCap(p, vec3(0.0,0.12,0.77), vec3(0.0,-0.05,0.85), 0.03), 0.03);
+  n = smin(n, sdEll(p-vec3(0.0,-0.165,0.893), vec3(0.05,0.052,0.05)), 0.04);
+  n = smin(n, sdEll(q-vec3(0.074,-0.205,0.80), vec3(0.043,0.04,0.045)), 0.05);
+  d = smin(d, n, 0.06);
+  d = smax(d, -sdEll(q-vec3(0.04,-0.24,0.835), vec3(0.024,0.011,0.028)), 0.01); // nostrils
+  // mouth
+  d = smin(d, sdCap(q, vec3(0.024,-0.262,0.772), vec3(0.034,-0.305,0.762), 0.007), 0.03); // philtrum columns
+  d = smin(d, upperLip(p), 0.035);
+  d = smin(d, lowerLip(p), 0.035);
+  vec3 l = lipSpace(p);
+  float slit = max((length(vec2(l.x, l.z-0.67)/vec2(0.215,0.13)) - 1.0)*0.13, abs(l.y+0.377-0.35*l.x*l.x) - 0.005);
+  d = smax(d, -slit, 0.012);
+  d = smin(d, ear(q), 0.035);
+  // palpebral fissure: cut the opening through the lid ball to reveal the eye
+  vec3 e = q - EYE_R; float ry; float op = eyelidOpen(e, ry);
+  float cut = max(max(op, -e.z), 0.091 - length(e));
+  d = smax(d, -cut, 0.005);
+  return d;
+}
+float eyes(vec3 h){
+  vec3 a = h - EYE_R; float dr = smin(length(a)-0.09, length(a - uGazeR*0.042)-0.06, 0.02);
+  vec3 b = h - EYE_L; float dl = smin(length(b)-0.09, length(b - uGazeL*0.042)-0.06, 0.02);
+  return min(dr, dl);
+}
+float hairline(vec3 p){
+  float ax = abs(p.x);
+  float t = sstep(0.35,-0.55,p.z);
+  float y = mix(0.50, -0.32, t);
+  y += 0.07*sstep(0.12,0.34,ax)*(1.0-t);
+  float sb = sstep(0.42,0.55,ax)*sstep(0.2,0.12,p.z)*sstep(-0.07,0.01,p.z);
+  return y - 0.32*sb;
+}
+float hairD(vec3 p){
+  float hl = p.y - hairline(p);
+  float base = sdEll(p - vec3(0.0,0.2,0.02), vec3(0.594,0.794,0.764));
+  float th = 0.03*sstep(-0.02,0.08,hl);
+  th *= 1.0 + 0.8*sstep(0.35,0.95,p.y)*sstep(-0.5,0.4,p.z);
+  float n = vnoise(p*vec3(14.0,14.0,8.0));
+  return max(max(base - th*(0.8+0.4*n), -base - 0.03), -hl - 0.04);
+}
+float torso(vec3 p){
+  vec3 q = vec3(abs(p.x), p.yz);
+  float d = sdEll(p-vec3(0.0,-2.0,-0.06), vec3(1.25,0.75,0.58));
+  d = smin(d, sdCap(q, vec3(0.22,-1.05,-0.25), vec3(1.05,-1.45,-0.12), 0.19), 0.3);
+  d = smin(d, length(q-vec3(1.28,-1.72,-0.06))-0.33, 0.3);
+  return smax(d, -2.75-p.y, 0.05);
+}
+float cloth(vec3 p, float t){
+  float rxz = length(vec2(p.x, (p.z+0.06)*1.15));
+  float yN = -1.36 - 0.07*sstep(-0.1,0.3,p.z);
+  float cut = max(yN - p.y, rxz - 0.45);
+  float c = smax(t - 0.028, -cut, 0.015);
+  return c - 0.008*vnoise(p*vec3(2.5,4.0,2.5));
+}
+
+vec2 map(vec3 p){
+  vec3 h = uHeadRot*(p - PIVOT) + PIVOT;
+  float hb = length(h - vec3(0.0,0.05,0.05)) - 1.22;
+  float s, e, hr;
+  if(hb > 0.15){ s = hb; e = 1e3; hr = 1e3; }
+  else { s = skinHead(h); e = eyes(h); hr = hairD(h); }
+  float nk = sdCap(h, vec3(0.0,-0.32,-0.10), PIVOT, 0.37);
+  nk = smin(nk, sdCap(p, PIVOT, vec3(0.0,-1.7,-0.18), 0.39), 0.06);
+  vec3 q = vec3(abs(p.x), p.yz);
+  nk = smin(nk, sdCap(q, vec3(0.38,-0.32,-0.2), vec3(0.08,-1.28,0.22), 0.06), 0.2);
+  nk = smin(nk, length(p - vec3(0.0,-0.82,0.215)) - 0.045, 0.07);
+  s = smin(s, nk, 0.13);
+  float t = torso(p);
+  s = smin(s, t, 0.18);
+  float c = cloth(p, t);
+  vec2 r = vec2(s, 1.0);
+  if(hr < r.x) r = vec2(hr, 3.0);
+  if(e  < r.x) r = vec2(e, 2.0);
+  if(c  < r.x) r = vec2(c, 4.0);
+  return r;
+}
+
+// ---------------------------------------------------------------- tracing
+const vec3 BC = vec3(0.0,-0.75,0.0);
+const float BR = 2.25;
+vec2 march(vec3 ro, vec3 rd){
+  vec3 oc = ro - BC; float b = dot(oc,rd); float c = dot(oc,oc)-BR*BR; float disc = b*b-c;
+  if(disc < 0.0) return vec2(-1.0);
+  float sq = sqrt(disc); float t = max(-b-sq, 0.0); float tmax = -b+sq;
+  for(int i=0;i<180;i++){
+    vec2 h = map(ro+rd*t);
+    if(h.x < 0.00035*t) return vec2(t, h.y);
+    t += h.x*0.85;
+    if(t > tmax) break;
+  }
+  return vec2(-1.0);
+}
+vec3 calcNormal(vec3 p){
+  const vec2 k = vec2(1.0,-1.0); const float e = 0.0006;
+  return normalize(k.xyy*map(p+k.xyy*e).x + k.yyx*map(p+k.yyx*e).x + k.yxy*map(p+k.yxy*e).x + k.xxx*map(p+k.xxx*e).x);
+}
+float softShadow(vec3 ro, vec3 rd){
+  float res = 1.0, t = 0.004;
+  for(int i=0;i<56;i++){
+    float h = map(ro+rd*t).x;
+    res = min(res, 7.0*h/t);
+    t += clamp(h, 0.004, 0.12);
+    if(res < 0.001 || t > 3.5) break;
+  }
+  res = clamp(res, 0.0, 1.0);
+  return res*res*(3.0-2.0*res);
+}
+float calcAO(vec3 p, vec3 n){
+  float o = 0.0, s = 1.0;
+  for(int i=0;i<6;i++){
+    float h = 0.006 + 0.05*float(i);
+    o += (h - map(p+n*h).x)*s; s *= 0.72;
+  }
+  return clamp(1.0 - 2.2*o, 0.0, 1.0);
+}
+float translucency(vec3 p, vec3 n){
+  float acc=0.0, tot=0.0;
+  for(int i=1;i<=4;i++){ float hh=0.022*float(i); float d=map(p - n*hh).x; acc += clamp(hh + d, 0.0, hh); tot += hh; }
+  float t = acc/tot; return t*t;
+}
+
+// ---------------------------------------------------------------- lighting kit
+float wrapL(float x, float w){ return max(0.0, (x+w)/(1.0+w)); }
+float D_GGX(float nh, float a){ float a2=a*a; float d=nh*nh*(a2-1.0)+1.0; return a2/(PI*d*d); }
+float V_SJ(float nl, float nv, float a){ float k=a*0.5; return 0.25/((nl*(1.0-k)+k)*(nv*(1.0-k)+k)); }
+vec3 ggx(vec3 n, vec3 v, vec3 l, float rough, vec3 F0){
+  vec3 h = normalize(v+l);
+  float nl = max(dot(n,l),0.0), nv = max(dot(n,v),1e-3), nh = max(dot(n,h),0.0), vh = max(dot(v,h),0.0);
+  float a = rough*rough;
+  vec3 F = F0 + (1.0-F0)*pow(1.0-vh,5.0);
+  return D_GGX(nh,a)*V_SJ(nl,nv,a)*F*nl;
+}
+vec3 KEYC = vec3(1.0,0.95,0.89)*3.2;
+vec3 FILC = vec3(0.55,0.66,0.92)*0.26;
+vec3 RIMC = vec3(0.85,0.92,1.0)*2.3;
+const vec3 LF = vec3(0.82,0.14,0.55);
+const vec3 LR = vec3(0.45,0.5,-0.74);
+vec3 env(vec3 d){
+  vec3 c = mix(vec3(0.03,0.028,0.026), vec3(0.11,0.115,0.13), sstep(-0.4,0.9,d.y));
+  vec3 L = normalize(uKeyDir);
+  vec3 u = normalize(cross(L, vec3(0,1,0))); vec3 w = cross(u,L);
+  float dl = dot(d,L);
+  if(dl > 0.0){ vec2 pl = vec2(dot(d,u),dot(d,w))/dl; c += vec3(1.0,0.93,0.85)*12.0*sstep(0.40,0.34,abs(pl.x))*sstep(0.52,0.45,abs(pl.y)); }
+  vec3 Lr = normalize(LR); u = normalize(cross(Lr, vec3(0,1,0))); w = cross(u,Lr);
+  dl = dot(d,Lr);
+  if(dl > 0.0){ vec2 pl = vec2(dot(d,u),dot(d,w))/dl; c += vec3(0.85,0.92,1.0)*6.0*sstep(0.12,0.09,abs(pl.x))*sstep(0.8,0.7,abs(pl.y)); }
+  return c;
+}
+vec3 headToWorld(vec3 v){ return transpose(uHeadRot)*v; }
+
+float skinH(vec3 h){
+  float f = 0.0006*vnoise(h*290.0) + 0.001*vnoise(h*85.0);
+  float fm = sstep(0.36,0.42,h.y)*sstep(0.64,0.56,h.y)*sstep(0.32,0.12,abs(h.x))*step(0.4,h.z);
+  f += 0.00035*fm*sin(h.y*110.0 + 3.0*vnoise(h*7.0));
+  return f;
+}
+vec3 bumpSkin(vec3 n, vec3 h, float amt){
+  float e = 0.0008; float b0 = skinH(h);
+  vec3 g = vec3(skinH(h+vec3(e,0,0))-b0, skinH(h+vec3(0,e,0))-b0, skinH(h+vec3(0,0,e))-b0)/e;
+  g = headToWorld(g); g -= n*dot(g,n);
+  return normalize(n - g*amt);
+}
+float hairH(vec3 h){ return 0.0025*vnoise(h*vec3(60.0,60.0,20.0)) + 0.0009*vnoise(h*vec3(420.0,420.0,140.0)); }
+vec3 bumpHair(vec3 n, vec3 h){
+  float e = 0.0007; float b0 = hairH(h);
+  vec3 g = vec3(hairH(h+vec3(e,0,0))-b0, hairH(h+vec3(0,e,0))-b0, hairH(h+vec3(0,0,e))-b0)/e;
+  g = headToWorld(g); g -= n*dot(g,n);
+  return normalize(n - g);
+}
+float clothH(vec3 p){
+  float rxz = length(vec2(p.x, (p.z+0.06)*1.15));
+  float rib = sstep(0.58,0.46,rxz) * 0.0012*sin(atan(p.x, p.z+0.06)*140.0);
+  return 0.00025*vnoise(p*vec3(220.0,110.0,220.0)) + 0.006*vnoise(p*vec3(2.5,4.0,2.5)) + rib;
+}
+vec3 bumpCloth(vec3 n, vec3 p){
+  float e = 0.0009; float b0 = clothH(p);
+  vec3 g = vec3(clothH(p+vec3(e,0,0))-b0, clothH(p+vec3(0,e,0))-b0, clothH(p+vec3(0,0,e))-b0)/e;
+  g -= n*dot(g,n);
+  return normalize(n - g);
+}
+
+vec3 skinAlbedo(vec3 h, out float lipM, out float rough, out float hairM){
+  vec3 q = vec3(abs(h.x), h.yz);
+  vec3 alb = uSkin;
+  float m = vnoise(h*14.0)*0.6 + vnoise(h*40.0)*0.4;
+  alb *= 0.9 + 0.2*m;
+  alb *= 1.0 - 0.06*sstep(0.78,0.9,vnoise(h*120.0));
+  float red = 0.0;
+  red += exp(-dot2((q-vec3(0.30,-0.12,0.52))/vec3(0.13,0.11,0.14)));
+  red += 0.9*exp(-dot2((h-vec3(0.0,-0.15,0.92))/vec3(0.08,0.07,0.09)));
+  red += 0.8*exp(-dot2((q-vec3(0.62,0.02,-0.08))/vec3(0.09,0.2,0.15)));
+  red += 0.35*exp(-dot2((q-vec3(0.0,0.45,0.72))/vec3(0.35,0.15,0.2)));
+  red += 0.4*exp(-dot2((h-vec3(0.0,-0.62,0.55))/vec3(0.15,0.1,0.1)));
+  red = clamp(red,0.0,1.0);
+  alb = mix(alb, alb*vec3(1.05,0.76,0.74), red*0.5);
+  float eyeA = exp(-dot2((q-vec3(0.25,0.03,0.63))/vec3(0.13,0.07,0.08)));
+  alb *= mix(vec3(1.0), vec3(0.80,0.71,0.76), eyeA*0.85);
+  vec2 nlq = q.xy - vec2(0.115,-0.215); vec2 nld = normalize(vec2(0.09,-0.20));
+  float along = dot(nlq, nld), across = nlq.x*nld.y - nlq.y*nld.x;
+  float nlf = sstep(0.012,0.0,abs(across+0.004*sin(along*12.0)))*sstep(-0.01,0.03,along)*sstep(0.23,0.12,along)*step(0.5,h.z);
+  alb *= 1.0 - 0.13*nlf;
+  // lips
+  float ld = min(upperLip(h), lowerLip(h));
+  lipM = sstep(0.016, 0.003, ld);
+  alb = mix(alb, alb*vec3(0.80,0.44,0.45), lipM);
+  vec3 ls = lipSpace(h);
+  float mouthIn = sstep(0.012, 0.0, abs(ls.y+0.377-0.35*ls.x*ls.x))*sstep(0.215,0.17,abs(ls.x))*sstep(0.6,0.66,ls.z);
+  alb = mix(alb, vec3(0.05,0.015,0.015), mouthIn*0.9);
+  // beard shadow
+  float yLine = -0.06 - 0.26*sstep(0.46,0.14,q.x);
+  float beard = sstep(0.02,-0.03,h.y-yLine)*sstep(-0.98,-0.78,h.y)*sstep(-0.18,0.0,h.z+0.1*q.x);
+  float must = sstep(0.17,0.13,q.x)*sstep(-0.29,-0.28,h.y)*sstep(-0.215,-0.235,h.y);
+  beard = max(beard, must)*(1.0-lipM);
+  float dots = sstep(0.6,0.85,vnoise(h*520.0));
+  alb = mix(alb, alb*vec3(0.80,0.80,0.85), beard*uStubble*0.7);
+  alb = mix(alb, uHair*0.5, beard*uStubble*dots*0.65);
+  // eyebrows
+  float bx = q.x;
+  float yc = 0.20 + 0.04*sin(clamp((bx-0.07)/0.32,0.0,1.0)*2.6);
+  float thb = mix(0.042, 0.016, sstep(0.1,0.38,bx));
+  float bm = sstep(thb, thb*0.4, abs(h.y-yc))*sstep(0.06,0.10,bx)*sstep(0.40,0.33,bx)*step(0.45,h.z);
+  float strands = vnoise(vec3(bx*25.0, (h.y-0.35*bx)*420.0, h.z*20.0));
+  float strands2 = vnoise(vec3(bx*40.0+5.0, (h.y-0.15*bx)*650.0, h.z*30.0));
+  bm *= clamp(sstep(0.25,0.6,strands)*0.6 + sstep(0.3,0.65,strands2)*0.6, 0.0, 1.0)*0.8 + 0.2;
+  alb = mix(alb, uHair*0.5, bm*0.95);
+  // lash lines
+  vec3 e = q - EYE_R; float ry; float opd = eyelidOpen(e, ry);
+  float onLid = step(0.0, e.z)*sstep(0.13,0.105,length(e));
+  float bl = max(uBlink,0.03);
+  float ey = e.y - 0.006 + 0.022*(1.0-bl) - 0.1*e.x;
+  float upper = step(0.0, ey);
+  float lash = upper*sstep(0.016,0.002,opd)*mix(0.75,1.0,sstep(-0.06,0.06,e.x)) + (1.0-upper)*0.55*sstep(0.007,0.0,opd);
+  lash *= onLid;
+  alb = mix(alb, vec3(0.012,0.010,0.009), lash);
+  // fine hair near hairline
+  float hl = h.y - hairline(h);
+  hairM = sstep(-0.05,0.0,hl)*sstep(0.5,0.75,vnoise(h*300.0));
+  alb = mix(alb, uHair*0.45, hairM*0.6);
+  rough = mix(0.46, 0.38, red*0.6);
+  rough = mix(rough, 0.24, lipM);
+  rough = mix(rough, 0.75, clamp(bm + beard*uStubble*0.5 + lash, 0.0, 1.0));
+  return alb;
+}
+
+vec3 shadeSkin(vec3 p, vec3 h, vec3 nG, vec3 v, vec3 L, float sh, float ao, float trAmt){
+  float lipM, rough, hairM;
+  vec3 alb = skinAlbedo(h, lipM, rough, hairM);
+  vec3 nB = bumpSkin(nG, h, 1.0 - 0.7*lipM);
+  float nlG = dot(nG,L), nlB = dot(nB,L);
+  vec3 dK = vec3(wrapL(mix(nlG,nlB,0.3),0.5), wrapL(mix(nlG,nlB,0.7),0.22), wrapL(nlB,0.12));
+  vec3 shC = vec3(pow(sh,0.6), pow(sh,0.88), sh);
+  vec3 col = alb*KEYC*dK*shC;
+  col += alb*FILC*wrapL(dot(nG,normalize(LF)),0.4)*ao;
+  vec3 Lr = normalize(LR);
+  col += alb*RIMC*wrapL(dot(nG,Lr),0.1)*0.55*ao;
+  float tr = trAmt > 0.0 ? translucency(p, nG)*trAmt : 0.0;
+  col += alb*vec3(1.0,0.3,0.16)*0.7*tr*(KEYC*0.5*pow(max(0.0,dot(v,-L)),2.0) + RIMC*1.2*pow(max(0.0,dot(v,-Lr)),2.0) + 0.15);
+  vec3 aoC = pow(vec3(ao), vec3(0.55,0.85,1.0));
+  vec3 amb = mix(vec3(0.15,0.12,0.10), vec3(0.30,0.33,0.40), nG.y*0.5+0.5);
+  col += alb*amb*aoC*0.55;
+  vec3 F0 = vec3(0.028);
+  float pm = 0.55 + 0.9*vnoise(h*240.0)*vnoise(h*60.0+3.0);
+  rough = clamp(rough*(1.15 - 0.3*pm), 0.2, 0.8);
+  vec3 s = (ggx(nB,v,L,rough,F0)*0.6 + ggx(nB,v,L,rough*0.55,F0)*0.2)*KEYC*sh*pm;
+  s += ggx(nB,v,Lr,rough,F0)*RIMC*0.5;
+  s += ggx(nB,v,normalize(LF),rough,F0)*FILC;
+  float fr = 0.028 + 0.972*pow(1.0-max(dot(nB,v),0.0),5.0);
+  s += env(reflect(-v,nB))*fr*ao*0.12*(1.0-rough);
+  vec3 ls = lipSpace(h);
+  float mouthIn = sstep(0.014, 0.0, abs(ls.y+0.377-0.35*ls.x*ls.x))*sstep(0.22,0.15,abs(ls.x))*step(0.5,h.z)*sstep(-0.3,-0.33,h.y)*sstep(-0.46,-0.43,h.y);
+  return (col + s*(1.0-0.9*mouthIn))*(1.0-0.5*mouthIn);
+}
+
+vec3 shadeHair(vec3 p, vec3 h, vec3 nG, vec3 v, vec3 L, float sh, float ao){
+  float hl = h.y - hairline(h);
+  float s1 = 0.5*vnoise(h*vec3(700.0,700.0,260.0)) + 0.5*vnoise(h*vec3(240.0,240.0,90.0));
+  float s2 = vnoise(h*vec3(18.0,18.0,10.0));
+  float cov = sstep(0.0,0.12, hl + 0.06*(s1-0.5))*(0.88+0.12*s2);
+  vec3 n = bumpHair(nG, h);
+  vec3 Th = normalize(vec3(0.25*sign(h.x), -0.5, -1.0) + vec3(s1-0.5, 0.0, 0.0));
+  vec3 T = headToWorld(Th); T = normalize(T - n*dot(T,n));
+  vec3 alb = uHair*(0.4+0.6*s1)*(0.8+0.3*s2);
+  float nl = dot(n,L);
+  vec3 col = alb*KEYC*wrapL(nl,0.35)*sh;
+  col += alb*FILC*wrapL(dot(n,normalize(LF)),0.4)*ao;
+  col += alb*mix(vec3(0.12,0.10,0.09), vec3(0.28,0.30,0.36), n.y*0.5+0.5)*ao*0.8;
+  vec3 H = normalize(L+v);
+  vec3 T1 = normalize(T + n*0.12), T2 = normalize(T - n*0.12);
+  float k1 = dot(T1,H), k2 = dot(T2,H);
+  vec3 hn = alb/max(max(alb.r,alb.g),1e-3);
+  vec3 spec = (vec3(0.02)*pow(1.0-k1*k1, 60.0) + hn*0.03*pow(1.0-k2*k2, 20.0))*KEYC*sh*sstep(-0.15,0.3,nl);
+  vec3 Lr = normalize(LR); vec3 Hr = normalize(Lr+v); float kr = dot(T1,Hr);
+  spec += vec3(0.025)*pow(1.0-kr*kr, 90.0)*RIMC*sstep(-0.1,0.3,dot(n,Lr));
+  col += spec*(0.6+0.6*s1);
+  col *= mix(0.55, 1.0, ao);
+  if(cov < 0.999){
+    vec3 sk = shadeSkin(p, h, nG, v, L, sh, ao, 0.0);
+    col = mix(sk, col, cov);
+  }
+  return col;
+}
+
+vec3 shadeEye(vec3 p, vec3 h, vec3 nG, vec3 v, vec3 rd, vec3 L, float sh, float ao){
+  bool right = h.x > 0.0;
+  vec3 ec = right ? EYE_R : EYE_L;
+  vec3 g  = right ? uGazeR : uGazeL;
+  vec3 hp = h - ec;
+  vec3 t1 = normalize(cross(g, vec3(0.0,1.0,0.0))); vec3 t2 = cross(g, t1);
+  float ca = dot(normalize(hp), g);
+  float r; vec2 cs;
+  if(ca > 0.82){
+    vec3 nH = uHeadRot*nG, rdH = uHeadRot*rd;
+    vec3 rr = refract(rdH, nH, 1.0/1.376);
+    float tt = (0.072 - dot(hp,g))/min(dot(rr,g), -1e-3);
+    vec3 ip = hp + rr*tt;
+    vec3 rad = ip - g*dot(ip,g);
+    r = length(rad)/0.044;
+    cs = vec2(dot(rad,t1), dot(rad,t2))/max(length(rad),1e-5);
+  } else {
+    r = acos(clamp(ca,-1.0,1.0))/0.5;
+    vec3 rad = hp - g*dot(hp,g);
+    cs = vec2(dot(rad,t1), dot(rad,t2))/max(length(rad),1e-5);
+  }
+  float f1 = vnoise(vec3(cs*14.0, r*5.0));
+  float f2 = vnoise(vec3(cs*42.0, r*11.0+7.0));
+  float f3 = vnoise(vec3(cs*6.0, r*2.0+3.0));
+  vec3 iris = uIris*(0.4 + 0.75*f1 + 0.45*f2)*(0.8+0.4*f3);
+  iris = mix(iris, iris*vec3(1.7,1.3,0.7)+vec3(0.05,0.03,0.0), exp(-pow((r-0.45)/0.1,2.0))*0.55);
+  iris *= mix(1.0, 0.2, sstep(0.7,1.0,r));
+  iris = mix(vec3(0.006), iris, sstep(0.31,0.35,r));
+  vec3 sclera = vec3(0.62,0.58,0.54);
+  float side = (right ? 1.0 : -1.0)*hp.x/0.09;
+  sclera = mix(sclera, vec3(0.80,0.52,0.48), sstep(1.3,2.4,r)*0.45 + sstep(-0.5,-0.85,side)*0.4);
+  float vv = vnoise(normalize(hp)*38.0);
+  sclera = mix(sclera, vec3(0.62,0.16,0.12), sstep(0.025,0.0,abs(vv-0.5))*sstep(1.25,2.2,r)*0.55);
+  vec3 alb = mix(iris, sclera, sstep(0.97,1.07,r));
+  vec3 em = vec3(abs(h.x), h.yz) - EYE_R; float ry; float op = eyelidOpen(em, ry);
+  float bl = max(uBlink,0.03); float ey = em.y - 0.006 + 0.022*(1.0-bl) - 0.1*em.x;
+  float lidSh = ey > 0.0 ? mix(0.25, 1.0, sstep(0.0, 0.03, -op)) : mix(0.6, 1.0, sstep(0.0, 0.012, -op));
+  alb *= lidSh;
+  float nl = dot(nG,L);
+  vec3 col = alb*KEYC*wrapL(nl,0.25)*sh;
+  col += alb*FILC*wrapL(dot(nG,normalize(LF)),0.3)*ao;
+  col += alb*vec3(0.25,0.26,0.30)*ao*0.8;
+  col *= mix(0.3, 1.0, ao);
+  float rough = r < 1.1 ? 0.03 : 0.08;
+  vec3 F0 = vec3(0.025);
+  vec3 s = ggx(nG,v,L,rough,F0)*KEYC*sh + ggx(nG,v,normalize(LR),rough,F0)*RIMC;
+  float fr = 0.025 + 0.975*pow(1.0-max(dot(nG,v),0.0),5.0);
+  s += env(reflect(-v,nG))*fr*mix(0.4,1.0,ao);
+  return col + s;
+}
+
+vec3 shadeCloth(vec3 p, vec3 nG, vec3 v, vec3 L, float sh, float ao){
+  vec3 n = bumpCloth(nG, p);
+  vec3 alb = vec3(0.040,0.046,0.056)*(0.9+0.2*vnoise(p*vec3(300.0,150.0,300.0)));
+  vec3 col = alb*KEYC*wrapL(dot(n,L),0.3)*sh;
+  col += alb*FILC*wrapL(dot(n,normalize(LF)),0.3)*ao;
+  col += alb*mix(vec3(0.12,0.10,0.09), vec3(0.30,0.32,0.38), n.y*0.5+0.5)*ao;
+  float sheen = pow(1.0-max(dot(n,v),0.0),4.0);
+  col += sheen*vec3(0.06,0.065,0.075)*ao*(1.0+2.0*sh*max(dot(n,L),0.0));
+  col += ggx(n,v,L,0.65,vec3(0.03))*KEYC*sh*0.6;
+  col += alb*RIMC*wrapL(dot(n,normalize(LR)),0.1)*0.5*ao;
+  return col;
+}
+
+vec3 aces(vec3 x){ return clamp(x*(2.51*x+0.03)/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
+
+void main(){
+  vec2 uv = (2.0*gl_FragCoord.xy - uRes)/uRes.y;
+  vec3 rd = normalize(uCamFwd + (uv.x*uCamRight + uv.y*uCamUp)*uTanHalf);
+  vec3 ro = uCamPos;
+  float rb = length(uv - vec2(0.25,0.15));
+  vec3 col = mix(vec3(0.075,0.068,0.062), vec3(0.016,0.015,0.016), sstep(0.0,1.7,rb));
+  vec2 hit = march(ro, rd);
+  if(hit.x > 0.0){
+    vec3 p = ro + rd*hit.x;
+    vec3 nG = calcNormal(p);
+    vec3 v = -rd;
+    vec3 L = normalize(uKeyDir);
+    vec3 h = uHeadRot*(p - PIVOT) + PIVOT;
+    float ao = calcAO(p, nG);
+    float sh = softShadow(p + nG*0.002, L);
+    float mat = hit.y;
+    if(mat < 1.5)      col = shadeSkin(p, h, nG, v, L, sh, ao, 1.0);
+    else if(mat < 2.5) col = shadeEye(p, h, nG, v, rd, L, sh, ao);
+    else if(mat < 3.5) col = shadeHair(p, h, nG, v, L, sh, ao);
+    else               col = shadeCloth(p, nG, v, L, sh, ao);
+#ifdef DEBUG
+    col = (mat<1.5? vec3(1,.6,.5) : mat<2.5? vec3(.2,.2,1) : mat<3.5 ? vec3(.1,.8,.1) : vec3(.4))*(0.3+0.7*max(dot(nG,L),0.0));
+    if(mat>2.5&&mat<3.5) col = vec3(0.5+20.0*hairD(h), 0.5+20.0*skinHead(h), 0.5+20.0*eyes(h));
+#endif
+  }
+  col *= 1.0 - 0.18*dot(uv,uv)*0.5;
+  col = aces(col*0.95);
+  col = pow(col, vec3(1.0/2.2));
+  col += (hash13(vec3(gl_FragCoord.xy, fract(uTime)*600.0)) - 0.5)*0.018;
+  outColor = vec4(col, 1.0);
+}
+</script>
+
+<script>
+(() => {
+const params = new URLSearchParams(location.search);
+const STILL = params.has('still');
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', {antialias:false, preserveDrawingBuffer: STILL});
+if (!gl) { document.getElementById('load').textContent = 'WebGL2 is not available in this browser'; return; }
+
+const vsSrc = `#version 300 es
+in vec2 a; void main(){ gl_Position = vec4(a,0.,1.); }`;
+function compile(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const log = gl.getShaderInfoLog(s); console.error(log); document.getElementById('load').textContent = 'shader error — see console'; throw new Error(log); }
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSrc));
+let fsSrc = document.getElementById('fs').textContent; if (params.has('debug')) fsSrc = fsSrc.replace('precision highp float;', 'precision highp float;\n#define DEBUG');
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSrc));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(prog)); return; }
+gl.useProgram(prog);
+const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+const U = {}; ['uRes','uTime','uCamPos','uCamFwd','uCamRight','uCamUp','uTanHalf','uHeadRot','uGazeL','uGazeR','uBlink','uKeyDir','uSkin','uIris','uHair','uStubble']
+  .forEach(n => U[n] = gl.getUniformLocation(prog, n));
+
+// ---------- palettes (sRGB -> linear)
+const lin = c => c.map(x => Math.pow(x/255, 2.2));
+const SKIN = [[232,202,188],[212,172,152],[182,138,116],[142,102,82],[98,68,54],[62,43,35]].map(lin);
+const IRIS = {blue: lin([96,124,140]), green: lin([92,118,78]), hazel: lin([120,96,58]), brown: lin([74,48,28])};
+const HAIR = {dark: lin([74,54,40]), black: lin([30,26,23]), auburn: lin([120,60,36]), blond: lin([160,128,88]), grey: lin([128,124,118])};
+function skinAt(t){ const f = t*(SKIN.length-1); const i = Math.min(Math.floor(f), SKIN.length-2); const k = f-i; return SKIN[i].map((v,j)=>v+(SKIN[i+1][j]-v)*k); }
+
+// ---------- state
+const S = {
+  yaw: parseFloat(params.get('yaw') ?? 0.42), pitch: parseFloat(params.get('pitch') ?? 0.04), dist: parseFloat(params.get('dist') ?? 5.0),
+  target: [+(params.get('tx')??0), +(params.get('ty')??-0.3), +(params.get('tz')??0.1)],
+  skin: 0.36, iris: 'hazel', hair: 'dark', stubble: 0.3, light: -0.75, follow: true,
+  mouse: null, lastMove: -10,
+  headYaw: 0, headPitch: 0, gazeT: [0,0,6], saccade: [0,0,0], nextSaccade: 0,
+  blinkStart: -10, nextBlink: 2.5,
+};
+const $ = id => document.getElementById(id);
+$('skin').oninput = e => S.skin = +e.target.value;
+$('iris').onchange = e => S.iris = e.target.value;
+$('hair').onchange = e => S.hair = e.target.value;
+$('stub').oninput = e => S.stubble = +e.target.value;
+$('light').oninput = e => S.light = +e.target.value;
+$('follow').onchange = e => S.follow = e.target.checked;
+if (params.has('light')) S.light = +params.get('light');
+if (params.has('skin')) S.skin = +params.get('skin');
+if (params.has('iris')) S.iris = params.get('iris');
+if (params.has('hair')) S.hair = params.get('hair');
+addEventListener('keydown', e => { if (e.key === 'h' || e.key === 'H') { const p = $('panel'); p.style.display = p.style.display === 'none' ? '' : 'none'; } });
+
+let drag = null;
+canvas.addEventListener('pointerdown', e => { drag = {x:e.clientX, y:e.clientY, yaw:S.yaw, pitch:S.pitch}; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  S.mouse = [e.clientX, e.clientY]; S.lastMove = performance.now()/1000;
+  if (drag) { S.yaw = drag.yaw - (e.clientX-drag.x)*0.006; S.pitch = Math.max(-0.6, Math.min(0.8, drag.pitch + (e.clientY-drag.y)*0.004)); }
+});
+canvas.addEventListener('pointerup', () => drag = null);
+canvas.addEventListener('pointerleave', () => { S.mouse = null; });
+canvas.addEventListener('wheel', e => { e.preventDefault(); S.dist = Math.max(1.6, Math.min(9, S.dist * Math.exp(e.deltaY*0.001))); }, {passive:false});
+
+// ---------- math
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], mul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2], cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=a=>{const l=Math.hypot(...a)||1;return [a[0]/l,a[1]/l,a[2]/l];};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const PIVOT=[0,-0.95,-0.1], EYE_R=[0.24,0.08,0.59], EYE_L=[-0.24,0.08,0.59];
+function rotRows(yaw, pitch, roll){ // row-major Rw = Ry*Rx*Rz (head local -> world)
+  const cy=Math.cos(yaw), sy=Math.sin(yaw), cx=Math.cos(pitch), sx=Math.sin(pitch), cz=Math.cos(roll), sz=Math.sin(roll);
+  const Ry=[[cy,0,sy],[0,1,0],[-sy,0,cy]], Rx=[[1,0,0],[0,cx,sx],[0,-sx,cx]], Rz=[[cz,-sz,0],[sz,cz,0],[0,0,1]];
+  const m=(A,B)=>A.map((r,i)=>[0,1,2].map(j=>r[0]*B[0][j]+r[1]*B[1][j]+r[2]*B[2][j]));
+  return m(m(Ry,Rx),Rz);
+}
+function clampGaze(g){ // keep within ~32 degrees of straight ahead
+  const maxA = 0.56; const a = Math.acos(Math.max(-1,Math.min(1,g[2])));
+  if (a <= maxA) return g;
+  const xy = Math.hypot(g[0],g[1]) || 1; const s = Math.sin(maxA)/xy;
+  return [g[0]*s, g[1]*s, Math.cos(maxA)];
+}
+
+// ---------- resolution management
+let scale = STILL ? 1 : 0.6;
+const dpr = Math.min(devicePixelRatio || 1, 2);
+function resize(){
+  const w = Math.round(innerWidth*dpr*scale), h = Math.round(innerHeight*dpr*scale);
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+}
+let frameTimes = [], lastAdjust = 0;
+
+function frame(nowMs){
+  const now = nowMs/1000;
+  resize();
+  gl.viewport(0,0,canvas.width,canvas.height);
+
+  // camera
+  const cp = [S.target[0] + S.dist*Math.sin(S.yaw)*Math.cos(S.pitch), S.target[1] + S.dist*Math.sin(S.pitch), S.target[2] + S.dist*Math.cos(S.yaw)*Math.cos(S.pitch)];
+  const fwd = norm(sub(S.target, cp)), right = norm(cross(fwd,[0,1,0])), up = cross(right, fwd);
+  const tanHalf = Math.tan(14*Math.PI/180);
+
+  // where is the sitter looking?
+  let look;
+  const active = S.follow && S.mouse && (now - S.lastMove) < 4 && !drag;
+  if (active) {
+    const r = canvas.getBoundingClientRect();
+    const ux = (2*(S.mouse[0]-r.left) - r.width)/r.height, uy = -(2*(S.mouse[1]-r.top) - r.height)/r.height;
+    const rd = norm(add(fwd, mul(add(mul(right,ux), mul(up,uy)), tanHalf)));
+    look = add(cp, mul(rd, 1.2));
+  } else {
+    if (now > S.nextSaccade) { S.saccade = [(Math.random()-0.5)*0.35, (Math.random()-0.5)*0.2, 0]; S.nextSaccade = now + 0.6 + Math.random()*2.2; }
+    look = add(cp, add(mul(right, S.saccade[0]), mul(up, S.saccade[1])));
+  }
+  if (STILL) look = cp;
+  S.gazeT = S.gazeT.map((v,i)=>lerp(v, look[i], STILL ? 1 : 0.35));
+
+  // head follows gaze partially, with idle sway
+  const hd = sub(S.gazeT, [0,0.05,0.3]);
+  let wantYaw = Math.atan2(hd[0], hd[2])*0.35, wantPitch = Math.atan2(hd[1], Math.hypot(hd[0],hd[2]))*0.3;
+  wantYaw = Math.max(-0.45, Math.min(0.45, wantYaw)); wantPitch = Math.max(-0.25, Math.min(0.25, wantPitch));
+  const sway = STILL ? 0 : 1;
+  S.headYaw = lerp(S.headYaw, wantYaw, STILL ? 1 : 0.04); S.headPitch = lerp(S.headPitch, wantPitch, STILL ? 1 : 0.04);
+  const yawN = S.headYaw + sway*0.02*Math.sin(now*0.37) + sway*0.01*Math.sin(now*0.91);
+  const pitN = S.headPitch + sway*0.012*Math.sin(now*0.29+1.0) + sway*0.006*Math.sin(now*1.6);
+  const rollN = sway*0.015*Math.sin(now*0.23+2.0) - 0.02;
+  const R = rotRows(params.has('hy')?+params.get('hy'):yawN, -pitN, rollN);
+  // world -> head : R^T. Uploading the row-major R untransposed gives GLSL exactly R^T.
+  const toHead = w => { const d = sub(w, PIVOT); return add([R[0][0]*d[0]+R[1][0]*d[1]+R[2][0]*d[2], R[0][1]*d[0]+R[1][1]*d[1]+R[2][1]*d[2], R[0][2]*d[0]+R[1][2]*d[1]+R[2][2]*d[2]], PIVOT); };
+  const th = toHead(S.gazeT);
+  const gR = clampGaze(norm(sub(th, EYE_R))), gL = clampGaze(norm(sub(th, EYE_L)));
+
+  // blinking
+  if (!STILL && now > S.nextBlink) { S.blinkStart = now; S.nextBlink = now + 2 + Math.random()*4.5; if (Math.random() < 0.15) S.nextBlink = now + 0.35; }
+  const bt = (now - S.blinkStart)/0.16;
+  let blink = 1;
+  if (bt >= 0 && bt < 1) blink = bt < 0.4 ? 1 - bt/0.4 : (bt-0.4)/0.6;
+  blink = Math.pow(Math.max(0, Math.min(1, blink)), 0.7);
+  // eyelids follow gaze vertically a little
+  const lidBias = Math.max(-0.2, Math.min(0.15, gR[1]*0.8));
+  blink = Math.max(0.0, Math.min(1.15, blink*(1.0 + lidBias)));
+
+  const el = 0.62, az = S.light;
+  const key = [Math.sin(az)*Math.cos(el), Math.sin(el), Math.cos(az)*Math.cos(el)];
+
+  gl.uniform2f(U.uRes, canvas.width, canvas.height);
+  gl.uniform1f(U.uTime, STILL ? 0 : now);
+  gl.uniform3fv(U.uCamPos, cp); gl.uniform3fv(U.uCamFwd, fwd); gl.uniform3fv(U.uCamRight, right); gl.uniform3fv(U.uCamUp, up);
+  gl.uniform1f(U.uTanHalf, tanHalf);
+  gl.uniformMatrix3fv(U.uHeadRot, false, new Float32Array([R[0][0],R[0][1],R[0][2],R[1][0],R[1][1],R[1][2],R[2][0],R[2][1],R[2][2]]));
+  gl.uniform3fv(U.uGazeL, gL); gl.uniform3fv(U.uGazeR, gR);
+  gl.uniform1f(U.uBlink, blink);
+  gl.uniform3fv(U.uKeyDir, key);
+  gl.uniform3fv(U.uSkin, skinAt(S.skin));
+  gl.uniform3fv(U.uIris, IRIS[S.iris]);
+  gl.uniform3fv(U.uHair, HAIR[S.hair]);
+  gl.uniform1f(U.uStubble, S.stubble);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  if (frame.first !== false) { frame.first = false; $('load').style.display = 'none'; }
+  if (STILL) { document.title = 'done'; return; }
+
+  // adaptive resolution: aim for ~40 fps
+  frameTimes.push(nowMs); if (frameTimes.length > 30) frameTimes.shift();
+  if (frameTimes.length >= 20 && nowMs - lastAdjust > 1200) {
+    const fps = 1000*(frameTimes.length-1)/(frameTimes[frameTimes.length-1]-frameTimes[0]);
+    if (fps < 32 && scale > 0.35) { scale = Math.max(0.35, scale*0.85); lastAdjust = nowMs; frameTimes = []; }
+    else if (fps > 55 && scale < 1) { scale = Math.min(1, scale*1.1); lastAdjust = nowMs; frameTimes = []; }
+    $('stat').textContent = `${fps.toFixed(0)} fps · ${(scale*100).toFixed(0)}% res`;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

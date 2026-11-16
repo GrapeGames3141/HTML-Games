@@ -1,0 +1,25 @@
+# Editor, browser, and dependency caches
+.qa-profile*/
+node_modules/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local scratch and generated runtime output
+work/
+scratch/
+tmp/
+temp/
+logs/
+*.log
+*.pid
+
+# Local credentials and machine-specific settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+secrets/

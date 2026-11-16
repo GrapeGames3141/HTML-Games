@@ -1,0 +1,9 @@
+# Keep source bytes stable across Windows checkouts. The repository sets
+# core.autocrlf=false locally; no source file is forced through a line-ending conversion.
+* -text
+
+# Documentation and small scripts may be diffed as text without altering their bytes.
+*.md diff
+*.cjs diff
+*.js diff
+*.ps1 diff
