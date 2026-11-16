@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>PRISM SWARM</title>
 <link rel="icon" href="data:,">
 <style>
@@ -88,6 +88,40 @@ input[type=range]{width:190px;accent-color:#4bd3ff}
 #build{margin-top:8px;font-size:12px;color:#bff}
 .nb{color:#ffd23f;letter-spacing:3px;animation:bl .5s steps(2) infinite}
 #fatal .pan{max-width:560px}
+/* ---- touch controls ---- */
+html,body{-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+button,.card{touch-action:manipulation}
+#mc{position:fixed;inset:0;display:none;z-index:5;touch-action:none}
+body.mob[data-s=play] #mc{display:block}
+#stk{position:absolute;width:128px;height:128px;margin:-64px 0 0 -64px;border:2px solid #7cf9;border-radius:50%;background:radial-gradient(circle,#4bd3ff26,#4bd3ff08 70%);opacity:0;transition:opacity .1s;pointer-events:none}
+#knb{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:#bdf6ff44;border:2px solid #dff;box-shadow:0 0 14px #2cf}
+#stkh{position:absolute;left:calc(84px + env(safe-area-inset-left));bottom:84px;width:112px;height:112px;margin:0 0 -56px -56px;border:2px dashed #7cf5;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:2px;color:#bff8;pointer-events:none;transition:opacity .15s}
+#mc.st #stkh{opacity:0}
+#lkh{position:absolute;right:calc(26px + env(safe-area-inset-right));bottom:calc(122px + env(safe-area-inset-bottom));font-size:10px;letter-spacing:2px;color:#bffa;pointer-events:none;text-align:right;transition:opacity .4s}
+#mc.lk #lkh{opacity:0}
+.mb{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:50%;border:2px solid #4bd3ffb0;background:#0d2238b0;color:#e6fdff;
+  font-size:12px;font-weight:700;letter-spacing:2px;box-shadow:0 0 14px #2cf5;transition:transform .06s,opacity .2s}
+.mb.on{background:#1d6a9ccc;transform:scale(.9)}
+.mb.cd{opacity:.38}
+#bj{width:82px;height:82px;right:calc(20px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}
+#bd{width:68px;height:68px;right:calc(112px + env(safe-area-inset-right));bottom:calc(16px + env(safe-area-inset-bottom))}
+#bp{width:44px;height:44px;border-radius:9px;right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));font-size:15px;letter-spacing:0}
+.mk,.mobonly,.rot{display:none}
+body.mob .mk{display:block}body.mob .mobonly{display:flex}body.mob .dk{display:none}
+@media (orientation:portrait){body.mob .rot{display:block;color:#ffd23f}}
+body.mob #tl{left:calc(14px + env(safe-area-inset-left));top:8px}
+body.mob #score{font-size:24px}
+body.mob #bl{left:calc(14px + env(safe-area-inset-left));top:84px;bottom:auto;width:170px}
+body.mob #chips{right:calc(66px + env(safe-area-inset-right));top:12px;bottom:auto;max-width:38vw}
+body.mob #bc{bottom:8px;width:28vw}
+body.mob .th{bottom:34%}body.mob #thL{left:27%}body.mob #thR{left:73%}body.mob #thB{bottom:21%}
+body.mob #dbg{top:64px;right:calc(14px + env(safe-area-inset-right))}
+body.mob #cards{gap:8px}
+body.mob .card{width:min(240px,30vw);min-height:0;padding:10px}
+body.mob .card .d{font-size:12px}body.mob .card .n{font-size:16px}
+body.mob .ov{padding:10px}
+@media (max-height:500px){body.mob h1{font-size:34px}body.mob h2{font-size:22px;margin-bottom:4px}body.mob .pan{padding:8px 12px;margin:5px;font-size:12px}body.mob button.big{font-size:16px;padding:10px 22px}}
 </style>
 </head>
 <body data-s="boot">
@@ -116,7 +150,9 @@ input[type=range]{width:190px;accent-color:#4bd3ff}
   <h1>PRISM SWARM</h1>
   <p class="sub">One laser pistol. One hostile hive. Kill insects, drink their energy, and stack upgrades until the gun fills the screen.</p>
   <button id="go" class="big">CLICK TO DEPLOY</button>
-  <div class="pan"><div class="keys">
+  <div class="sub rot">Turn your device sideways for the best view</div>
+  <div class="pan"><div class="mk"><b>Touch controls:</b> drag anywhere on the <em>left</em> side to move &middot; drag on the <em>right</em> side to aim &mdash; touching there also <em>fires</em> (tap for a shot, hold for auto-fire) &middot; buttons bottom-right <em>JUMP</em> and <em>DASH</em> &middot; <em>II</em> pauses.</div>
+  <div class="keys dk">
     <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span><span><kbd>Mouse</kbd> aim &middot; <kbd>LMB</kbd> fire (hold)</span>
     <span><kbd>Space</kbd> jump</span><span><kbd>Shift</kbd> dash (brief invulnerability)</span>
     <span><kbd>Esc</kbd> pause</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick upgrade &middot; <kbd>M</kbd> mute &middot; <kbd>V</kbd> voice</span></div>
@@ -127,8 +163,9 @@ input[type=range]{width:190px;accent-color:#4bd3ff}
   <div class="pan" id="setHome"><div id="set">
     <div class="row"><label>Quality</label><div id="qb"><button data-q="0">Low</button><button data-q="1">Medium</button><button data-q="2">High</button></div></div>
     <div class="row"><label>Render resolution&nbsp;<b id="rsv"></b></label><input id="rs" type="range" min="40" max="100" step="5"></div>
-    <div class="row"><label>Mouse sensitivity&nbsp;<b id="msv"></b></label><input id="ms" type="range" min="2" max="30" step="1"></div>
+    <div class="row"><label><span id="msl">Mouse sensitivity</span>&nbsp;<b id="msv"></b></label><input id="ms" type="range" min="2" max="30" step="1"></div>
     <div class="row"><label><input id="mu" type="checkbox"> Mute (M)</label><label><input id="db" type="checkbox"> Debug overlay (F3)</label></div>
+    <div class="row mobonly"><label><input id="aa" type="checkbox"> Touch aim assist</label></div>
   </div></div>
   <div id="mbest" class="sub"></div>
 </div>
@@ -136,7 +173,8 @@ input[type=range]{width:190px;accent-color:#4bd3ff}
 <div id="pause" class="ov">
   <h2>PAUSED</h2>
   <button id="res" class="big">CLICK TO RESUME</button>
-  <div class="sub">or press <kbd>Enter</kbd></div>
+  <div class="sub dk">or press <kbd>Enter</kbd></div>
+  <div class="sub rot">Turn your device sideways for the best view</div>
   <div class="pan" id="setPause"></div>
   <div><button id="prs">RESTART &middot; NEW SEED</button><button id="pss">RESTART &middot; SAME SEED</button></div>
   <div class="sub" id="plock"></div>
@@ -144,7 +182,7 @@ input[type=range]{width:190px;accent-color:#4bd3ff}
 
 <div id="lvl" class="ov">
   <h2>PRISM CHARGED</h2>
-  <div class="sub">Choose one &mdash; click a card or press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div>
+  <div class="sub" id="lvh">Choose one &mdash; click a card or press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div>
   <div id="cards"></div>
 </div>
 
@@ -162,6 +200,8 @@ input[type=range]{width:190px;accent-color:#4bd3ff}
   The page must be served from <b>http://localhost</b> or <b>https://</b> &mdash; WebGPU is not available on plain http or, in some browsers, file:// URLs.</p></div>
 </div>
 <div id="vc"></div>
+<div id="mc"><div id="stkh">MOVE</div><div id="stk"><div id="knb"></div></div><div id="lkh">DRAG TO AIM &middot; HOLD TO FIRE</div>
+  <div id="bp" class="mb" data-b="p">II</div><div id="bd" class="mb" data-b="d">DASH</div><div id="bj" class="mb" data-b="j">JUMP</div></div>
 <script>
 'use strict';
 // =====================================================================
@@ -183,7 +223,9 @@ const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.
 const QUAL=[{name:'Low',scale:.6,msaa:1,spores:70,parts:320,debris:50,lod:20,det:0,shm:0},
             {name:'Medium',scale:.85,msaa:1,spores:200,parts:750,debris:120,lod:36,det:1,shm:1536},
             {name:'High',scale:1,msaa:4,spores:380,parts:1300,debris:200,lod:60,det:1,shm:2048}];
-const cfg=Object.assign({q:1,scale:.85,sens:1,mute:false,dbg:false,vox:true},store.get('prismswarm.cfg',{}));
+// touch device? (?mobile / ?desktop force it; a touch on the title screen also switches)
+let MOB=/[?&]mobile/.test(location.search)||(!/[?&]desktop/.test(location.search)&&((matchMedia('(pointer:coarse)').matches&&matchMedia('(hover:none)').matches)||/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)));
+const cfg=Object.assign({q:MOB?0:1,scale:MOB?.6:.85,sens:1,mute:false,dbg:false,vox:true,aa:true},store.get('prismswarm.cfg',{}));
 cfg.q=clamp(cfg.q|0,0,2);cfg.scale=clamp(+cfg.scale||.85,.4,1);cfg.sens=clamp(+cfg.sens||1,.2,3);
 let best=+store.get('prismswarm.best',0)||0;
 
@@ -357,6 +399,17 @@ fn env(r:vec3f)->vec3f{let S=normalize(u.sun.xyz); // cheap sky probe for glossy
  for(var k=0;k<4;k++){if(u.lc[k].a<.5){continue;}let lv=u.lp[k].xyz-p;let d=length(lv);let at=max(1.-d/max(u.lp[k].w,.01),0.);let ld=lv/max(d,.001);
   ls+=u.lc[k].rgb*at*at*(.35+.65*max(dot(n,ld),0.)+spec*pow(max(dot(n,normalize(ld+V)),0.),gloss));}
  c+=(alb+spec*.15)*min(ls,vec3f(.6));
+ if(m>2.5&&m<8.5){ // glass / crystal: see-through centre, bright rim, light held inside, sky glints. Drawn blended (premultiplied).
+  let gn=n*sign(dot(n,V)+1e-5);let gv=abs(dot(n,V));let f2=pow(1.-gv,2.2);
+  let vein=.7+.6*vn(lp.xy*4.+lp.z*3.+p.y*.7);
+  var b=alb*(amb*.55+vec3f(.66,.74,.95)*max(dot(gn,L),0.)*.45+min(ls,vec3f(.8))*.7)*vein;
+  b+=alb*em*(.3+1.1*f2)*1.35;
+  b+=env(reflect(-V,gn))*(.15+.85*f2)*.8;
+  let gd=distance(u.cam.xyz,p);let gf=1.-exp(-gd*u.fog.w);b=mix(b,u.fog.rgb,gf);
+  let al=clamp(.3+.62*f2+.1*em,0.,.96);
+  var o=b*al+vec3f(.9,.95,1.)*pow(max(dot(gn,H),0.),90.)*1.6*(1.-gf)+alb*em*.12;
+  if(u.misc.y<.5){o=tm(o);}
+  return vec4f(o,al);}
  let sp=vec3f(.7,.85,1.)*pow(max(dot(n,H),0.),40.)*.5;
  c=mix(c,emc*(.55+.7*nv)+emc*fr*.6+sp,min(em,1.))*(1.+max(em-1.,0.));
  let d=distance(u.cam.xyz,p);let fa=1.-exp(-d*u.fog.w*(1.+.35*clamp(2.5-p.y,0.,3.)));
@@ -457,6 +510,8 @@ const G_BOX=0,G_SPH=1,G_SEG=2,G_ROCK=3,G_CRY=4,G_CYL=5,G_RND=6,G_TOR=7,NG=8;
 // instance lists (16 floats each). s = count of static instances kept across frames
 const mkList=cap=>({a:new Float32Array(cap*16),n:0,s:0,cap,off:0});
 const IL=[mkList(1500),mkList(3000),mkList(3600),mkList(96),mkList(360),mkList(96),mkList(8),mkList(24)],GL=[mkList(128),mkList(128),mkList(128),mkList(2),mkList(16),mkList(48),mkList(48),mkList(48)];
+// translucent instances (material 30) go to their own lists and are drawn blended after the opaque world
+const TL=[mkList(8),mkList(900),mkList(64),mkList(2),mkList(480),mkList(8),mkList(8),mkList(16)];
 let CUR=IL;
 const MAXFX=4600,FX=new Float32Array(MAXFX*12);let nFX=0;
 const MAXSH=320,SHD=new Float32Array(MAXSH*12);let nSH=0,MAT=0; // blob shadows; MAT = material offset added to emitted instances
@@ -531,7 +586,10 @@ function pipes(sc,post){
       {shaderLocation:0,offset:0,format:'float32x4'},{shaderLocation:1,offset:16,format:'float32x4'},{shaderLocation:2,offset:32,format:'float32x4'}]}]},
     fragment:{module:shMod,entryPoint:'fsh',targets:[{format:tf,blend:{color:{srcFactor:'dst',dstFactor:'zero'},alpha:{srcFactor:'zero',dstFactor:'one'}}}]},
     primitive:{topology:'triangle-list'},depthStencil:{format:'depth24plus',depthWriteEnabled:false,depthCompare:'less',depthBias:-6,depthBiasSlopeScale:-2},multisample:ms});
-  return PIPE[key]={solid,sky,fx,shd};
+  const glass=dev.createRenderPipeline({layout:pl,vertex:{module:shMod,entryPoint:'vs',buffers:vb},
+    fragment:{module:shMod,entryPoint:'fs',targets:[{format:tf,blend:{color:{srcFactor:'one',dstFactor:'one-minus-src-alpha'},alpha:{srcFactor:'zero',dstFactor:'one'}}}]},
+    primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth24plus',depthWriteEnabled:false,depthCompare:'less'},multisample:ms});
+  return PIPE[key]={solid,sky,fx,shd,glass};
 }
 async function gpuInit(){
   if(!navigator.gpu)throw new Error('navigator.gpu is missing — this browser (or this page origin) does not expose WebGPU.');
@@ -556,7 +614,7 @@ async function gpuInit(){
     primitive:{topology:'triangle-list',cullMode:'none'},depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'less',depthBias:2,depthBiasSlopeScale:2.5}});
   shadowTarget(1);
   buildGeo();
-  let off=1;for(const L of IL){L.off=off;off+=L.cap}for(const L of GL){L.off=off;off+=L.cap}
+  let off=1;for(const L of IL){L.off=off;off+=L.cap}for(const L of GL){L.off=off;off+=L.cap}for(const L of TL){L.off=off;off+=L.cap}
   instBuf=dev.createBuffer({size:off*64,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
   dev.queue.writeBuffer(instBuf,0,new Float32Array([1,0,0,0,1,0,0,0,1,0,0,0,1,1,1,90])); // instance 0: terrain (identity, material flag 9)
   fxBuf=dev.createBuffer({size:(MAXFX+MAXSH)*48,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});
@@ -602,7 +660,7 @@ function resize(){
 }
 // ---------- instance emitters ----------
 function inst(g,ax,ay,az,bx,by,bz,cx,cy,cz,tx,ty,tz,r,gc,b,e){
-  const L=CUR[g];if(L.n>=L.cap)return;const a=L.a,o=L.n++*16;
+  const L=(MAT===30?TL:CUR)[g];if(L.n>=L.cap)return;const a=L.a,o=L.n++*16;
   a[o]=ax;a[o+1]=ay;a[o+2]=az;a[o+3]=bx;a[o+4]=by;a[o+5]=bz;a[o+6]=cx;a[o+7]=cy;a[o+8]=cz;a[o+9]=tx;a[o+10]=ty;a[o+11]=tz;a[o+12]=r;a[o+13]=gc;a[o+14]=b;a[o+15]=e+MAT}
 // scaled part rotated about Y so local +z faces (fx,fz)
 function part(g,x,y,z,sx,sy,sz,fx,fz,r,gc,b,e){inst(g,fz*sx,0,-fx*sx,0,sy,0,fx*sz,0,fz*sz,x,y,z,r,gc,b,e)}
@@ -1320,11 +1378,12 @@ function blocked(nx,nz){ // too steep to walk up from where we stand?
 function stepPlayer(dt){
   P.px=P.x;P.py=P.y;P.pz=P.z;
   const sy=Math.sin(P.yaw),cy=Math.cos(P.yaw);
-  const ix=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0),iz=(K.KeyW||K.ArrowUp?1:0)-(K.KeyS||K.ArrowDown?1:0);
-  let wx=cy*ix+sy*iz,wz=sy*ix-cy*iz;const wl=hyp(wx,wz);if(wl>0){wx/=wl;wz/=wl}
+  let ix=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0)+TCH.mx,iz=(K.KeyW||K.ArrowUp?1:0)-(K.KeyS||K.ArrowDown?1:0)+TCH.mz;
+  const il=hyp(ix,iz);if(il>1){ix/=il;iz/=il} // keys are full speed (diagonals normalised); the touch stick is proportional
+  const wx=cy*ix+sy*iz,wz=sy*ix-cy*iz,wl=hyp(wx,wz);
   if(P.dashCD>0)P.dashCD-=dt;if(P.inv>0)P.inv-=dt;
   if(K.dash){K.dash=false;
-    if(P.dashCD<=0&&P.dashT<=0){if(wl>0){P.ddx=wx;P.ddz=wz}else{P.ddx=sy;P.ddz=-cy}
+    if(P.dashCD<=0&&P.dashT<=0){if(wl>.05){P.ddx=wx/wl;P.ddz=wz/wl}else{P.ddx=sy;P.ddz=-cy}
       P.dashT=.16;P.dashCD=1.5;P.inv=Math.max(P.inv,.24);P.fov=1;S.dash();if(up.dashb)dashBurst()}}
   if(P.dashT>0){P.dashT-=dt;P.vx=P.ddx*27;P.vz=P.ddz*27;if(P.dashT<=0){P.vx=P.ddx*SPD;P.vz=P.ddz*SPD}}
   else if(P.g||wl>0){const acc=P.g?75:24,dvx=wx*SPD-P.vx,dvz=wz*SPD-P.vz,l=hyp(dvx,dvz);
@@ -1389,6 +1448,68 @@ function stepDirector(dt){
 }
 
 // =====================================================================
+// TOUCH — phones and tablets: floating move stick (left side), drag-to-aim with hold-to-fire (right side),
+// jump / dash / pause buttons. No pointer lock is used in this mode.
+// =====================================================================
+const TCH={mx:0,mz:0,stk:-1,sx:0,sy:0,look:-1,lx:0,ly:0,jump:-1,dash:-1,moved:0};
+const STR=56; // stick travel in px
+function tchReset(){TCH.mx=TCH.mz=0;TCH.stk=TCH.look=TCH.jump=TCH.dash=-1;TCH.moved=0;
+  if(el.stk){el.stk.style.opacity=0;el.mc.classList.remove('st');el.bj.classList.remove('on');el.bd.classList.remove('on')}}
+function setMob(on){MOB=on;document.body.classList.toggle('mob',on);
+  $('go').textContent=on?'TAP TO DEPLOY':'CLICK TO DEPLOY';$('res').textContent=on?'TAP TO RESUME':'CLICK TO RESUME';
+  $('msl').textContent=on?'Look sensitivity':'Mouse sensitivity';
+  $('lvh').innerHTML=on?'Choose one &mdash; tap a card':'Choose one &mdash; click a card or press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>'}
+function goFull(){ // best effort fullscreen + landscape lock; browsers that refuse (e.g. iPhone Safari) just keep playing
+  const d=document.documentElement;if(document.fullscreenElement||!d.requestFullscreen)return;
+  try{d.requestFullscreen({navigationUI:'hide'}).then(()=>{try{const p=screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape');if(p&&p.catch)p.catch(()=>{})}catch(e){}}).catch(()=>{})}catch(e){}}
+function bindMobile(){
+  el.mc=$('mc');el.stk=$('stk');el.knb=$('knb');el.bj=$('bj');el.bd=$('bd');
+  const mc=el.mc;
+  const down=e=>{if(state!=='play')return;e.preventDefault();auInit();
+    for(const t of e.changedTouches){const id=t.identifier,tg=t.target&&t.target.closest?t.target.closest('[data-b]'):null,b=tg?tg.dataset.b:'';
+      if(b==='j'){TCH.jump=id;K.Space=true;el.bj.classList.add('on')}
+      else if(b==='d'){TCH.dash=id;K.dash=true;el.bd.classList.add('on')}
+      else if(b==='p'){setState('pause');return}
+      else if(t.clientX<innerWidth*.42&&TCH.stk<0){TCH.stk=id;TCH.sx=t.clientX;TCH.sy=t.clientY;TCH.mx=TCH.mz=0;
+        el.stk.style.left=TCH.sx+'px';el.stk.style.top=TCH.sy+'px';el.knb.style.transform='translate(0px,0px)';el.stk.style.opacity=1;mc.classList.add('st')}
+      else if(TCH.look<0){TCH.look=id;TCH.lx=t.clientX;TCH.ly=t.clientY;mouseL=true;mc.classList.add('lk')}}}; // aim hint fades after the first use
+  const move=e=>{if(state!=='play')return;e.preventDefault();
+    for(const t of e.changedTouches){const id=t.identifier;
+      if(id===TCH.stk){let dx=t.clientX-TCH.sx,dy=t.clientY-TCH.sy;const l=Math.hypot(dx,dy);
+        if(l>STR*1.5){const k=(l-STR*1.5)/l;TCH.sx+=dx*k;TCH.sy+=dy*k;dx=t.clientX-TCH.sx;dy=t.clientY-TCH.sy; // base follows a long drag
+          el.stk.style.left=TCH.sx+'px';el.stk.style.top=TCH.sy+'px'}
+        const ll=Math.hypot(dx,dy),c=Math.min(ll,STR),kx=ll?dx/ll*c:0,ky=ll?dy/ll*c:0;
+        el.knb.style.transform='translate('+kx.toFixed(1)+'px,'+ky.toFixed(1)+'px)';
+        const m=ll<8?0:Math.min(1,(ll-8)/(STR-8)); // small dead zone, then proportional speed
+        TCH.mx=ll?dx/ll*m:0;TCH.mz=ll?-dy/ll*m:0}
+      else if(id===TCH.look){const dx=clamp(t.clientX-TCH.lx,-200,200),dy=clamp(t.clientY-TCH.ly,-200,200);TCH.lx=t.clientX;TCH.ly=t.clientY;
+        const s=.0052*cfg.sens;P.yaw+=dx*s;P.pitch=clamp(P.pitch-dy*s,-1.5,1.5);if(dx||dy)TCH.moved=.15;
+        P.swx=clamp(P.swx-dx*.0003,-.03,.03);P.swy=clamp(P.swy+dy*.0003,-.03,.03)}}};
+  const lift=e=>{for(const t of e.changedTouches){const id=t.identifier;
+      if(id===TCH.stk){TCH.stk=-1;TCH.mx=TCH.mz=0;el.stk.style.opacity=0;mc.classList.remove('st')}
+      else if(id===TCH.look){TCH.look=-1;mouseL=false}
+      else if(id===TCH.jump){TCH.jump=-1;K.Space=false;el.bj.classList.remove('on')}
+      else if(id===TCH.dash){TCH.dash=-1;el.bd.classList.remove('on')}}
+    if(state==='play'&&e.cancelable)e.preventDefault()};
+  mc.addEventListener('touchstart',down,{passive:false});mc.addEventListener('touchmove',move,{passive:false});
+  mc.addEventListener('touchend',lift,{passive:false});mc.addEventListener('touchcancel',lift,{passive:false});
+  // a touchscreen laptop starts in desktop mode; touching the screen outside of play switches to touch controls
+  window.addEventListener('touchstart',()=>{if(!MOB&&state!=='play')setMob(true)},{passive:true});
+  setMob(MOB)}
+// gentle aim assist while firing on touch: eases the view toward the nearest visible insect close to the crosshair,
+// weaker while the player is actively dragging so it never fights them
+function aimAssist(dt){
+  if(TCH.moved>0)TCH.moved-=dt;
+  if(!MOB||!cfg.aa||!mouseL||state!=='play')return;
+  const ex=P.x,ey=P.y+EYE,ez=P.z;let best=null,bd=.13,by=0,bp=0;
+  for(let i=0;i<E.length;i++){const e=E[i];if(e.born<1)continue;const dx=e.bx-ex,dy=e.by-ey,dz=e.bz-ez,h=Math.hypot(dx,dz);if(h>45||h<.5)continue;
+    let dyaw=Math.atan2(dx,-dz)-P.yaw;dyaw-=Math.round(dyaw/TAU)*TAU;const dp=Math.atan2(dy,h)-P.pitch,a=Math.hypot(dyaw,dp);
+    if(a<bd){bd=a;best=e;by=dyaw;bp=dp}}
+  if(!best)return;const l=Math.hypot(best.bx-ex,best.by-ey,best.bz-ez);
+  if(rayWorld(ex,ey,ez,(best.bx-ex)/l,(best.by-ey)/l,(best.bz-ez)/l,l)<l-.3)return;
+  const k=Math.min(1,dt*(TCH.moved>0?2:5));P.yaw+=by*k;P.pitch=clamp(P.pitch+bp*k,-1.5,1.5)}
+
+// =====================================================================
 // DRAWING — everything is emitted as instances of five shared meshes
 // =====================================================================
 let CEx=0,CEy=0,CEz=0,CRx=1,CRy=0,CRz=0,CUx=0,CUy=1,CUz=0,CFx=0,CFy=0,CFz=-1,RT=0;
@@ -1407,51 +1528,51 @@ function gshadow(x,z,r,a){ // blob shadow laid on the terrain under (x,z)
   if(Math.abs(dx)>1.2||Math.abs(dz)>1.2){_qx=0;_qy=1;_qz=0}else{const l=1/Math.sqrt(dx*dx+dz*dz+4*e*e);_qx=-dx*l;_qy=2*e*l;_qz=-dz*l}
   shd(x,h+.03,z,r,QUAL[cfg.q].shm?a*.55:a,_qx,_qy,_qz);return h}
 function buildStatics(){
-  CUR=IL;for(const L of IL)L.n=0;
+  CUR=IL;for(const L of IL)L.n=0;for(const L of TL)L.n=0;
   for(const r of W.rocks){const c=(.2+.05*Math.sin(r.rot*7))*r.sh;part(G_ROCK,r.x,r.y,r.z,r.r,r.r,r.r,Math.sin(r.rot),Math.cos(r.rot),c,c*1.05,c*1.4,0)}
   for(const s of W.spires){const c=SPC[s.c];
-    part(G_CRY,s.x,s.y-.3,s.z,.95,s.h+.3,.95,Math.sin(s.rot),Math.cos(s.rot),c[0],c[1],c[2],.62);
+    MAT=30;part(G_CRY,s.x,s.y-.3,s.z,.95,s.h+.3,.95,Math.sin(s.rot),Math.cos(s.rot),c[0],c[1],c[2],.62);
     for(let k=0;k<3;k++){const a=s.rot+k*2.1,q=.9+k*.15;
-      seg(G_CRY,s.x+Math.sin(a)*.4,s.y-.2,s.z+Math.cos(a)*.4,s.x+Math.sin(a)*q,s.y+1.5+k*.7,s.z+Math.cos(a)*q,.28,c[0],c[1],c[2],.5)}}
+      seg(G_CRY,s.x+Math.sin(a)*.4,s.y-.2,s.z+Math.cos(a)*.4,s.x+Math.sin(a)*q,s.y+1.5+k*.7,s.z+Math.cos(a)*q,.28,c[0],c[1],c[2],.5)}MAT=0}
   if(W.pod){const p=W.pod,fx=Math.sin(p.rot),fz=Math.cos(p.rot);
     part(G_SPH,p.x,p.y+1.15,p.z,1.45,1.25,1.45,fx,fz,.36,.4,.5,0);part(G_BOX,p.x,p.y+.25,p.z,2.2,.5,2.2,fx,fz,.2,.22,.28,0);
     part(G_SPH,p.x,p.y+2.1,p.z,.7,.5,.7,fx,fz,.2,.9,1,.9);
     for(let k=0;k<3;k++){const a=p.rot+k*TAU/3;seg(G_SEG,p.x+Math.sin(a)*1.1,p.y+1,p.z+Math.cos(a)*1.1,p.x+Math.sin(a)*2,p.y,p.z+Math.cos(a)*2,.14,.3,.33,.42,0)}
     seg(G_SEG,p.x,p.y+2.3,p.z,p.x+.3,p.y+4,p.z,.04,.5,.55,.65,0);part(G_SPH,p.x+.3,p.y+4,p.z,.09,.09,.09,0,1,1,.3,.3,1.5)}
   for(const d of W.deco){const fx=Math.sin(d.rot),fz=Math.cos(d.rot),s=d.s;
-    if(d.k===2){for(let k=0;k<3;k++){const a=d.rot+k*2.2;seg(G_CRY,d.x,d.y-.05,d.z,d.x+Math.sin(a)*.3*s,d.y+(.5+k*.25)*s,d.z+Math.cos(a)*.3*s,.11*s,.3,.5,1,.45)}}
+    if(d.k===2){MAT=30;for(let k=0;k<3;k++){const a=d.rot+k*2.2;seg(G_CRY,d.x,d.y-.05,d.z,d.x+Math.sin(a)*.3*s,d.y+(.5+k*.25)*s,d.z+Math.cos(a)*.3*s,.11*s,.3,.5,1,.45)}MAT=0}
     else{const r=d.k?.6:.15,g=d.k?.3:.85,b=d.k?1:.75;
       seg(G_SEG,d.x,d.y-.05,d.z,d.x+fx*.12*s,d.y+.7*s,d.z+fz*.12*s,.05*s,.2,.24,.3,0);
-      part(G_SPH,d.x+fx*.12*s,d.y+.72*s,d.z+fz*.12*s,.24*s,.11*s,.24*s,fx,fz,r,g,b,.75)}}
+      MAT=30;part(G_SPH,d.x+fx*.12*s,d.y+.72*s,d.z+fz*.12*s,.24*s,.11*s,.24*s,fx,fz,r,g,b,.75);MAT=0}}
   for(const m of W.marks){const c=SPC[m.c],s=m.s,fx=Math.sin(m.rot),fz=Math.cos(m.rot),x=m.x,y=m.y-.4,z=m.z;
     if(m.k===0){ // giant lantern mushroom
       const tx=x+fx*.8*s,ty=y+5.2*s,tz=z+fz*.8*s;seg(G_CYL,x,y,z,x+fx*.3*s,y+2.8*s,z+fz*.3*s,.42*s,.2,.2,.3,0);seg(G_CYL,x+fx*.3*s,y+2.7*s,z+fz*.3*s,tx,ty,tz,.3*s,.22,.22,.33,0);
-      part(G_SPH,tx,ty+.25*s,tz,2.5*s,.8*s,2.5*s,fx,fz,c[0]*.3+.08,c[1]*.3+.08,c[2]*.3+.12,.18);part(G_SPH,tx,ty-.05*s,tz,2.2*s,.35*s,2.2*s,fx,fz,c[0],c[1],c[2],.85);
+      MAT=30;part(G_SPH,tx,ty+.25*s,tz,2.5*s,.8*s,2.5*s,fx,fz,c[0]*.5+.1,c[1]*.5+.1,c[2]*.5+.14,.35);MAT=0;part(G_SPH,tx,ty-.05*s,tz,2.2*s,.35*s,2.2*s,fx,fz,c[0],c[1],c[2],.85);
       for(let k=0;k<6;k++){const a=k*1.05+m.rot;part(G_SPH,tx+Math.cos(a)*1.5*s,ty+.72*s,tz+Math.sin(a)*1.5*s,.26*s,.14*s,.26*s,fx,fz,c[0],c[1],c[2],1.1)}}
     else if(m.k===1){ // rib cage of something enormous
       for(let k=-1;k<=1;k++)for(let sd=-1;sd<=1;sd+=2){const bx=x+fx*k*1.7*s-fz*sd*2.3*s,bz=z+fz*k*1.7*s+fx*sd*2.3*s,h=(5.6-Math.abs(k)*.9)*s;
         const m1x=bx-fz*sd*.7*s,m1z=bz+fx*sd*.7*s,m2x=x+fx*k*1.7*s-fz*sd*1.5*s,m2z=z+fz*k*1.7*s+fx*sd*1.5*s,ex=x+fx*k*1.7*s-fz*sd*.35*s,ez=z+fz*k*1.7*s+fx*sd*.35*s;
         seg(G_CYL,bx,y,bz,m1x,y+h*.5,m1z,.3*s,.5,.48,.58,0);seg(G_CYL,m1x,y+h*.48,m1z,m2x,y+h*.9,m2z,.24*s,.52,.5,.6,0);seg(G_SEG,m2x,y+h*.88,m2z,ex,y+h,ez,.2*s,.55,.52,.62,0)}
       for(let k=-1;k<=1;k++)part(G_SPH,x+fx*k*1.7*s,y+.5,z+fz*k*1.7*s,.8*s,.6*s,1*s,fx,fz,.45,.43,.52,0)}
-    else{ // crystal crown
+    else{MAT=30; // crystal crown
       for(let k=0;k<6;k++){const a=m.rot+k*1.047,l=(k&1?3.2:5.4)*s,o=(k&1?1.5:.9)*s;seg(G_CRY,x+Math.cos(a)*.5,y,z+Math.sin(a)*.5,x+Math.cos(a)*o,y+l,z+Math.sin(a)*o,(k&1?.5:.75)*s,c[0],c[1],c[2],.6)}
-      seg(G_CRY,x,y,z,x,y+7*s,z,.9*s,c[0],c[1],c[2],.7)}}
-  for(const L of IL)L.s=L.n}
+      seg(G_CRY,x,y,z,x,y+7*s,z,.9*s,c[0],c[1],c[2],.7);MAT=0}}
+  for(const L of IL)L.s=L.n;for(const L of TL)L.s=L.n}
 function drawFlora(t){
   const lod=QUAL[cfg.q].lod+8,l2=lod*lod,det=QUAL[cfg.q].det;
   for(const f of W.flora){const dx=f.x-CEx,dz=f.z-CEz;if(dx*dx+dz*dz>l2||dx*CFx+dz*CFz<-4)continue;
     const c=SPC[f.c],s=f.s,w1=Math.sin(t*1.3+f.rot*5)*.1*s,w2=Math.cos(t*.9+f.rot*3)*.08*s,lx=Math.sin(f.rot)*.1*s,lz=Math.cos(f.rot)*.1*s;
     if(f.k===0){let x=f.x,y=f.y-.1,z=f.z; // segmented stalk bending in the wind, lantern bulb on top
       for(let k=1;k<=5;k++){const q=k*k*.2,nx=f.x+lx*q+w1*q,ny=f.y+k*.5*s,nz=f.z+lz*q+w2*q;seg(G_SEG,x,y,z,nx,ny,nz,(.085-.011*k)*s,.14,.2,.26,0);x=nx;y=ny;z=nz}
-      part(G_SPH,x,y+.1*s,z,.17*s,.24*s,.17*s,0,1,c[0],c[1],c[2],1.2+.3*Math.sin(t*2+f.rot));fxp(x,y+.1*s,z,.9*s,0,0,0,3,c[0],c[1],c[2],.45);
+      MAT=30;part(G_SPH,x,y+.1*s,z,.17*s,.24*s,.17*s,0,1,c[0],c[1],c[2],1.2+.3*Math.sin(t*2+f.rot));MAT=0;part(G_SPH,x,y+.1*s,z,.07*s,.1*s,.07*s,0,1,c[0],c[1],c[2],1.8);fxp(x,y+.1*s,z,.9*s,0,0,0,3,c[0],c[1],c[2],.45);
       if(det)fxp(f.x,f.y+.06,f.z,1.6*s,0,1,0,4,c[0],c[1],c[2],.16)}
     else for(let j=0;j<5;j++){const a=f.rot+j*1.256,h=(1.1+.25*(j&1))*s,q=.55*s; // fan of fronds
       const mx=f.x+Math.sin(a)*q*.5+w1*.5,mz=f.z+Math.cos(a)*q*.5+w2*.5,tx=f.x+Math.sin(a)*q*1.5+w1*1.6,tz=f.z+Math.cos(a)*q*1.5+w2*1.6;
       seg(G_SEG,f.x,f.y-.1,f.z,mx,f.y+h*.6,mz,.06*s,.1,.3,.3,.12);seg(G_SEG,mx,f.y+h*.58,mz,tx,f.y+h,tz,.045*s,c[0]*.5,c[1]*.5,c[2]*.5,.5)}}
   // beacon ring turning high above the landing site: visible from every clearing
   const by=groundH(0,0)+15,a=t*.15,ca=Math.cos(a),sa=Math.sin(a);
-  inst(G_TOR,ca*6,0,sa*6,-sa*6*.26,6*.966,ca*6*.26,-sa*6,0,ca*6,0,by,0,.15,.8,.75,.8);
-  inst(G_TOR,ca*4,0,-sa*4,sa*4*.5,4*.866,ca*4*.5,sa*4,0,ca*4,0,by,0,.6,.35,.9,.7);
+  MAT=30;inst(G_TOR,ca*6,0,sa*6,-sa*6*.26,6*.966,ca*6*.26,-sa*6,0,ca*6,0,by,0,.15,.8,.75,.8);
+  inst(G_TOR,ca*4,0,-sa*4,sa*4*.5,4*.866,ca*4*.5,sa*4,0,ca*4,0,by,0,.6,.35,.9,.7);MAT=0;
   part(G_SPH,0,by,0,.7,.7,.7,0,1,.8,1,1,1.6);fxp(0,by,0,7,0,0,0,3,.2,.8,.8,.3);
   // mist: wide flat wisps drifting just above the ground, wrapped around the camera
   const nm=det?26:0;for(let i=0;i<nm;i++){const o=i*4,ph=SPO[o+3];
@@ -1470,7 +1591,7 @@ function drawNests(t){
     part(G_SPH,n.x+n.oz*1.5,n.y+.1,n.z-n.ox*1.5,1.3,1.1,1.3,fx,fz,.18,.14,.23,0);
     part(G_SPH,n.x-n.oz*1.4,n.y,n.z+n.ox*1.4,1.2,.9,1.2,fx,fz,.18,.14,.23,0);
     for(let k=0;k<5;k++){const a=(k-2)*.42,hh=.2+((k*7)%3)*.45,c=Math.cos(a),s=Math.sin(a),dx=fx*c-fz*s,dz=fx*s+fz*c,rr=2.25*Math.sqrt(1-(hh/1.85)*(hh/1.85))*.96;
-      part(G_SPH,n.x+dx*rr,n.y+.3+hh,n.z+dz*rr,.3,.36,.3,dx,dz,1,.22,.62,g)}
+      MAT=30;part(G_SPH,n.x+dx*rr,n.y+.3+hh,n.z+dz*rr,.3,.36,.3,dx,dz,1,.22,.62,g);MAT=0;part(G_SPH,n.x+dx*rr,n.y+.3+hh,n.z+dz*rr,.12,.16,.12,dx,dz,1,.5,.8,g*1.2)}
     if(n.glow>.03)fxp(n.x+fx*2,n.y+1,n.z+fz*2,3.2,0,0,0,3,1,.25,.65,n.glow*.6)}}
 // --- insects: local space is x=side, y=up, z=forward; LW maps to world ---
 let _ex=0,_ey=0,_ez=0,_fx=0,_fz=1,_sc=1,_cp=1,_sp=0,_wx=0,_wy=0,_wz=0,_r=0,_g=0,_b=0,_e=0,_lr=0,_lg=0,_lb=0;
@@ -1478,6 +1599,7 @@ let _rc=1,_rs=0;
 function LW(lx,ly,lz,p){if(p){const y=ly*_cp+lz*_sp,z=lz*_cp-ly*_sp;ly=y;lz=z;const x=lx*_rc-ly*_rs;ly=lx*_rs+ly*_rc;lx=x}
   lx*=_sc;ly*=_sc;lz*=_sc;_wx=_ex+_fz*lx+_fx*lz;_wy=_ey+ly;_wz=_ez-_fx*lx+_fz*lz}
 function BP(lx,ly,lz,sx,sy,sz){LW(lx,ly,lz,1);part(G_SPH,_wx,_wy,_wz,sx*_sc,sy*_sc,sz*_sc,_fx,_fz,_r,_g,_b,_e)}
+function WPT(lx,ly,lz,s,r,g,b,e){LW(lx,ly,lz,1);const q=s*_sc;MAT=0;part(G_SPH,_wx,_wy,_wz,q*.55,q*.55,q*.55,_fx,_fz,r,g,b,e+.4);MAT=30;part(G_SPH,_wx,_wy,_wz,q,q,q,_fx,_fz,r,g,b,e*.7);MAT=10}
 function GP(lx,ly,lz,s,r,g,b,e){LW(lx,ly,lz,1);part(G_SPH,_wx,_wy,_wz,s*_sc,s*_sc,s*_sc,_fx,_fz,r,g,b,e)}
 function LS(ax,ay,az,ap,bx,by,bz,bp,th){LW(ax,ay,az,ap);const x=_wx,y=_wy,z=_wz;LW(bx,by,bz,bp);seg(G_SEG,x,y,z,_wx,_wy,_wz,th*_sc,_lr,_lg,_lb,_e)}
 function legs(e,zs,hx,hy,fo,ku,th,st,far){
@@ -1501,17 +1623,18 @@ function drawEnemy(e,far){
   const chat=.08+.2*Math.abs(Math.sin(run.t*22+e.id));
   if(e.t===0){const a=e.st===1?chat:op;
     BP(0,.42,-.42,.34,.26,.42);BP(0,.37,0,.28,.2,.3);BP(0,.35,.36,.2,.16,.2);
-    GP(0,.8,-.36,.21,gr,gg,gb,pulse);LS(0,.5,-.4,1,0,.72,-.37,1,.06);
+    WPT(0,.8,-.36,.21,gr,gg,gb,pulse);LS(0,.5,-.4,1,0,.72,-.37,1,.06);
     LS(-.1,.3,.5,1,-.05-a,.25,.82,1,.045);LS(.1,.3,.5,1,.05+a,.25,.82,1,.045);
     if(!far){LS(-.08,.44,.46,1,-.3,.74,.78,1,.02);LS(.08,.44,.46,1,.3,.74,.78,1,.02);GP(-.09,.43,.5,.05,1,.5,.15,1.4);GP(.09,.43,.5,.05,1,.5,.15,1.4);
       BP(0,.5,-.78,.12,.1,.2);LS(0,.5,-.9,1,0,.62,-1.12,1,.035)}
     legs(e,Z0,.2,.32,.8,.3,.045,.32,far)}
   else if(e.t===1){const cr=e.st===2?1-e.tm/.55:0,air=e.st===3,dy=-.22*cr,a=e.st===1?chat:op;
     BP(0,.62+dy,0,.3,.28,.44);BP(0,.6+dy,-.6,.25,.23,.45);BP(0,.64+dy,.5,.2,.2,.22);
-    GP(0,1.03+dy,-.2,.24+.07*cr,gr,gg,gb,pulse+cr*1.3*(.5+.5*Math.sin(run.t*40)));
+    WPT(0,1.03+dy,-.2,.24+.07*cr,gr,gg,gb,pulse+cr*1.3*(.5+.5*Math.sin(run.t*40)));
     LS(-.1,.58+dy,.64,1,-.04-a,.5+dy,.95,1,.04);LS(.1,.58+dy,.64,1,.04+a,.5+dy,.95,1,.04);
     if(!far){LS(-.08,.8+dy,.56,1,-.22,1.12+dy,-.3,1,.02);LS(.08,.8+dy,.56,1,.22,1.12+dy,-.3,1,.02);GP(-.11,.72+dy,.62,.07,.3,1,.8,1.5);GP(.11,.72+dy,.62,.07,.3,1,.8,1.5);
       for(let k=0;k<3;k++)LS(0,.84+dy,.15-k*.3,1,0,1.02+dy-k*.03,.05-k*.3,1,.03)}
+    {const sp=air?1:.2,wf=air?Math.sin(run.t*75)*.12:0;MAT=30;for(let s=-1;s<=1;s+=2){LW(s*(.12+sp*.34),.95+dy+sp*.12+wf,-.42,1);part(G_SPH,_wx,_wy,_wz,(.13+sp*.26)*_sc,.015*_sc,.62*_sc,_fx,_fz,.55,.95,1,.3)}MAT=10}
     if(air){for(let s=-1;s<=1;s+=2){LS(s*.22,.5,.3,1,s*.45,.2,.65,1,.05);LS(s*.24,.6,-.3,1,s*.4,.45,-1.05,1,.085);LS(s*.4,.45,-1.05,1,s*.38,.3,-1.8,1,.06)}}
     else{legs(e,Z1,.22,.5+dy,.62,.25,.05,.3,far);
       for(let s=-1;s<=1;s+=2){LS(s*.24,.6+dy,-.3,1,s*.52,1.25+.2*cr,-.78,0,.085);LS(s*.52,1.25+.2*cr,-.78,0,s*.5,0,-.3,0,.06)}}}
@@ -1520,16 +1643,16 @@ function drawEnemy(e,far){
     if(!far){BP(sh,1.72+stun,.05,.05,.07,1.05);for(let s=-1;s<=1;s+=2)for(let k=0;k<3;k++)LS(s*.75,1.35+stun,.5-k*.5,1,s*1.0,1.7+stun,.4-k*.5,1,.06)}_r=sr;_g=sg;_b=sb;
     BP(sh,.68,1.22,.5,.4,.46);
     LS(0,.85,1.5,1,0,1.55,2.15,1,.15);LS(-.25,.55,1.55,1,-.1-a,.45,2.05,1,.09);LS(.25,.55,1.55,1,.1+a,.45,2.05,1,.09);
-    GP(0,.82,-1.2,.5,gr,gg,gb,pulse+(wind?.5+.5*Math.sin(run.t*30):0));
+    WPT(0,.82,-1.2,.5,gr,gg,gb,pulse+(wind?.5+.5*Math.sin(run.t*30):0));
     const ey=wind||e.st===6?2:.9;GP(-.28,.8,1.58,.09,1,.3,.1,ey);GP(.28,.8,1.58,.09,1,.3,.1,ey);
     legs(e,Z2,.7,.62,1.5,.5,.12,.45,far)}
   else{const w=e.st===8?1-e.tm/.6:0,ss=.28*(1+.5*w);
     BP(0,.72,0,.34,.3,.46);BP(0,.74,.5,.22,.2,.24);BP(0,.9,-.48,.24,.24,.3);BP(0,1.3,-.66,.2,.24,.22);BP(0,1.66,-.42,.18,.2,.24);
-    GP(0,1.8,.12,ss,lerp(gr,.45,w),lerp(gg,1,w),lerp(gb,.12,w),pulse+w);
+    WPT(0,1.8,.12,ss,lerp(gr,.45,w),lerp(gg,1,w),lerp(gb,.12,w),pulse+w);
     LS(-.08,.66,.66,1,-.03-op,.6,.88,1,.03);LS(.08,.66,.66,1,.03+op,.6,.88,1,.03);
     if(!far){GP(-.1,.8,.68,.055,.9,1,.2,1.4);GP(.1,.8,.68,.055,.9,1,.2,1.4);for(let s=-1;s<=1;s+=2)LS(s*.12,1.7,-.4,1,s*.32,2.0,.1,1,.03)}
     legs(e,Z3,.25,.62,.98,.5,.04,.3,far)}
-  if(e.el&&!far){const h=T.by+T.br*.8;for(let k=-1;k<=1;k++){LW(k*.22*T.r,h,-.1*k*k,1);const x=_wx,y=_wy,z=_wz;LW(k*.5*T.r,h+.75*T.r,-.25,1);seg(G_CRY,x,y,z,_wx,_wy,_wz,.13*T.r*_sc,1,.35,.1,1.2)}}
+  if(e.el&&!far){const h=T.by+T.br*.8;for(let k=-1;k<=1;k++){LW(k*.22*T.r,h,-.1*k*k,1);const x=_wx,y=_wy,z=_wz;LW(k*.5*T.r,h+.75*T.r,-.25,1);MAT=30;seg(G_CRY,x,y,z,_wx,_wy,_wz,.13*T.r*_sc,1,.35,.1,1.2);MAT=10}}
   MAT=0;const gh=gshadow(e.x,e.z,e.r*(1.7-Math.min(.7,Math.max(0,e.y-groundH(e.x,e.z))*.25)),.6*b);
   if(!far)fxp(e.wx,gh+.06,e.wz,e.wr*(e.el?5:3.4),_qx,_qy,_qz,4,gr,gg,gb,.3*b); // weak-point glow spills onto the ground
   fxp(e.wx,e.wy-(1-b)*1.3*e.sc,e.wz,e.wr*(e.el?4:2.6),0,0,0,3,gr,gg,gb,.5*b)}
@@ -1538,9 +1661,9 @@ function drawWorldDyn(t){
   drawNests(t);
   for(let i=0;i<E.length;i++){const e=E[i],dx=e.x-CEx,dy=e.y-CEy,dz=e.z-CEz;if(dx*CFx+dy*CFy+dz*CFz<-3)continue;drawEnemy(e,dx*dx+dz*dz>l2)}
   for(let i=0;i<nO;i++){const o=ORB[i];if(o.life<4&&((o.life*8)&1))continue;const a=t*3+o.ph,fx=Math.sin(a),fz=Math.cos(a),y=o.y+Math.sin(t*4+o.ph)*.07;
-    if(o.kind===0){const s=.1+Math.min(.1,o.v*.03);part(G_CRY,o.x,y,o.z,s,s*1.7,s,fx,fz,1,.8,.2,1.3);part(G_CRY,o.x,y,o.z,s,-s*1.7,s,fx,fz,1,.8,.2,1.3);fxp(o.x,y,o.z,.55,0,0,0,3,1,.75,.2,.55);fxp(o.x,o.y-.4,o.z,.8,0,1,0,4,1,.7,.2,.3)}
+    if(o.kind===0){const s=.1+Math.min(.1,o.v*.03);MAT=30;part(G_CRY,o.x,y,o.z,s,s*1.7,s,fx,fz,1,.8,.2,1.3);part(G_CRY,o.x,y,o.z,s,-s*1.7,s,fx,fz,1,.8,.2,1.3);MAT=0;part(G_SPH,o.x,y,o.z,s*.4,s*.6,s*.4,fx,fz,1,.9,.5,1.8);fxp(o.x,y,o.z,.55,0,0,0,3,1,.75,.2,.55);fxp(o.x,o.y-.4,o.z,.8,0,1,0,4,1,.7,.2,.3)}
     else{part(G_BOX,o.x,y,o.z,.34,.11,.11,fx,fz,1,1,1,1.3);part(G_BOX,o.x,y,o.z,.11,.34,.11,fx,fz,1,1,1,1.3);fxp(o.x,y,o.z,.8,0,0,0,3,1,1,1,.6)}}
-  for(let i=0;i<nS;i++){const s=SHOT[i];part(G_SPH,s.x,s.y,s.z,.2,.2,.2,0,1,.5,1,.15,1.6);fxp(s.x,s.y,s.z,1,0,0,0,1.3,.4,1,.1,.7);gshadow(s.x,s.z,.45,.45);fxp(s.x,groundH(s.x,s.z)+.06,s.z,1.6,_qx,_qy,_qz,4,.4,1,.1,.3)}
+  for(let i=0;i<nS;i++){const s=SHOT[i];MAT=30;part(G_SPH,s.x,s.y,s.z,.24,.24,.24,0,1,.5,1,.15,1.2);MAT=0;part(G_SPH,s.x,s.y,s.z,.1,.1,.1,0,1,.7,1,.3,1.9);fxp(s.x,s.y,s.z,1,0,0,0,1.3,.4,1,.1,.7);gshadow(s.x,s.z,.45,.45);fxp(s.x,groundH(s.x,s.z)+.06,s.z,1.6,_qx,_qy,_qz,4,.4,1,.1,.3)}
   for(let i=0;i<nD;i++){const d=DB[i],s=d.s*Math.min(1,d.life*2.5);const sr=Math.sin(d.rot),cr=Math.cos(d.rot);
     if(d.k===1){MAT=10;inst(G_SPH,cr*s*1.5,sr*s*1.5,0,-sr*s*.35,cr*s*.35,0,0,0,s*1.2,d.x,d.y,d.z,d.r,d.g,d.b,0);MAT=0}
     else if(d.k===2){MAT=10;seg(G_SEG,d.x,d.y,d.z,d.x+cr*s*5,d.y+sr*s*3,d.z+sr*s*4,s,d.r,d.g,d.b,0);seg(G_SEG,d.x+cr*s*5,d.y+sr*s*3,d.z+sr*s*4,d.x+cr*s*7,d.y-sr*s*2,d.z+sr*s*8,s*.7,d.r,d.g,d.b,0);MAT=0}
@@ -1638,7 +1761,7 @@ function render(dt,al){
     const sh=run.shake*run.shake*.03;yaw=P.yaw+(rnd()-.5)*sh;pitch=P.pitch+(rnd()-.5)*sh+P.recoil*.006;fov+=P.fov*.1+(run.od>0?.05:0);
     if(state==='dead'){const k=clamp((performance.now()-run.dead)/700,0,1);ey-=k*1.15;pitch=lerp(pitch,.5,k)}}
   setCam(ex,ey,ez,yaw,pitch,fov);
-  for(let g=0;g<NG;g++){IL[g].n=IL[g].s;GL[g].n=0}nFX=0;nSH=0;MAT=0;
+  for(let g=0;g<NG;g++){IL[g].n=IL[g].s;GL[g].n=0;TL[g].n=TL[g].s}nFX=0;nSH=0;MAT=0;
   CUR=IL;drawWorldDyn(state==='menu'?t:run.t);
   if(state!=='menu'&&state!=='dead'){CUR=GL;drawGun(t);CUR=IL}
   P.swx*=Math.max(0,1-dt*10);P.swy*=Math.max(0,1-dt*10);
@@ -1655,7 +1778,7 @@ function render(dt,al){
   for(let i=0;i<4;i++){const l=LT[i],k=l.t>0?l.t/l.max:0;UB[44+i*4]=l.x;UB[45+i*4]=l.y;UB[46+i*4]=l.z;UB[47+i*4]=l.r;UB[60+i*4]=l.cr*k*1.6;UB[61+i*4]=l.cg*k*1.6;UB[62+i*4]=l.cb*k*1.6;UB[63+i*4]=k>0?1:0}
   const q=dev.queue;q.writeBuffer(ubuf,0,UB);
   let ni=0;
-  for(let g=0;g<NG;g++){const L=IL[g];if(L.n)q.writeBuffer(instBuf,L.off*64,L.a,0,L.n*16);ni+=L.n;const M=GL[g];if(M.n)q.writeBuffer(instBuf,M.off*64,M.a,0,M.n*16);ni+=M.n}
+  for(let g=0;g<NG;g++){const L=IL[g];if(L.n)q.writeBuffer(instBuf,L.off*64,L.a,0,L.n*16);ni+=L.n;const M=GL[g];if(M.n)q.writeBuffer(instBuf,M.off*64,M.a,0,M.n*16);ni+=M.n;const T=TL[g];if(T.n)q.writeBuffer(instBuf,T.off*64,T.a,0,T.n*16);ni+=T.n}
   if(nFX)q.writeBuffer(fxBuf,0,FX,0,nFX*12);if(nSH)q.writeBuffer(fxBuf,MAXFX*48,SHD,0,nSH*12);dbgInst=ni;
   const ctex=CAPM?capT:gctx.getCurrentTexture(),tex=ctex.createView(),ca=passDesc.colorAttachments[0],pp=pipes(curSC,curPost),out=curPost?sceneV:tex;
   if(msT){ca.view=msV;ca.resolveTarget=out;ca.storeOp='discard'}else{ca.view=out;ca.resolveTarget=undefined;ca.storeOp='store'}
@@ -1663,7 +1786,7 @@ function render(dt,al){
   const enc=dev.createCommandEncoder();
   if(shm){shDesc.depthStencilAttachment.view=shV;const sp=enc.beginRenderPass(shDesc);sp.setPipeline(shPipe);sp.setBindGroup(0,bgS);sp.setVertexBuffer(1,instBuf);
     sp.setVertexBuffer(0,terVB);sp.setIndexBuffer(terIB,'uint16');sp.drawIndexed(N*N*6,1,0,0,0);sp.setVertexBuffer(0,geoVB);sp.setIndexBuffer(geoIB,'uint16');
-    for(let g=0;g<NG;g++){const L=IL[g];if(L.n)sp.drawIndexed(GEO[g].count,L.n,GEO[g].first,GEO[g].base,L.off)}sp.end()}
+    for(let g=0;g<NG;g++){const L=IL[g];if(L.n)sp.drawIndexed(GEO[g].count,L.n,GEO[g].first,GEO[g].base,L.off);const T=TL[g];if(T.n&&g!==G_SPH)sp.drawIndexed(GEO[g].count,T.n,GEO[g].first,GEO[g].base,T.off)}sp.end()}
   const ps=enc.beginRenderPass(passDesc);
   ps.setBindGroup(0,bg);ps.setViewport(0,0,cw,ch,.1,1);
   ps.setPipeline(pp.solid);ps.setVertexBuffer(1,instBuf);
@@ -1672,6 +1795,7 @@ function render(dt,al){
   for(let g=0;g<NG;g++){const L=IL[g];if(L.n)ps.drawIndexed(GEO[g].count,L.n,GEO[g].first,GEO[g].base,L.off)}
   if(!location.search.includes("nosky")){ps.setPipeline(pp.sky);ps.draw(3)}
   if(nSH){ps.setPipeline(pp.shd);ps.setVertexBuffer(0,fxBuf);ps.draw(6,nSH,0,MAXFX);ps.setVertexBuffer(0,geoVB)}
+  ps.setPipeline(pp.glass);ps.setVertexBuffer(0,geoVB);for(let g=0;g<NG;g++){const L=TL[g];if(L.n)ps.drawIndexed(GEO[g].count,L.n,GEO[g].first,GEO[g].base,L.off)}
   ps.setPipeline(pp.solid);ps.setViewport(0,0,cw,ch,0,.1); // viewmodel in its own depth slice: never clips into walls
   for(let g=0;g<NG;g++){const L=GL[g];if(L.n)ps.drawIndexed(GEO[g].count,L.n,GEO[g].first,GEO[g].base,L.off)}
   ps.setViewport(0,0,cw,ch,.1,1);
@@ -1720,7 +1844,7 @@ function hud(dt){
   sty('mbarf','width',(run.mult>1||run.streak>0?clamp(run.streakT/4,0,1)*100:0).toFixed(0)+'%');
   if(run.multPop>0)run.multPop-=dt;{const p=run.multPop>0;if(HC.pop!==p){HC.pop=p;el.mult.classList.toggle('pop',p)}}
   txt('hpn',''+Math.ceil(P.hp));sty('hpf','transform','scaleX('+(P.hp/100).toFixed(3)+')');
-  sty('dashf','transform','scaleX('+clamp(1-P.dashCD/1.5,0,1).toFixed(2)+')');sty('dashf','background',P.dashCD<=0?'#7fe9ff':'#3c6d80');
+  sty('dashf','transform','scaleX('+clamp(1-P.dashCD/1.5,0,1).toFixed(2)+')');sty('dashf','background',P.dashCD<=0?'#7fe9ff':'#3c6d80');if(MOB&&el.bd)el.bd.classList.toggle('cd',P.dashCD>0);
   sty('xpf','transform','scaleX('+clamp(run.xp/run.need,0,1).toFixed(3)+')');txt('lvn','LV '+run.lvl);
   const hm=run.hmT>0;sty('hm','opacity',hm?'1':'0');if(hm){const c=run.hmK===2?'k':run.hmK===1?'w':'';if(HC.hmc!==c){HC.hmc=c;el.hm.className=c}}
   if(state!=='play')run.hmT-=dt;
@@ -1744,7 +1868,7 @@ let fpsN=0,fpsT=0;
 // STATE, INPUT, LEVEL-UP
 // =====================================================================
 const STEP=1/120;let lastT=0,acc=0,choices=[],lvGuard=0,deadGuard=0,vcx=0,vcy=0,hov=-1;
-function clearInput(){for(const k in K)K[k]=false;mouseL=false}
+function clearInput(){for(const k in K)K[k]=false;mouseL=false;tchReset()}
 function setState(s){
   state=s;document.body.dataset.s=s;clearInput();acc=0;
   if(s!=='play'){hum(false,0);run.beamOn=false}
@@ -1755,7 +1879,8 @@ function fatal(m){$('fmsg').textContent=m;state='fatal';document.body.dataset.s=
 function reqLock(){try{const p=cv.requestPointerLock({unadjustedMovement:true});
     if(p&&p.catch)p.catch(()=>{try{const q=cv.requestPointerLock();if(q&&q.catch)q.catch(()=>{})}catch(e){}})}catch(e){try{cv.requestPointerLock()}catch(e2){}}}
 function goPlay(){ // call from a user gesture: grabs the pointer; play begins when the lock is confirmed
-  auInit();if(document.pointerLockElement===cv){setState('play');return}
+  auInit();if(MOB){setState('play');goFull();return}
+  if(document.pointerLockElement===cv){setState('play');return}
   setState('pause');reqLock()}
 const newSeed=()=>(Math.random()*4294967296)>>>0;
 function commitBest(){if(run.score>best){best=run.score;run.newBest=true;store.set('prismswarm.best',best)}}
@@ -1802,7 +1927,7 @@ function syncUI(){
   for(const b of $('qb').children)b.classList.toggle('on',+b.dataset.q===cfg.q);
   $('rs').value=Math.round(cfg.scale*100);$('rsv').textContent=Math.round(cfg.scale*100)+'%';
   $('ms').value=Math.round(cfg.sens*10);$('msv').textContent=cfg.sens.toFixed(1);
-  $('mu').checked=cfg.mute;$('db').checked=cfg.dbg;$('dbg').style.display=cfg.dbg?'block':'none';
+  $('mu').checked=cfg.mute;$('aa').checked=cfg.aa;$('db').checked=cfg.dbg;$('dbg').style.display=cfg.dbg?'block':'none';
   $('mbest').textContent=best?'Best score on this machine: '+best:'';store.set('prismswarm.cfg',cfg);auMute()}
 function bindUI(){
   for(const k of ['score','mult','best','time','note','hpn','lvn','hm','vig','odv','chips','dbg'])el[k]=$(k);
@@ -1810,7 +1935,7 @@ function bindUI(){
   const da=$('dmg').children;for(let i=0;i<3;i++)el['da'+i]=da[i];el.th0=$('thL');el.th1=$('thB');el.th2=$('thR');
   $('qb').onclick=e=>{const q=e.target.dataset.q;if(q==null)return;cfg.q=+q;cfg.scale=QUAL[cfg.q].scale;S.ui();syncUI()};
   $('rs').oninput=e=>{cfg.scale=e.target.value/100;syncUI()};$('ms').oninput=e=>{cfg.sens=e.target.value/10;syncUI()};
-  $('mu').onchange=e=>{cfg.mute=e.target.checked;syncUI()};$('db').onchange=e=>{cfg.dbg=e.target.checked;syncUI()};
+  $('mu').onchange=e=>{cfg.mute=e.target.checked;syncUI()};$('aa').onchange=e=>{cfg.aa=e.target.checked;syncUI()};$('db').onchange=e=>{cfg.dbg=e.target.checked;syncUI()};
   $('go').onclick=()=>{newRun(newSeed());goPlay()};
   $('res').onclick=()=>goPlay();
   $('prs').onclick=()=>{newRun(newSeed());goPlay()};$('pss').onclick=()=>{newRun(W.seed);goPlay()};
@@ -1843,7 +1968,7 @@ function bindUI(){
   document.addEventListener('keyup',e=>{K[e.code]=false});
   const lose=()=>{clearInput();if(state==='play'){setState('pause');if(document.pointerLockElement)document.exitPointerLock()}};
   window.addEventListener('blur',lose);document.addEventListener('visibilitychange',()=>{if(document.hidden)lose()});
-  syncUI()}
+  bindMobile();syncUI()}
 
 // =====================================================================
 // MAIN LOOP — fixed 120 Hz simulation, clamped frame time, interpolated camera
@@ -1865,7 +1990,7 @@ function frame(ts){
   let dt=(ts-lastT)/1000;lastT=ts;if(!(dt>0))dt=0;if(dt>.1)dt=.1; // never simulate a huge step after a stall or tab switch
   RT+=dt;
   const p0=performance.now();voxStep();
-  if(state==='play'){acc+=dt;let n=0;
+  if(state==='play'){aimAssist(dt);acc+=dt;let n=0;
     while(acc>=STEP&&state==='play'){if(++n>12){acc=0;break}step(STEP);acc-=STEP}
     music(clamp(E.length/36,0,1),DIR.ph===1)}
   const p1=performance.now();
@@ -1873,7 +1998,7 @@ function frame(ts){
   render(dt,state==='play'?acc/STEP:1);hud(dt);
   const p2=performance.now();prof.sim+=(p1-p0-prof.sim)*.05;prof.draw+=(p2-p1-prof.draw)*.05;prof.n++}
 let capBusy=false;const prof={sim:0,draw:0,n:0};
-window.PS={get state(){return state},prof,get dev(){return dev},capture:()=>new Promise(r=>{capCB=r}),P,E,W,up,run,DIR,cfg,AU,K,ET,UPG,newRun,goPlay,setState,choose,openLevel,step,groundH,spawnEnemy,fire,rayWorld,hurt,killEnemy,DC,say,VQ,
+window.PS={get state(){return state},prof,get dev(){return dev},capture:()=>new Promise(r=>{capCB=r}),P,E,W,up,run,DIR,cfg,AU,K,ET,UPG,newRun,goPlay,setState,choose,openLevel,step,groundH,spawnEnemy,fire,rayWorld,hurt,killEnemy,DC,say,VQ,TCH,setMob,get MOB(){return MOB},
   counts:()=>({E:E.length,shots:nS,orbs:nO,debris:nD,beams:nB,parts:nP,inst:dbgInst,fx:nFX,voices:AU.v,nq:nNQ,sq:nSQ,q:DIR.q.length,gpuErr}),
   fire_(v){mouseL=v},pick(i){lvGuard=0;choose(i)},nav,solid,fdist};
 (async()=>{
