@@ -1,0 +1,4 @@
+validation/
+dist/
+.qa-profile*/
+.DS_Store
