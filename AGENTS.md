@@ -6,7 +6,7 @@ Each game keeps its source entry point as `index.html`. Files such as `aliens.ht
 
 Work with one writer at a time. Before changing a game, read this file, `CLAUDE.md`, and any `AGENTS.md` in that game's directory. Preserve unrelated modified and staged files. Never use `git reset --hard`, `git clean`, or bulk formatting against a game unless the user explicitly requests it.
 
-`appalachian-eagle` and `prism-swarm` retain their own Git histories. Their game-specific commits must happen inside those repositories before the root repository records an updated submodule pointer. `ashgrove`, `sitter`, and `splat` are regular folders tracked by the root repository.
+The root repository tracks every game's source files directly. On this machine, `appalachian-eagle` and `prism-swarm` also retain their old nested Git histories; GitHub clones do not contain nested repositories. Never initialize child repositories in a fresh clone. Use `git -C '<game path>' rev-parse --show-toplevel` to discover whether a local child repository exists. When it does, commit its focused change there first, then commit the same changed source file from the root repository so GitHub records the updated file content. `ashgrove`, `sitter`, and `splat` are root-owned folders.
 
 For Codex work that requires implementation, the primary Sol agent must inspect and plan first, then delegate the implementation to one Terra implementer. Claude does not have this delegation requirement; it should follow the iteration workflow in `CLAUDE.md`.
 

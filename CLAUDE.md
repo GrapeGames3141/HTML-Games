@@ -4,7 +4,7 @@ Start every session by reading this file, the root `AGENTS.md`, and the target g
 
 ## Repository layout
 
-The root repository uses branch `main`. `appalachian-eagle` and `prism-swarm` are independent child repositories on `master` and registered as submodules. `ashgrove`, `sitter`, and `splat` are normal root-owned folders. There is no remote or push target configured. Local commits are useful history, not an off-machine backup.
+The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `sitter`, and `splat` are root-owned folders. Local commits are useful history, not an off-machine backup.
 
 | Source game | Source file | Drive release copy |
 | --- | --- | --- |
@@ -23,12 +23,13 @@ Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish o
    ```powershell
    git -C 'E:\html games' status --short
    git -C 'E:\html games' diff --check
+   git -C 'E:\html games\<game>' rev-parse --show-toplevel
    git -C 'E:\html games\<game>' status --short
    git -C 'E:\html games\<game>' diff
    git -C 'E:\html games\<game>' diff --cached
    ```
 
-   For regular root-owned games, the last three commands can be replaced with `git -C 'E:\html games' status --short -- <game>`, `diff -- <game>`, and `diff --cached -- <game>`.
+   On this machine, a result of `E:/html games/<game>` means a retained local child repository exists. A result of `E:/html games` means the root owns the target, which is always true in a fresh clone. For a root-owned target, inspect the exact paths with `git -C 'E:\html games' status --short -- <game>`, `diff -- <game>`, and `diff --cached -- <game>`.
 
 2. Make only the requested focused edit. Preserve unrelated edits and staged work. The games are self-contained HTML unless their local instructions say otherwise. Do not add a build system or external dependencies without a user request.
 
@@ -45,7 +46,7 @@ Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish o
    node 'E:\html games\appalachian-eagle\tools\update-size.cjs'
    ```
 
-4. Stage only the files made for this iteration. Never sweep in another task's staged work. Before committing, inspect `git diff --cached --name-only` and confirm that no existing staged hunks overlap a file you intend to commit. If they do, coordinate with the owner and leave the staged work intact. Use `--only` with explicit paths; never run a bare `git commit` while unrelated staged paths exist.
+4. Stage only the files made for this iteration. Never sweep in another task's staged work. Before committing, inspect `git diff --cached --name-only` and confirm that no existing staged or unstaged hunks overlap a file you intend to commit. `git add` and `git commit --only` commit the whole named file, so coordinate with the owner and leave the file untouched if another task has changes in it. Use `--only` with explicit paths; never run a bare `git commit` while unrelated staged paths exist.
 
    For a root-owned game:
 
@@ -55,19 +56,25 @@ Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish o
    git -C 'E:\html games' commit --only -m 'Improve <game> <feature>' -- '<game>\index.html'
    ```
 
-   For `appalachian-eagle` or `prism-swarm`, commit the child first, then record only its Git link at the root:
+   On this machine, if `appalachian-eagle` or `prism-swarm` has a retained child repository (confirmed by step 1), commit it first, then capture the actual source file in the root repository:
 
    ```powershell
    git -C 'E:\html games\<game>' add -- 'index.html'
    git -C 'E:\html games\<game>' diff --cached --check
    git -C 'E:\html games\<game>' commit --only -m 'Improve <feature>' -- 'index.html'
-   git -C 'E:\html games' add -- '<game>'
+   git -C 'E:\html games' add -- '<game>\index.html'
    git -C 'E:\html games' diff --cached --check
-   git -C 'E:\html games' commit --only -m 'Update <game> revision' -- '<game>'
+   git -C 'E:\html games' commit --only -m 'Update <game> source' -- '<game>\index.html'
    ```
 
-   Replace `<game>` and paths with the actual target. Check `git diff --cached --name-only` before every commit so only intended paths are included.
+   Replace `<game>` and paths with the actual target. Never use `git submodule` commands or stage a Git link. In a fresh clone, skip the child-commit block and use the root-owned command block for every game. Check `git diff --cached --name-only` before every commit so only intended paths are included.
 
-5. Report the changed files, validation performed, child and root commit hashes where applicable, and remaining modified or staged files. Do not push or sync to Drive unless asked.
+5. Report the changed files, validation performed, local child and root commit hashes where applicable, and remaining modified or staged files. Do not push or sync to Drive unless asked. When the user explicitly requests a push, push only the validated root branch:
+
+   ```powershell
+   git -C 'E:\html games' push origin main
+   ```
+
+   Never push from a retained child repository and never force-push. If the push is rejected, fetch, inspect, and reconcile the divergence without discarding work.
 
 Do not use `git reset --hard` or `git clean`; do not delete source snapshots, media, or references without explicit user direction.
