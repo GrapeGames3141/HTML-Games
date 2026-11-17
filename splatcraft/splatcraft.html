@@ -40,6 +40,25 @@
   #prog { height:6px; background:rgba(255,255,255,.08); border-radius:3px; margin-top:16px; overflow:hidden; display:none; }
   #prog div { height:100%; width:0; background:var(--accent); }
   #progText { font-size:12px; color:var(--dim); margin-top:6px; min-height:17px; }
+  /* touch devices only (body.touch is set from JS when the primary pointer is coarse) */
+  body.touch canvas { touch-action:none; }
+  body.touch #hint { display:none; }
+  body.touch #inv { min-width:0; padding:6px 10px; font-size:12px; }
+  body.touch #bar { bottom:8px; width:min(380px,96vw); pointer-events:auto; touch-action:none; }
+  body.touch .slot { flex:1; width:auto; min-width:0; padding:6px; }
+  body.touch #toast { bottom:auto; top:118px; }
+  body.touch #card { max-height:94vh; overflow-y:auto; padding:18px 20px; }
+  #touch button { pointer-events:auto; touch-action:none; -webkit-tap-highlight-color:transparent; }
+  #tTop { position:absolute; right:10px; top:10px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:58vw; }
+  #tTop button { padding:8px 10px; min-height:38px; font-size:12px; background:var(--panel); }
+  #tTop button.on { border-color:var(--accent); color:var(--accent); }
+  #tBtns { position:absolute; right:12px; bottom:84px; display:grid; grid-template-columns:auto auto; gap:10px; justify-items:end; align-items:end; }
+  #tBtns button { width:64px; height:64px; border-radius:50%; padding:0; font-size:12px; background:rgba(24,22,18,.55); }
+  #tBtns button:active, #tTop button:active { background:rgba(217,179,106,.4); }
+  #tBtns #tUse { width:84px; height:84px; font-size:14px; background:rgba(138,106,50,.6); border-color:#c9a25a; }
+  #tStick { position:absolute; width:110px; height:110px; margin:-55px 0 0 -55px; border-radius:50%; border:2px solid rgba(255,240,210,.3); display:none; }
+  #tStick i { position:absolute; left:50%; top:50%; width:46px; height:46px; margin:-23px; border-radius:50%; background:rgba(255,240,210,.35); }
+  @media (orientation:landscape) { #tBtns { bottom:12px; } }
 </style>
 </head>
 <body>
@@ -1096,6 +1115,7 @@ function frame(now) {
    HUD / INPUT / MENU
    ========================================================================= */
 const $ = id => document.getElementById(id);
+const TOUCH = matchMedia('(pointer:coarse)').matches;   // phone or tablet: on-screen controls instead of pointer lock
 let toastT = 0;
 function toast(msg) { const el = $('toast'); el.textContent = msg; el.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => el.style.opacity = 0, 1800); }
 function updateHud() {
@@ -1106,9 +1126,10 @@ function updateHud() {
   TOOLS.forEach((t, k) => {
     let sub = k === 0 ? 'narrow, deep' : k === 1 ? 'broad, shallow' : k === 2 ? `${SHAPES[game.shape].name} · ${MAT_NAMES[game.mat]}` : `blob · ${MAT_NAMES[game.mat]}`;
     if (k === 2 && game.tool === 2 && game.ghost) sub = `${SHAPES[game.shape].name} · ${game.ghostCost.toFixed(2)} m³`;
-    b += `<div class="slot${k === game.tool ? ' on' : ''}"><b>${k + 1}</b>${t}<small>${sub}</small></div>`;
+    b += `<div class="slot${k === game.tool ? ' on' : ''}" data-k="${k}"><b>${k + 1}</b>${t}<small>${sub}</small></div>`;
   });
   $('bar').innerHTML = b;
+  if (TOUCH) touchHud();
   if (game.stats) {
     $('stats').innerHTML = `<h4>Renderer</h4>FPS        ${fps.toFixed(0)}  (${frameMs.toFixed(1)} ms cpu)\nsplats     ${(drawn.splats / 1000).toFixed(0)}k drawn / ${(totalSplats / 1000).toFixed(0)}k total\nchunks     ${drawn.chunks} drawn / ${chunks.filter(c => c.n0).length} built\nMSAA       ${MSAA}x ${MSAA ? 'alpha-to-coverage' : 'stochastic alpha'}\nview       ${VIEW_NAMES[game.view]}\ndetail     ${detailName}\nlast edit  ${lastEdit.ms.toFixed(1)} ms, ${lastEdit.chunks} chunks now\nrelight    ${pending.size} chunks queued\nedited     ${editedChunks.size} chunks (saved)\npos        ${player.x.toFixed(1)} ${player.y.toFixed(1)} ${player.z.toFixed(1)}${player.fly ? ' (fly)' : ''}`;
   }
@@ -1134,7 +1155,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => { keys.clear(); game.hold = [false, false]; });
 canvas.addEventListener('mousedown', e => {
-  if (!game.started) return;
+  if (!game.started || TOUCH) return;
   if (document.pointerLockElement !== canvas) { canvas.requestPointerLock(); return; }
   if (e.button === 0) { game.hold[0] = true; game.cool = 0; }
   if (e.button === 2) { game.hold[1] = true; game.cool = 0; }
@@ -1158,6 +1179,89 @@ document.addEventListener('pointerlockchange', () => {
 });
 window.addEventListener('beforeunload', () => saveGame(true));
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveGame(true); });
+
+/* ---------- touch controls (phones and tablets; desktop never runs this) ---------- */
+// Phones have no pointer lock, so play/pause is switched directly instead of by pointerlockchange.
+function setPlaying(v) {
+  game.playing = v; $('menu').style.display = v ? 'none' : 'flex';
+  if (!v) { keys.clear(); game.hold = [false, false]; if (game.started) { $('bPlay').textContent = 'Resume'; saveGame(true); } }
+}
+const enterPlay = () => { if (TOUCH) setPlaying(true); else canvas.requestPointerLock(); };
+function touchHud() {
+  const build = game.tool >= 2;
+  $('tUse').textContent = ['Dig', 'Dig', 'Place', 'Add'][game.tool];
+  $('tAlt').textContent = game.tool === 2 ? 'Carve' : 'Remove'; $('tAlt').style.visibility = build ? '' : 'hidden';
+  $('tJump').textContent = player.fly ? 'Up' : 'Jump'; $('tDown').style.visibility = player.fly ? '' : 'hidden';
+  $('tFly').classList.toggle('on', !!player.fly);
+  $('tMat').style.display = build ? '' : 'none'; $('tMat').textContent = MAT_NAMES[game.mat];
+  $('tShape').style.display = $('tRot').style.display = game.tool === 2 ? '' : 'none';
+}
+if (TOUCH) {
+  document.body.classList.add('touch');
+  const ui = document.createElement('div'); ui.id = 'touch';
+  ui.innerHTML = '<div id="tStick"><i></i></div>' +
+    '<div id="tTop"><button data-a="menu">Menu</button><button data-a="fly" id="tFly">Fly</button><button data-a="mat" id="tMat">Material</button><button data-a="shape" id="tShape">Shape</button><button data-a="rot" id="tRot">Rotate</button></div>' +
+    '<div id="tBtns"><button data-h="KeyC" id="tDown">Down</button><button data-h="Space" id="tJump">Jump</button><button data-h="1" id="tAlt">Carve</button><button data-h="0" id="tUse">Dig</button></div>';
+  $('hud').appendChild(ui);
+  document.querySelector('#card table').innerHTML =
+    '<tr><td>Left thumb</td><td>Drag to move · push far to sprint</td></tr>' +
+    '<tr><td>Right thumb</td><td>Drag to look around</td></tr>' +
+    '<tr><td>Tool bar</td><td>Tap Pickaxe, Shovel, Build or Sculpt</td></tr>' +
+    '<tr><td>Dig / Place</td><td>Hold to use the tool · Carve / Remove takes material back out</td></tr>' +
+    '<tr><td>Top buttons</td><td>Menu · fly · material · shape · rotate (autosaves)</td></tr>';
+  const setKey = (c, on) => { if (on) keys.add(c); else keys.delete(c); };
+  // hold buttons
+  ui.querySelectorAll('[data-h]').forEach(el => {
+    const h = el.dataset.h, set = on => { if (h === '0' || h === '1') { game.hold[+h] = on; if (on) game.cool = 0; } else setKey(h, on); };
+    el.addEventListener('pointerdown', e => { e.preventDefault(); if (game.playing) set(true); });
+    for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, () => set(false));
+  });
+  // tap buttons
+  ui.querySelectorAll('[data-a]').forEach(el => el.addEventListener('pointerdown', e => {
+    e.preventDefault(); if (!game.playing) return;
+    const a = el.dataset.a;
+    if (a === 'menu') setPlaying(false);
+    else if (a === 'fly') { player.fly = !player.fly; player.vy = 0; toast(player.fly ? 'Fly on' : 'Fly off'); }
+    else if (a === 'mat') game.mat = game.mat === 3 ? 1 : game.mat + 1;
+    else if (a === 'shape') game.shape = (game.shape + 1) % SHAPES.length;
+    else if (a === 'rot') game.rot = (game.rot + 1) % 2;
+    updateHud();
+  }));
+  $('bar').addEventListener('pointerdown', e => { const s = e.target.closest('.slot'); if (s && game.playing) { game.tool = +s.dataset.k; updateHud(); } });
+  // left half of the screen is a floating move stick, right half drags the view
+  const stick = $('tStick'), knob = stick.firstElementChild, R = 50;
+  let stickId = null, lookId = null, sx = 0, sy = 0, lx = 0, ly = 0;
+  const stickSet = (dx, dy) => {
+    const m = Math.hypot(dx, dy), k = m > R ? R / m : 1;
+    knob.style.transform = `translate(${dx * k}px,${dy * k}px)`;
+    const nx = dx * k / R, ny = dy * k / R;
+    setKey('KeyW', ny < -0.3); setKey('KeyS', ny > 0.3); setKey('KeyD', nx > 0.3); setKey('KeyA', nx < -0.3); setKey('ShiftLeft', m > R * 1.6);
+  };
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault(); if (!game.playing) return;
+    for (const t of e.changedTouches) {
+      if (t.clientX < innerWidth / 2 && stickId === null) { stickId = t.identifier; sx = t.clientX; sy = t.clientY; stick.style.left = sx + 'px'; stick.style.top = sy + 'px'; stick.style.display = 'block'; stickSet(0, 0); }
+      else if (lookId === null) { lookId = t.identifier; lx = t.clientX; ly = t.clientY; }
+    }
+  }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === stickId) stickSet(t.clientX - sx, t.clientY - sy);
+      else if (t.identifier === lookId) {
+        player.yaw += (t.clientX - lx) * 0.006; player.pitch = clamp(player.pitch - (t.clientY - ly) * 0.006, -1.55, 1.55);
+        lx = t.clientX; ly = t.clientY;
+      }
+    }
+  }, { passive: false });
+  const end = e => {
+    for (const t of e.changedTouches) {
+      if (t.identifier === stickId) { stickId = null; stick.style.display = 'none'; stickSet(0, 0); }
+      else if (t.identifier === lookId) lookId = null;
+    }
+  };
+  canvas.addEventListener('touchend', end); canvas.addEventListener('touchcancel', end);
+}
 
 function setDetail(name) { if (!DETAILS[name]) name = 'medium'; detailName = name; detail = DETAILS[name]; $('detail').value = name; }
 function progress(p, label) { $('prog').style.display = 'block'; $('prog').firstElementChild.style.width = (p * 100).toFixed(1) + '%'; $('progText').textContent = label + '…'; }
@@ -1189,9 +1293,9 @@ async function startWorld(seed, save) {
   updateHud();
   window.__splatReady = true;
 }
-$('bPlay').onclick = async () => { if (!game.started) await startWorld(parseInt($('seed').value) || 1337); canvas.requestPointerLock(); };
-$('bNew').onclick = async () => { const s = (Math.random() * 1e6) | 0; $('seed').value = s; await startWorld(s); canvas.requestPointerLock(); };
-$('bContinue').onclick = async () => { if (await loadGame()) canvas.requestPointerLock(); };
+$('bPlay').onclick = async () => { if (!game.started) await startWorld(parseInt($('seed').value) || 1337); enterPlay(); };
+$('bNew').onclick = async () => { const s = (Math.random() * 1e6) | 0; $('seed').value = s; await startWorld(s); enterPlay(); };
+$('bContinue').onclick = async () => { if (await loadGame()) enterPlay(); };
 $('detail').onchange = async () => { setDetail($('detail').value); if (game.started && !busy) { busy = true; await buildAllChunks(progress, 0); $('prog').style.display = 'none'; $('progText').textContent = `Rebuilt at ${detailName} detail · ${(totalSplats / 1000).toFixed(0)}k splats`; busy = false; } };
 if (readSave()) $('bContinue').style.display = '';
 updateHud();
