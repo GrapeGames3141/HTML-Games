@@ -182,7 +182,32 @@ try {
   await connect();
   for (let m of ['Page.enable', 'Runtime.enable', 'Log.enable']) await call(m);
   await size(960, 600);
-  if (process.argv.includes('--atlas')) {
+  if (process.argv.includes('--high-realism')) {
+    await open('?test&seed=412&q=high');
+    await js('DEMO.all(true)');
+    const names = {2: 'tide-pools', 4: 'forest', 6: 'waterfall'};
+    for (const i of [2, 4, 6]) {
+      const state = await station(i);
+      assert.equal(state.quality, 'high');
+      assert(state.floatOK);
+      if (i === 6) await js('DEMO.step(.65)');
+      await screenshot('high-' + names[i]);
+      assert.equal(await js('DEMO.inspect().glError'), 0);
+      console.log('Captured High', names[i]);
+    }
+    const high = await js('DEMO.state()');
+    for (const q of ['low', 'medium', 'high', 'high']) {
+      await js('DEMO.quality("' + q + '")');
+      const state = await station(4);
+      assert.equal(state.quality, q);
+      if (q === 'high') assert.equal(state.staticTriangles, high.staticTriangles);
+      else assert(state.staticTriangles < high.staticTriangles);
+      assert.equal(await js('DEMO.inspect().glError'), 0);
+    }
+    await js('DEMO.goto(6);DEMO.toggle(12,false);DEMO.step(.25);DEMO.toggle(12,true);DEMO.step(.25)');
+    assert.equal(await js('DEMO.inspect().glError'), 0);
+    console.log('Quality switching and waterfall effect toggle passed');
+  } else if (process.argv.includes('--atlas')) {
     await call('Page.navigate', { url: new URL('evidence/atlas.html', url).href });
     for (let i = 0; i < 40 && !(await js('!!document.getElementById("effect")?.options.length')); i++)
       await pause(100);

@@ -51,6 +51,16 @@ The [matched before-and-after sheet](evidence/polish-review.jpg) compares crops 
 
 The extra crown, fern and cave geometry increases the static scene budget. Hardware frame time remains unmeasured.
 
+## High graphics realism pass
+
+The [camera-matched High comparison](evidence/high-realism-comparison.jpg) shows three stations at seed 412 and 960 × 600. Each pair uses the same view and simulation step. The individual High captures show the [tide pools](evidence/high-tide-pools.png), [waterfall](evidence/high-waterfall.png) and [forest](evidence/high-forest.png).
+
+- Near the shoreline, smoothly shaded stones carry mineral grain and an uneven wet band tied to the local water elevation. Short screen-space rays sample nearby visible rocks and banks. The reflection fades back to the sky where the ray leaves the view.
+- At the falls, three openings in the rock lip feed streams of different widths and speeds. The translucent sheets and particles follow the same ballistic paths. Foam, mist and expanding ripples use their calculated landing points.
+- In the forest, small forks carry separate leaf clusters, with sky visible between them. The ferns have arched spines and tilted pairs of leaflets. On the forest floor, the shadow filter widens with the separation between the blocker and the ground.
+
+Select **High** in the Effects panel or open `Astra-demo.html?q=high` to use these settings. The first selection of High builds the additional geometry and retains it for subsequent quality changes. Run `node verify.mjs --high-realism` to capture the three updated stations and exercise repeated quality changes and the waterfall effect switch.
+
 ## Differences and limits
 
 - The cascade solver uses a 2D floor plan with height-aware direct light. Its probes cannot represent several vertically overlapping cave chambers.
