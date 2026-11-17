@@ -1,0 +1,225 @@
+{
+  "stations": [
+    "The strand",
+    "Tide pools",
+    "The stream",
+    "Dappled forest",
+    "Glasshouse clearing",
+    "Waterfall pool",
+    "The glow cave",
+    "Cliff overlook"
+  ],
+  "water": {
+    "ripplePeak": 0.4989522099494934,
+    "oceanPeak": 1.608535647392273,
+    "glError": 0,
+    "size": [
+      634,
+      396
+    ],
+    "triangles": 281716,
+    "splats": 189627,
+    "frameMs": 3.3736220202778515
+  },
+  "photoBytes": 357764,
+  "routeMeters": 560.2150146823433,
+  "walk": [
+    {
+      "x": -57,
+      "z": 57,
+      "error": 0,
+      "station": 1,
+      "cave": false
+    },
+    {
+      "x": -27,
+      "z": 61,
+      "error": 0.025491900842983677,
+      "station": 2,
+      "cave": false
+    },
+    {
+      "x": 4,
+      "z": 56,
+      "error": 0.06504721334025622,
+      "station": 2,
+      "cave": false
+    },
+    {
+      "x": 38,
+      "z": 32,
+      "error": 0.011743738819514103,
+      "station": 3,
+      "cave": false
+    },
+    {
+      "x": 53,
+      "z": 9,
+      "error": 0.1419714836567537,
+      "station": 3,
+      "cave": false
+    },
+    {
+      "x": 65,
+      "z": -24,
+      "error": 0.08437033804977136,
+      "station": 4,
+      "cave": false
+    },
+    {
+      "x": 74,
+      "z": -49,
+      "error": 0,
+      "station": 4,
+      "cave": false
+    },
+    {
+      "x": 52,
+      "z": -68,
+      "error": 0.17288370749755977,
+      "station": 5,
+      "cave": false
+    },
+    {
+      "x": 28,
+      "z": -71,
+      "error": 0.13881017507084165,
+      "station": 5,
+      "cave": false
+    },
+    {
+      "x": 8,
+      "z": -57,
+      "error": 0.09988792198570229,
+      "station": 5,
+      "cave": false
+    },
+    {
+      "x": -15,
+      "z": -53,
+      "error": 0.13986990625758913,
+      "station": 6,
+      "cave": false
+    },
+    {
+      "x": -34,
+      "z": -85,
+      "error": 0.08132916206123082,
+      "station": 6,
+      "cave": false
+    },
+    {
+      "x": -43,
+      "z": -74,
+      "error": 0.07331448870920336,
+      "station": 6,
+      "cave": false
+    },
+    {
+      "x": -48.28975234337383,
+      "z": -63.0279435565676,
+      "error": 0.15581263845456686,
+      "station": 7,
+      "cave": true
+    },
+    {
+      "x": -55.55836908182192,
+      "z": -53.47358100811378,
+      "error": 0.06169775822591541,
+      "station": 7,
+      "cave": true
+    },
+    {
+      "x": -65.97474803729187,
+      "z": -43.71404339575543,
+      "error": 0,
+      "station": 7,
+      "cave": true
+    },
+    {
+      "x": -75.10551414978909,
+      "z": -33.033469716789746,
+      "error": 0.16353172835410446,
+      "station": 7,
+      "cave": true
+    },
+    {
+      "x": -82.27333225786037,
+      "z": -18.486316636165903,
+      "error": 0.023708202664109616,
+      "station": 7,
+      "cave": true
+    },
+    {
+      "x": -91,
+      "z": -7,
+      "error": 0.11261667909203589,
+      "station": 7,
+      "cave": true
+    },
+    {
+      "x": -91,
+      "z": -3,
+      "error": 0.05826016902835419,
+      "station": 8,
+      "cave": false
+    },
+    {
+      "x": -110,
+      "z": 14,
+      "error": 0,
+      "station": 8,
+      "cave": false
+    },
+    {
+      "x": -119,
+      "z": 42,
+      "error": 0.06688233970528032,
+      "station": 1,
+      "cave": false
+    },
+    {
+      "x": -106,
+      "z": 58,
+      "error": 0.04411626233757223,
+      "station": 1,
+      "cave": false
+    },
+    {
+      "x": -78,
+      "z": 67,
+      "error": 0.10378916417125879,
+      "station": 1,
+      "cave": false
+    }
+  ],
+  "cost": [
+    0,
+    0,
+    21.350000143051147,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    23.34999990463257,
+    0
+  ],
+  "touchMovement": true,
+  "liveAnimation": true,
+  "inputChecks": [
+    "keyboard walking",
+    "mouse drag look",
+    "touch walking and looking",
+    "simulated standard gamepad",
+    "PNG download"
+  ],
+  "errors": [],
+  "warnings": [
+    "[.WebGL-0x6dac004c4400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x6dac004c4400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+    "The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. "
+  ]
+}

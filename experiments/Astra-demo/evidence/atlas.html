@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Littoral — Comparison plates</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          16px/1.5 'Trebuchet MS',
+          Arial,
+          sans-serif;
+        color: #e8ecda;
+        background: #112b2d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        max-width: 1140px;
+        margin: 0 auto;
+        padding: clamp(15px, 4vw, 54px);
+      }
+      a {
+        color: #f0cd91;
+      }
+      header {
+        border-bottom: 1px solid #6e8479;
+        padding-bottom: 18px;
+      }
+      small {
+        font:
+          11px Consolas,
+          monospace;
+        letter-spacing: 2px;
+        color: #e2c187;
+        text-transform: uppercase;
+      }
+      h1 {
+        font:
+          normal clamp(38px, 6vw, 72px) / 1 Georgia,
+          serif;
+        letter-spacing: -2px;
+        margin: 12px 0;
+      }
+      h2 {
+        font:
+          normal 26px Georgia,
+          serif;
+      }
+      p {
+        color: #c4d1c6;
+        margin: 8px 0;
+      }
+      .controls,
+      .links {
+        display: flex;
+        gap: 18px;
+        align-items: end;
+        flex-wrap: wrap;
+        margin: 22px 0 14px;
+      }
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 13px;
+        color: #c4d1c6;
+      }
+      select {
+        padding: 8px 12px;
+        font: inherit;
+        color: #fff1cf;
+        background: #244443;
+        border: 1px solid #83958a;
+        border-radius: 3px;
+      }
+      .plate {
+        position: relative;
+        max-width: 960px;
+        aspect-ratio: 8/5;
+        border: 1px solid #71877c;
+        background: #193738;
+        --wipe: 50%;
+      }
+      .plate img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .plate img + img {
+        clip-path: inset(0 0 0 var(--wipe));
+      }
+      .line {
+        position: absolute;
+        inset-block: 0;
+        left: var(--wipe);
+        border-left: 1px solid #ffdc98;
+      }
+      .slider {
+        margin: 12px 0;
+        max-width: 960px;
+      }
+      .slider input {
+        width: 100%;
+        accent-color: #e2c187;
+      }
+      footer {
+        margin-top: 32px;
+        border-top: 1px solid #6e8479;
+      }
+      .links {
+        margin: 8px 0 18px;
+      }
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid #f0cd91;
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <small>Astra field atlas</small>
+      <h1>Comparison plates</h1>
+      <p>
+        Drag the divider across a matched camera view. The left shows all effects enabled. The right shows the
+        selected stand-in.
+      </p>
+    </header>
+    <div class="controls">
+      <label>Field station<select id="station"></select></label
+      ><label>Right-hand image<select id="effect"></select></label>
+    </div>
+    <div class="plate" id="plate">
+      <img id="on" alt="Station with all effects enabled" /><img
+        id="off"
+        alt="Same viewpoint with the selected effect disabled"
+      />
+      <div class="line"></div>
+    </div>
+    <label class="slider"
+      >Comparison divider<input id="wipe" type="range" min="0" max="100" value="50"
+    /></label>
+    <div class="links"><a id="leftLink">Open enabled PNG</a><a id="rightLink">Open stand-in PNG</a></div>
+    <footer>
+      <h2>Other views</h2>
+      <div class="links">
+        <a href="start-card.png">Start card</a><a href="tide-pool-split.png">Live split view</a
+        ><a href="sunset-overlook.png">Sunset</a><a href="touch-portrait.png">Touch portrait</a
+        ><a href="touch-landscape.png">Touch landscape</a>
+      </div>
+      <a href="../Astra-demo.html">Enter the island →</a>
+    </footer>
+    <script>
+      const stations = [
+        ['The strand', 'beach', [6, 9, 3]],
+        ['Tide pools', 'tide-pools', [5, 7, 9]],
+        ['The stream', 'stream', [5, 7, 6]],
+        ['Dappled forest', 'forest', [3, 2, 4, 10]],
+        ['Glasshouse clearing', 'glasshouse', [8, 9, 10, 3, 11]],
+        ['Waterfall pool', 'waterfall', [12, 5, 7, 2, 8]],
+        ['The glow cave', 'cave', [1, 4, 9, 5, 7, 2]],
+        ['Cliff overlook', 'overlook', [11, 6, 3, 2]]
+      ];
+      const names = [
+        'All effects',
+        'Radiance cascades',
+        'Volumetric shafts',
+        'Splat shadow map',
+        'Distance-field shadows',
+        'Height-field ripples',
+        'FFT ocean',
+        'Surface caustics',
+        'Weighted transparency',
+        'Spectral refraction',
+        'Thin-film interference',
+        'Kuwahara paint',
+        'Particle fluid'
+      ];
+      const el = (id) => document.getElementById(id),
+        s = el('station'),
+        e = el('effect');
+      for (const [i, st] of stations.entries()) s.add(new Option(i + 1 + ' · ' + st[0], i));
+      function display() {
+        const i = Number(s.value),
+          id = Number(e.value),
+          stem = i + 1 + '-' + stations[i][1];
+        el('on').src = el('leftLink').href = stem + '-on.png';
+        el('off').src = el('rightLink').href = stem + (id ? '-t' + id : '') + '-off.png';
+        history.replaceState(null, '', '#' + (i + 1) + '/' + id);
+      }
+      function choose(id = 0) {
+        e.replaceChildren();
+        for (const t of [0, ...stations[Number(s.value)][2]])
+          e.add(new Option((t ? 'T' + t + ' · ' : '') + names[t] + ' off', t));
+        e.value = [...e.options].some((o) => +o.value === id) ? id : 0;
+        display();
+      }
+      const [initial, technique] = location.hash.slice(1).split('/').map(Number);
+      s.value = initial >= 1 && initial <= 8 ? initial - 1 : 0;
+      s.onchange = () => choose();
+      e.onchange = display;
+      el('wipe').oninput = (event) => el('plate').style.setProperty('--wipe', event.target.value + '%');
+      choose(technique);
+    </script>
+  </body>
+</html>
