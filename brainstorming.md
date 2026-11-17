@@ -33,7 +33,17 @@ Damage is local and sectional, with a chunky voxel-like sense of broken wood. Hu
 
 Possible later additions—special ammunition, weather, campaign structure, salvage, boarding, or elemental cannonballs—remain optional ideas rather than current requirements.
 
-## 3. Desert attack-helicopter sandbox
+## 3. Merlin's Tower Defense
+
+Merlin stands on a tower rampart overlooking the approaches to a besieged castle. He directly aims and casts spells to hold the walls, gate, and defenders against infantry carrying ladders, battering rams, wooden siege towers, ranged engines, and incendiary weapons. The tone is grounded medieval fantasy: weighty destruction and dramatic reversals rather than slapstick. Elemental manipulation changes the battlefield itself, not merely enemy health bars.
+
+Water is both a defensive response and terrain control. It can saturate suitable soil into mud, slowing infantry and bogging or stopping heavy wheeled siege equipment. It can also extinguish enemy burning ammunition and fire weapons, or put out flames threatening the gate and defenses. Puddles, deepening ruts, and wheels visibly struggling make the effect readable; soil retains saturation so sustained water use creates a decision that lasts beyond a single cast.
+
+Fire ignites exposed wooden ladders, ropes, wheels, siege towers, and other combustible equipment. Burning supports fail and can collapse a section of an assault, while wet timber is harder to ignite. This makes the order of spells matter: turn an approach to mud, stall a tower, then burn its dry upper supports; or divert water to save a burning gate instead of preparing the next attack.
+
+Lightning delivers a dramatic direct strike to interrupt a crew or damage selected equipment. As a fantasy game rule, it could chain through nearby soaked attackers and machinery, rewarding a prepared wet area without claiming realistic physics. Mud, wetness, fire, and damaged supports should remain visible long enough to shape the next choice. Spell costs or recovery can create pressure to prioritize threats, but exact controls and resource rules remain open. Ice can be considered later; water, fire, and lightning are the current elemental priorities.
+
+## 4. Desert attack-helicopter sandbox
 
 An Apache-style helicopter flies low through dunes and canyons against tank columns, radar vehicles, fortified outposts, bridges, fuel stores, and hangars. The flight model would be forgiving but weighty: banking, dust, recoil, and low passes should sell the machine without requiring a full simulator.
 
@@ -42,14 +52,6 @@ The player can switch between rockets and a .50-cal machine gun as alternate fir
 Targets should have parts that matter. A player can immobilize a vehicle, disable its weapon, collapse a route, or trigger a fuel explosion, rather than only reducing an abstract health bar. Missions might ask the player to stop a convoy before it reaches a tunnel, defend a rescue crew, first disable defenses and then escort a transport, or get close enough to extract someone.
 
 The playful hook is a winch. It could lift cargo, recover wreckage, rescue vehicles, or let a badly swung load hit something unintended. It gives the game a physical sandbox role alongside combat.
-
-## 4. Elemental magic versus goblin machines
-
-The player fights absurd goblin contraptions—walking watchtowers, barrel tanks, wind-powered carts, siege cookers, and flying bathtubs—using fire, ice, and lightning. Water is an optional fourth element. The tone is deliberate comedy: enemies may be delivering soup, building a siege tower, or stealing a giant egg while their machinery fails around them.
-
-Fire burns ropes, heats fragile parts, and ignites fuel. Ice freezes joints, makes surfaces slippery, and makes components brittle. Lightning powers or disrupts mechanisms: a turret spins without control, or a machine starts walking backward. Water can soak, fill, or push objects. These are playful rules rather than a promise of literal simulation.
-
-The best moments are combinations: freeze a wheel to force a pivot, burn a supporting rope, restart a machine with lightning while its operators repair it, or make a top-heavy cart slosh itself over. Each contraption should have a goal and a legible chain of failure, so spell effects create stories instead of only particle effects.
 
 ## 5. Other directions to keep
 
