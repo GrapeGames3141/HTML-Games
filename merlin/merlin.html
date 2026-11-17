@@ -66,6 +66,33 @@ button:hover{filter:brightness(1.1)}
 #endStats{font-size:16px;color:var(--ink);margin:10px 0}
 #perf{position:fixed;right:14px;bottom:10px;color:#cfe;font:12px ui-monospace,Consolas,monospace;z-index:4;text-shadow:0 1px 2px #000;pointer-events:none}
 #err{position:fixed;left:10px;bottom:10px;color:#ff8;font:12px monospace;white-space:pre-wrap;z-index:9}
+/* touch devices only: body.touch is set from JS when the primary pointer is coarse */
+body.touch .sp{pointer-events:auto;touch-action:none}
+body.touch .ov{overflow-y:auto}
+body.touch #quote{white-space:normal;width:max-content;max-width:90vw;text-align:center}
+#tCast,#tPause{position:absolute;margin:0;padding:0;touch-action:none;-webkit-tap-highlight-color:transparent;box-shadow:none}
+#tCast{right:18px;bottom:20px;width:96px;height:96px;border-radius:50%;background:rgba(232,194,106,.3);border:2px solid var(--gold);color:var(--ink);font:700 17px Georgia,serif}
+#tCast:active,#tCast.on{background:rgba(232,194,106,.65)}
+#tPause{right:14px;top:58px;width:40px;height:34px;border-radius:8px;background:var(--panel);border:1px solid rgba(255,240,210,.25);color:var(--ink);font:700 13px ui-monospace,Consolas,monospace}
+@media (max-width:600px){
+  body.touch #bars{width:180px}
+  body.touch #wave{top:62px;left:14px;transform:none}
+  body.touch #banner h1{font-size:30px}body.touch #banner p{font-size:15px;padding:0 12px}
+  body.touch #combo{font-size:24px}
+  body.touch #quote{bottom:236px}
+  body.touch #tCast{bottom:128px}
+  body.touch .card{width:100%;max-width:330px;padding:8px 12px}
+  body.touch .ov{justify-content:flex-start}
+}
+@media (max-height:500px){
+  body.touch .ov{justify-content:flex-start;padding:10px}
+  body.touch .ov h1{font-size:32px}body.touch .ov h2{margin:4px 0 8px;font-size:15px}
+  body.touch .ov .cols{margin-bottom:8px;gap:8px}body.touch .card{padding:7px 10px;font-size:12px;width:210px}
+  body.touch .ov button{margin-top:8px;padding:10px 30px}
+  body.touch #banner{top:14%}body.touch #banner h1{font-size:30px}body.touch #banner p{font-size:15px}
+  body.touch #spells{transform:translateX(-50%) scale(.82);transform-origin:50% 100%;bottom:8px}
+  body.touch #quote{bottom:98px;font-size:14px}
+}
 </style>
 </head>
 <body>
@@ -115,6 +142,7 @@ button:hover{filter:brightness(1.1)}
 'use strict';
 /* === Core: utilities, RNG, matrices ======================================= */
 const QS = new URLSearchParams(location.search), TEST = QS.has('test');
+const TOUCH = matchMedia('(pointer:coarse)').matches;   // phone or tablet: drag to look, CAST button, tappable spells
 let _seed = (+QS.get('seed') || ((Math.random() * 1e9) | 0)) >>> 0;
 function rnd() { _seed = (_seed + 0x6D2B79F5) >>> 0; let t = _seed; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }
 const TAU = Math.PI * 2;
@@ -1371,7 +1399,7 @@ function collectLights() {
 /* === Camera, aiming, input ================================================ */
 const FOV = 55 * Math.PI / 180;
 const cam = { yaw: .6, pitch: -.2, pos: [0, 20, 0], f: [0, 0, -1], r: [1, 0, 0], u: [0, 1, 0] };
-let VP = null, locked = false, noLock = TEST, keys = {}, mouseN = [0, 0];
+let VP = null, locked = false, noLock = TEST || TOUCH, keys = {}, mouseN = [0, 0];
 function updCamera() {
   cam.yaw = clamp(cam.yaw, -1.0, 2.3); cam.pitch = clamp(cam.pitch, -1.05, .5);
   const cp = Math.cos(cam.pitch), f = [Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), -Math.cos(cam.yaw) * cp], r = [Math.cos(cam.yaw), 0, Math.sin(cam.yaw)], u = vCross(r, f);
@@ -1418,15 +1446,38 @@ function setSpell(i) { G.spell = (i + 3) % 3; document.querySelectorAll('.sp').f
 function setPaused(p) { if (G.st !== 'play') p = false; G.paused = p; $('pause').classList.toggle('hide', !p); if (p) G.fireBtn = false; }
 function grab() { if (!TEST && !noLock && cv.requestPointerLock) { try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => { noLock = true; }); } catch (e) { noLock = true; } } }
 cv.addEventListener('mousedown', e => {
-  if (G.st !== 'play' || G.paused) return; audioInit();
+  if (G.st !== 'play' || G.paused || TOUCH) return; audioInit();
   if (!locked && !noLock) { grab(); return; }
   if (e.button === 0) G.fireBtn = true; else if (e.button === 2) setSpell(G.spell + 1);
 });
 addEventListener('mouseup', e => { if (e.button === 0) G.fireBtn = false; });
 addEventListener('mousemove', e => {
   if (locked) { cam.yaw += e.movementX * .0021; cam.pitch -= e.movementY * .0021; }
-  else { mouseN = [e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2]; }
+  else if (!TOUCH) { mouseN = [e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2]; }
 });
+/* Touch controls (phones and tablets; desktop never runs this): the crosshair stays centred,
+   dragging anywhere turns Merlin's view, CAST is held to cast, spell cards are tapped. */
+if (TOUCH) {
+  document.body.classList.add('touch');
+  $('hud').insertAdjacentHTML('beforeend', '<button id="tCast">Cast</button><button id="tPause">II</button>');
+  $('title').querySelector('p').innerHTML = '<kbd>Drag</kbd> look around &nbsp; <kbd>Cast</kbd> hold to cast at the crosshair &nbsp; tap a <kbd>spell</kbd> to pick it &nbsp; <kbd>II</kbd> pause';
+  const cast = $('tCast');
+  cast.addEventListener('pointerdown', e => { e.preventDefault(); audioInit(); if (G.st === 'play' && !G.paused) { G.fireBtn = true; cast.classList.add('on'); } });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) cast.addEventListener(t, () => { G.fireBtn = false; cast.classList.remove('on'); });
+  $('tPause').addEventListener('pointerdown', e => { e.preventDefault(); setPaused(true); });
+  document.querySelectorAll('.sp').forEach((el, i) => el.addEventListener('pointerdown', e => { e.preventDefault(); if (G.st === 'play') setSpell(i); }));
+  let id = null, lx = 0, ly = 0;
+  cv.addEventListener('touchstart', e => { e.preventDefault(); if (id === null) { const t = e.changedTouches[0]; id = t.identifier; lx = t.clientX; ly = t.clientY; } }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) if (t.identifier === id) {
+      if (G.st === 'play' && !G.paused) { cam.yaw += (t.clientX - lx) * .005; cam.pitch -= (t.clientY - ly) * .005; }
+      lx = t.clientX; ly = t.clientY;
+    }
+  }, { passive: false });
+  const end = e => { for (const t of e.changedTouches) if (t.identifier === id) id = null; };
+  cv.addEventListener('touchend', end); cv.addEventListener('touchcancel', end);
+}
 addEventListener('wheel', e => { if (G.st === 'play') setSpell(G.spell + (e.deltaY > 0 ? 1 : -1)); }, { passive: true });
 addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('pointerlockchange', () => { const was = locked; locked = document.pointerLockElement === cv; if (was && !locked && G.st === 'play') setPaused(true); });
