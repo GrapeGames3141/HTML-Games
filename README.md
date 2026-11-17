@@ -18,6 +18,7 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Bug Splatter | `splat/splat.html` | `http://127.0.0.1:8000/splat/splat.html` |
 | Splatcraft | `splatcraft/splatcraft.html` | `http://127.0.0.1:8000/splatcraft/splatcraft.html` |
 | Spearfish | `spearfish/spearfish.html` | `http://127.0.0.1:8000/spearfish/spearfish.html` |
+| Slingshot | `slingshot/slingshot.html` | `http://127.0.0.1:8000/slingshot/slingshot.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
 

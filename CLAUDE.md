@@ -19,6 +19,7 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Merlin's Tower Defense | `merlin\merlin.html` | none yet |
 | Spearfish | `spearfish\spearfish.html` | none yet |
 | First Light | `firstlight\firstlight.html` | none yet |
+| Slingshot | `slingshot\slingshot.html` | none yet |
 | Ridiculous Wars | `ridiculous-wars\ridiculous-wars.html` | none yet |
 
 `experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks. `experiments\demo\demo.html` is the rendering-technique demo (a walk from a beach to a cave, test API `window.DEMO`); its plan and build notes are in `experiments\demo\plan.md`.

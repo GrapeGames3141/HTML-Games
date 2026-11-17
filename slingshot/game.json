@@ -1,0 +1,7 @@
+{
+  "title": "Slingshot",
+  "description": "Draw a slingshot across a painterly target range, manage your rubber bands, and knock down cans, bottles, bullseyes, and balloons.",
+  "category": "Action",
+  "controls": "Mouse aims; hold left click or Space to draw and release to fire; right click or Z zooms. On touch, drag to aim and hold the fire button.",
+  "requirements": "WebGL2 browser"
+}
