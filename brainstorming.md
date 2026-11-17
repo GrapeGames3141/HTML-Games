@@ -64,3 +64,37 @@ The playful hook is a winch. It could lift cargo, recover wreckage, rescue vehic
 - **Tiny tank in a workshop:** fight across benches, knock over paint cans, break wooden projects, and shove enemies into drawers.
 - **Storm spirit versus a village:** redirect wind, freeze rivers, and strike machinery while villagers improvise increasingly foolish defenses.
 - **Elemental pirate ammunition:** a possible crossover—freeze a rudder, burn rigging, or electrify a flooded gun deck—only after the core cannon duel proves itself.
+
+## 6. Fishing: rod and reel
+
+A peaceful fishing game set around a lake, rivershore, dock, and eventually a small boat. The appeal is patience, exploration, and a short burst of tension when a fish finally commits. The player chooses a spot and tackle, aims a cast with a hold-and-release power gesture, then reads the bobber or lure behavior for a bite. Setting the hook begins the active part: manage rod angle, reel speed, and line tension until the catch comes in.
+
+Fish should pull, run, and occasionally jump with readable resistance rather than behaving as a hidden random roll. Too much tension breaks the line; too much slack can lose a fish, and both failures should be visibly telegraphed. Fish preferences for cover, depth, time, and weather give the player reasons to explore and change tackle. A catch log tracks species and size or weight records, with catch-and-release and optional lodge challenges giving the session a purpose.
+
+Better rods, reels, line, lures, and boat access broaden options without removing the need to cast and fight well. The first scope is one small lake, a few fish types, and one complete cast-to-land loop. Useful results: casts, bites, hooks set, fish landed and lost, species and records, and session time.
+
+## 7. Hunting: woodland stalking
+
+A grounded woodland hunt built around reading sound, tracks, sightlines, cover, and simple wind or noise cues. The loop is to spot an animal with binoculars, follow its tracks, approach without alarming it, choose a clear opportunity, then find and recover it. Animals patrol, feed, notice the player, and flee in readable ways; they are not static targets.
+
+Start with a scoped rifle, with a bow as a later option. Clear sight alignment, movement, and recoil feedback make careful aim rewarding. Misses disturb nearby animals, and tracking plus recovery matter as much as taking the shot. Day, weather, changing locations, and different hunts create variety. The emphasis is patient observation and accurate recovery, without a graphic focus.
+
+A memorable success is earned through small observations: a trail enters a clearing, a distant movement confirms the direction, and the player reaches a clear chance without scattering the whole area.
+
+Progression can add optics, stability, tracking-journal tools, and new regions, never an instant guarantee of success. Begin with one woodland reserve, one animal type with convincing behavior, and a full spotting-to-recovery loop. Results can record shots, hits, misses, accuracy, animals spotted, spooked, and recovered, track completion, and in-game distance and time. If useful, a damaging-hit label can remain separate from the broader accuracy figure.
+
+## 8. Bow fishing from a boat
+
+Bow fishing is its own shallow-water game: a small slow boat crosses a marsh, river, or clear lake while the player scans silhouettes below reflective water. The boat can drift gently, steer slowly, or anchor for a steadier shot. A first-person bow view or a slightly elevated view over the bow are both possible presentations.
+
+The player draws, aims, and releases at a moving target, then reels the attached arrow back and lands the catch. Finite arrow travel, arc, target lead, and slower travel after water entry make the aim distinct from ordinary archery. A tunable, stylized depth offset from refraction can create a learnable challenge without relying on exact real-world formulas. Boat bob and drift should affect alignment modestly, with no cursor snap.
+
+Ripples, splashes, bubbles, taut retrieval line, and schools scattering make misses and hits satisfying to read. Missed arrows should be recoverable, so early play is about retrieval rather than repeatedly exhausting ammunition; snagged lines and reeds can wait for later. Night outings with boat lights are optional. Upgrades to the bow, retrieval reel, boat, and visibility equipment open new fishing spots and improve handling while preserving the need to aim and lead. Start with one shallow route, a few fish types, and the shoot-retrieve-catch loop. Results: arrows released, hits and misses, landed and escaped fish, accuracy, size or weight records, and retrievals.
+
+## 9. Scuba spearfishing
+
+Scuba spearfishing shifts the same outdoor theme underwater. From a moored boat, the player explores a daytime reef, kelp patch, or rocky shallows in first person. They swim freely, watch the changing depth, visibility, current, and available tank air as clear game cues, then return to the boat to finish a dive. The player sees fish directly underwater and approaches them from changing angles.
+
+The core loop is to spot a fish, move quietly into range, aim a short-range speargun, fire a finite-speed spear, retrieve the tethered spear, secure the catch, and choose when to head back. A hand spear can come later. One shot followed by retrieval or reload makes each decision matter. Silt, moving plants, reactive schools, and disturbed targets create feedback for both motion and missed shots.
+
+Limited air and the distance back to the boat make each dive a choice between pursuing one more catch and returning with what you have. Progression can open tank capacity, fins, a torch, better spearguns or reels, and new sites; wreck exploration is a later option. The smallest version is one calm reef, a fixed boat, a few fish types, and a clear return with results. Record shots, hits, misses, landed fish, species and size records, dive duration, deepest in-game depth, and air remaining on return.
