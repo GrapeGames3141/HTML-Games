@@ -43,17 +43,34 @@
   ];
   if (game === 'prism-swarm') selectors.push('[data-b="p"]');
   if (game === 'appalachian-eagle') selectors.push('#tp');
-  if (game === 'splat' || game === 'ashgrove') selectors.push('#bPause');
+  if (['splat', 'ashgrove', 'spearfish', 'firstlight'].includes(game)) selectors.push('#bPause');
+  if (game === 'dustdevil') selectors.push('#tcPause');
   if (game === 'broadside' || game === 'merlin') selectors.push('#tPause');
   if (game === 'splatcraft') selectors.push('[data-a="menu"]');
   if (game === 'castle-defense') selectors.push('button[onclick*="openWorkplaceReader"]');
+  // These games draw touch buttons above a canvas with pointer-events disabled,
+  // so their native pause handlers use coordinates rather than event targets.
+  function hitsCanvasPause(event) {
+    if (event.type !== 'touchstart' || !['splat', 'ashgrove', 'spearfish'].includes(game)) return false;
+    const button = document.getElementById('bPause');
+    if (!button || !button.getClientRects().length) return false;
+    const style = getComputedStyle(button);
+    if (style.visibility !== 'visible' || style.display === 'none') return false;
+    const rect = button.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    return Array.from(event.changedTouches).some(touch => {
+      if (game === 'spearfish') return touch.clientX > rect.left - 8 && touch.clientX < rect.right + 8 && touch.clientY > rect.top - 8 && touch.clientY < rect.bottom + 8;
+      return Math.hypot(touch.clientX - (rect.left + rect.width / 2), touch.clientY - (rect.top + rect.height / 2)) < rect.width * 0.62;
+    });
+  }
   function onPointer(event) {
     if (hiding || document.hidden) return;
     if (game === 'castle-defense' && event.type === 'touchstart' && event.touches.length >= 2) return hide(event);
+    if (hitsCanvasPause(event)) return hide(event);
     const target = event.target;
     if (target instanceof Element && target.closest(selectors.join(','))) hide(event);
   }
-  for (const type of ['pointerdown', 'touchstart', 'click']) window.addEventListener(type, onPointer, {capture:true, passive:false});
+  for (const type of ['pointerdown', 'mousedown', 'touchstart', 'click']) window.addEventListener(type, onPointer, {capture:true, passive:false});
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement) hadPointerLock = true;
     else if (hadPointerLock) {
