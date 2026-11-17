@@ -1,0 +1,7 @@
+{
+  "title": "Spearfish",
+  "description": "Dive from a moored boat into a kelp forest and a coral reef, stalk the fish, and burst them with a speargun.",
+  "category": "Action",
+  "controls": "WASD swim, mouse look, click to fire, Space and C to rise and sink, E at the boat to end the dive. Touch controls on phones.",
+  "requirements": "WebGL2 browser"
+}

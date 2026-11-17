@@ -1,6 +1,6 @@
 # Gaussian-splat HTML games: build guide
 
-Read this before you build or change a splat game in this repo (`splat`, `ashgrove`, `splatcraft`, `broadside`, or a new one). It records the techniques these games share, so you don't have to dig through an old game to rediscover them. When you work out something new, add it here.
+Read this before you build or change a splat game in this repo (`splat`, `ashgrove`, `splatcraft`, `broadside`, `spearfish`, or a new one). It records the techniques these games share, so you don't have to dig through an old game to rediscover them. When you work out something new, add it here.
 
 ## What "splat" means here
 
@@ -51,6 +51,36 @@ Broadside's helpers (copy them):
 - Write the wave function once in JS and generate the GLSL from the same constants (`WAVE_GLSL`). Ship buoyancy, floating debris and splash heights then match the rendered surface exactly.
 - The water is opaque and writes depth, so submerged hull, sunk ships and listing gunports are hidden by the depth test for free. That's what makes sinking readable.
 - Compute per-pixel normals analytically from the wave gradient, plus two scrolling noise layers. Add Fresnel sky reflection, a sun glint, crest foam, and fog to the horizon colour.
+
+## Underwater scenes (Spearfish)
+
+- **Backdrop without a mesh.** Draw one fullscreen quad first, depth test off, and shade it by view ray: a water colour that runs from dark below to bright above, plus the surface seen from below. Intersect the ray with `y = 0`, perturb a downward normal with a few sines, and `refract(dir, n, 1.33)`: where that returns zero you are outside Snell's window, so show reflected water colour; inside it show bright sky and a sun spot.
+- **Fog must match the backdrop.** Splats fog toward the same `waterCol(viewDir)` function the backdrop uses, with the same tonemap, or distant geometry shows as a silhouette. Multiply by `exp(-dist * vec3(.050, .012, .008))` before fogging so reds die first with distance; nearby coral stays colourful and far coral goes blue.
+- **Caustics go in the fragment shader.** Per-splat caustics flicker one disc at a time. Pass the corner's world position to the fragment shader and add `albedo * sun * caust(world.xz + world.y * .3, time)`, pre-multiplied in the vertex shader by fog, absorption and an up-facing mask.
+- **Sway is a per-splat byte.** Kelp, sea fans and anemones store `(height fraction)^1.5` in a spare byte and the vertex shader offsets x and z by it. A whole stalk bends as one because the phase comes from the splat's rest position, which barely varies along a stalk.
+- **Seabed as one height function.** Reef mounds and boulders are Gaussian bumps added to `floorH(x, z)`. The same function places floor splats, plants coral, stops the player and catches spears. Scatter extra floor splats on each bump, since a uniform grid under-samples steep sides. Floor discs need a radius of about 1.0 x the grid spacing (with jitter) or water shows through the cracks.
+- **Solid decorations.** Things planted on the bed (coral) are not in the height function, so each builder registers one or more upright ellipsoid colliders (centre, horizontal radius, vertical radius) as it emits splats. Bin them in a 4 m grid, listing a collider in every cell it can reach, so a query reads one cell. Push the diver and fish out along the scaled-sphere normal and remove the inward velocity so they slide; sample a fast projectile at four points per step so it cannot tunnel; reject wander targets inside a collider.
+- **Ambient life in the vertex shader.** Hundreds of tiny fish cost nothing on the CPU if they are static splats with a mode byte. Each fish is two splats (body, tail) at a home point; the normal bytes carry two seeds instead of a normal. The shader moves the home by a few summed sines, takes the heading from the derivative, builds `U` along the heading and `V = normalize(cross(heading, toCamera))` so the fish never goes edge-on, and pulls the fish down into the coral as the camera comes within about 4 m. Bubble columns work the same way: `y = base + fract(time * rate + seed) * height`.
+- **Translucent leaves.** For kelp blades, sea fans and soft coral, add `albedo * sun * max(dot(-N, L), 0) * warmTint` after flipping the normal toward the viewer. Blades seen from below against the sun glow gold instead of going black.
+- **Sun shafts in the backdrop.** In the fullscreen backdrop shader, take the view ray's component perpendicular to the sun direction, turn it into an angle, and run that through two sharpened sines. Shafts fan out from the sun and sit behind all geometry for free.
+- **Reef dressing.** A reef reads as alive when little rock shows. Keep the bed colour muted and put the colour in the coral: a finer bed grid (0.5 m) under the reef, about 25 corals per mound from a kit of a dozen shapes, thousands of small encrusting discs and six-disc cushions, and a school of shader fish over every mound.
+- **Static chunks.** Sort static splats into 24 m cells after generation and draw each cell with its own `vertexAttribPointer` offsets (WebGL2 has no base instance). Skip cells beyond fog range or wholly behind the camera.
+- **First-person viewmodel.** Keep the gun in its own small dynamic buffer and draw it last with `gl.depthRange(0, 0.04)` so it never clips into scenery. Aim the projectile from the muzzle at the point the crosshair is on (nearest fish near the view ray, else the seabed, else a fixed range); a fixed convergence distance misses small close targets.
+- **Bursting a creature.** Use one function to compute each splat's world position for both drawing and the burst, then hand every splat to the particle pool with an outward velocity. The chunks start exactly where the fish was. Underwater, heavy drag (`v *= exp(-2.3 dt)`) and slow sinking read better than ballistic arcs; add a few soft expanding cloud splats and ring-shaded bubbles.
+- Spearfish test API: `window.SF` has `state()`, `step(seconds)`, `tp(x, y, z, yaw, pitch)`, `lookAt()`, `nearest(key)`, `stalk(i, dist)`, `fire()`, `calm(bool)` to stop fish fleeing, `key(code, down)`, `fishList()` and `endDive()`. In `?test` mode the sim only advances through `step()`. Add `&touch` to force the touch layout.
+
+## Painterly look and animals (First Light)
+
+- **Ragged daubs.** Pass `float(gl_InstanceID % 977)` to the fragment shader as a flat seed, then scale `r²` by `1.14 + 0.2*sin(angle*3 + seed) + 0.12*sin(angle*7 + seed*1.7)` before the alpha falloff. Every splat gets its own lobed edge. Multiply the colour by `0.93 + 0.11*sin(vUV.y*8 + seed*2.3)` for bristle streaks.
+- **Canvas weave.** A 256 px noise-and-weave tile on a full-screen `div` with `mix-blend-mode: overlay` at about 0.2 opacity, plus a soft radial vignette, makes the whole frame read as paint on canvas. It costs nothing in WebGL.
+- **Blades.** Grass and reeds are one splat each: `U` is a short horizontal half-width, `V` is the vertical half-height, flag 16 anchors the base. In the vertex shader multiply the wind offset by `aCorner.y + 1`, so the tip sways and the root stays put.
+- **Backlit leaves.** Translucent splats (flag 2) add `albedo * sunColour * pow(max(dot(-viewDir, sun), 0), 3)`. Autumn crowns glow when the low sun is behind them.
+- **Ground as a mesh, not splats.** A warped grid (dense near the player) with vertex colours from JS and brush noise in the fragment shader costs far less than covering the floor in splats. Scatter leaf-litter discs and blades on top. Fake canopy shadow with a low-frequency noise mask on the sun term (`uDapple`).
+- **One sky function.** `skyCol(dir)` paints the gradient, sun, brushed clouds and two far ridge silhouettes. The sky pass and the water shader both call it, so still water reflects the tree line and dawn for free.
+- **Dawn to morning.** Lerp sun elevation, sun colour, ambient, horizon, fog colour and fog density from one `day` value in 0..1 over the session.
+- **Animals** are a handful of templates posed each frame with `dtpl`: torso, neck, head, one leg template drawn four times, tail. Birds are a body plus two wing templates rotated about the shoulder. Keep hit spheres in the same local frame as the templates and transform both with the same matrices.
+- **Fast projectiles.** Test the whole frame segment against the hit spheres, and sample terrain and trunks along it every metre or so. When zones overlap (vitals inside the body), look a little past the end of the segment before crediting a zone, or a slow arrow gets scored on whichever sphere it entered first.
+- First Light test API: `window.FL` has `start(area, weapon)`, `state()`, `step(seconds)`, `spawn(kind, opt)`, `aimAt(i)` (ballistic lead on target `i`), `fire()`, `call()`, `look(yaw, pitch)`, `aim(bool)`, `setDay(0..1)`, `cam(eye, at, fovDeg)` and `end()`.
 
 ## Performance budgets (mid-range GPU, 1080p)
 

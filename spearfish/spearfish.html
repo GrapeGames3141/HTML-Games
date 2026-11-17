@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Spearfish</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#06283a;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#vign{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,18,32,.62) 100%)}
+#hud{position:fixed;inset:0;pointer-events:none;font-family:'Trebuchet MS','Segoe UI',Verdana,sans-serif;color:#e8fbff;text-shadow:0 1px 4px rgba(0,25,40,.9);display:none}
+#gauge{position:absolute;left:18px;top:14px}
+#depth{font-size:30px;font-weight:bold;letter-spacing:1px}
+#depth small{font-size:14px;font-weight:normal;opacity:.8;margin-left:3px}
+#time{font-size:14px;letter-spacing:3px;opacity:.85;margin-top:2px}
+#catch{position:absolute;right:18px;top:14px;text-align:right}
+#catchN{font-size:30px;font-weight:bold}
+#catchL{font-size:12px;letter-spacing:3px;opacity:.8}
+#last{font-size:13px;letter-spacing:1px;margin-top:4px;opacity:0;transition:opacity .5s}
+#cross{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid rgba(232,251,255,.75);border-radius:50%;box-sizing:border-box}
+#cross:after{content:'';position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;background:#e8fbff;border-radius:50%}
+#cross.empty{border-style:dotted;opacity:.45}
+#hitm{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;opacity:0;background:
+linear-gradient(45deg,transparent 46%,#fff 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,#fff 46% 54%,transparent 54%);-webkit-mask:radial-gradient(circle,transparent 10px,#000 11px);mask:radial-gradient(circle,transparent 10px,#000 11px)}
+#reload{position:absolute;left:50%;top:50%;width:54px;height:4px;margin:26px 0 0 -27px;border-radius:3px;background:rgba(232,251,255,.2);overflow:hidden;opacity:0}
+#reloadF{height:100%;width:0;background:#ffb24d}
+#compass{position:absolute;left:50%;bottom:14px;width:260px;height:36px;margin-left:-130px;border-top:1px solid rgba(232,251,255,.45)}
+#compass:after{content:'';position:absolute;left:50%;top:-5px;width:1px;height:9px;background:#e8fbff}
+.mk{position:absolute;top:5px;width:80px;margin-left:-40px;text-align:center;font-size:11px;letter-spacing:2px;white-space:nowrap}
+#mkBoat{color:#ffd28a;top:19px}
+#prompt{position:absolute;left:0;right:0;bottom:74px;text-align:center;font-size:17px;letter-spacing:2px;opacity:0;transition:opacity .3s}
+#prompt b{display:inline-block;padding:1px 9px;border:1px solid rgba(232,251,255,.8);border-radius:5px;margin:0 4px}
+#warn{position:absolute;left:0;right:0;top:24%;text-align:center;font-size:18px;letter-spacing:3px;opacity:0;transition:opacity .4s;color:#ffd9a0}
+#overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(10,70,95,.25),rgba(0,18,32,.72));font-family:'Trebuchet MS','Segoe UI',Verdana,sans-serif;color:#dff6fb}
+#card{background:rgba(4,36,54,.86);padding:26px 30px;border-radius:10px;box-shadow:0 10px 50px rgba(0,10,20,.6);text-align:center;max-width:min(460px,88vw);max-height:92vh;overflow:auto;border:1px solid rgba(140,220,235,.28)}
+#card h1{margin:0;font-size:44px;letter-spacing:5px;color:#ffc46b;font-weight:bold}
+#card .sub{font-size:12px;letter-spacing:4px;margin:6px 0 16px;opacity:.7}
+#card p{font-size:14px;line-height:1.55;margin:8px 0}
+#card .ctl{font-size:13px;line-height:1.75;opacity:.85;margin:12px 0 4px}
+#card table{margin:10px auto 2px;border-collapse:collapse;font-size:14px;min-width:240px}
+#card td{padding:3px 10px;text-align:left}#card td+td{text-align:right;font-weight:bold;color:#ffc46b}
+#card tr.sep td{border-top:1px solid rgba(140,220,235,.25);padding-top:7px}
+#go{margin-top:14px;font:bold 19px 'Trebuchet MS',sans-serif;letter-spacing:3px;padding:11px 36px;border-radius:30px;border:none;background:#ff9d2e;color:#04283a;cursor:pointer;box-shadow:0 3px 14px rgba(0,0,0,.45)}
+#go:disabled{opacity:.5}
+#err{display:none;color:#ff9a8a;font-size:13px;margin-top:10px}
+#touchui{position:fixed;inset:0;pointer-events:none;display:none}
+#joyBase{position:absolute;width:120px;height:120px;border-radius:50%;border:2px solid rgba(232,251,255,.45);background:rgba(0,40,60,.2);display:none;margin:-60px 0 0 -60px}
+#joyKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(232,251,255,.5)}
+.tbtn{position:absolute;border-radius:50%;background:rgba(0,40,60,.3);border:2px solid rgba(232,251,255,.55);color:#e8fbff;font:bold 13px 'Trebuchet MS',sans-serif;letter-spacing:1px;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+#bFire{right:22px;bottom:34px;width:92px;height:92px;font-size:16px;background:rgba(255,150,40,.35)}
+#bUp{right:128px;bottom:86px;width:54px;height:54px}
+#bDown{right:128px;bottom:22px;width:54px;height:54px}
+#bEnd{left:50%;bottom:112px;width:150px;height:46px;margin-left:-75px;border-radius:24px;display:none;background:rgba(255,150,40,.45)}
+#bPause{right:16px;top:84px;width:38px;height:38px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vign"></div>
+<div id="hud">
+  <div id="gauge"><div id="depth">0.0<small>m</small></div><div id="time">00:00</div></div>
+  <div id="catch"><div id="catchN">0</div><div id="catchL">FISH</div><div id="last"></div></div>
+  <div id="cross"></div><div id="hitm"></div><div id="reload"><div id="reloadF"></div></div>
+  <div id="warn">OPEN WATER · TURN BACK</div>
+  <div id="prompt"></div>
+  <div id="compass"><div class="mk" id="mkKelp">KELP</div><div class="mk" id="mkReef">REEF</div><div class="mk" id="mkBoat">BOAT</div></div>
+</div>
+<div id="touchui">
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div class="tbtn" id="bFire">FIRE</div>
+  <div class="tbtn" id="bUp">UP</div>
+  <div class="tbtn" id="bDown">DOWN</div>
+  <div class="tbtn" id="bEnd">END DIVE</div>
+  <div class="tbtn" id="bPause">II</div>
+</div>
+<div id="overlay"><div id="card">
+  <h1>SPEARFISH</h1>
+  <div class="sub">A GAUSSIAN-SPLAT DIVE</div>
+  <div id="lead"><p>Drop off the boat into warm, clear water. A kelp forest stands to one side and a coral reef to the other. Stalk the fish, lead your shot, and watch them burst.</p><p>No air gauge, no line to reel in. Swim back to the boat whenever you want to end the dive.</p></div>
+  <div class="ctl" id="ctl"></div>
+  <button id="go" disabled>filling the sea…</button>
+  <div id="err"></div>
+</div></div>
+
+<script>
+/* Spearfish: first-person splat spearfishing. One self-contained file, WebGL2, no dependencies.
+   Splat record is the shared 48-byte layout from SPLAT-GUIDE.md. Game-specific bytes (offset 44):
+     [0] tier   0 = opaque core with soft rim, 1 = soft stroke, 2 = soft particle (cloud, silt, snow), 3 = bubble (unlit ring)
+     [1] sway   0..255, how far the splat rides the current (kelp, sea fans, anemones); applied in the vertex shader
+     [2] alpha  0..255
+     [3] mode   0 plain; 1 small fish that swims in the vertex shader (normal bytes hold its seeds); 2 bubble rising in a column;
+                3 translucent leaf (kelp blades, soft coral, fans) that glows when backlit
+   Seabed, reef mounds and boulders are one height function, floorH(x,z), used for splats, player collision and spear hits.
+   Corals are solid: each registers upright ellipsoid colliders (see "coral colliders") that stop the diver, fish and spears. Kelp is not solid.
+   Test API: window.SF (see bottom of file). Load with ?test&seed=N to skip the menu and step the sim by hand. */
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const log = (...a) => console.log('[spearfish]', ...a);
+function showErr(m){ const e = $('err'); e.textContent = m; e.style.display = 'block'; }
+window.addEventListener('error', e => showErr(e.message));
+
+const QS = new URLSearchParams(location.search);
+const TEST = QS.has('test'), SEED = +(QS.get('seed') || 7);
+const IS_TOUCH = QS.has('touch') || !TEST && (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window);
+
+// ---------------------------------------------------------------- math
+const PI = Math.PI, TAU = PI*2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, t) => a + (b - a)*t;
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0)/4294967296; }; }
+const wr = mulberry32(90210);                 // world generation: same sea every dive
+let sr = mulberry32(SEED);                    // simulation
+const wrr = (a, b) => a + (b - a)*wr(), srr = (a, b) => a + (b - a)*sr();
+function hash2(x, y){ let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0)/4294967296; }
+function vnoise(x, y){ const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf*xf*(3 - 2*xf), v = yf*yf*(3 - 2*yf);
+  return lerp(lerp(hash2(xi, yi), hash2(xi + 1, yi), u), lerp(hash2(xi, yi + 1), hash2(xi + 1, yi + 1), u), v); }
+function fbm(x, y){ return vnoise(x, y)*0.5 + vnoise(x*2.03 + 5.2, y*2.03 + 1.3)*0.3 + vnoise(x*4.1 + 9.1, y*4.1 + 3.7)*0.2; }
+function norm3(v){ const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0]/l, v[1]/l, v[2]/l]; }
+function cross(a, b){ return [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]]; }
+function add3(a, b){ return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function sub3(a, b){ return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+function sc3(a, s){ return [a[0]*s, a[1]*s, a[2]*s]; }
+function mix3(a, b, t){ return [a[0] + (b[0] - a[0])*t, a[1] + (b[1] - a[1])*t, a[2] + (b[2] - a[2])*t]; }
+function perp(d){ return norm3(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])); }
+function angDiff(a, b){ let d = (a - b) % TAU; if (d > PI) d -= TAU; if (d < -PI) d += TAU; return d; }
+function fib(i, n){ const y = 1 - 2*(i + 0.5)/n, r = Math.sqrt(Math.max(0, 1 - y*y)), th = i*2.399963; return [Math.cos(th)*r, y, Math.sin(th)*r]; }
+
+// ---------------------------------------------------------------- world shape
+const AREA_R = 72, VIS = 46;
+const KELP = { x: -37, z: 5, r: 27 }, REEF = { x: 37, z: -5, r: 27 };
+const LADDER = [0, -1.3, 4.3];
+const bumps = [];
+for (let i = 0; i < 30; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*REEF.r*0.92, r = wrr(4, 9); bumps.push({ x: REEF.x + Math.cos(a)*d, z: REEF.z + Math.sin(a)*d, r, r2: r*r, h: wrr(1.4, 4.4), reef: 1 }); }
+const N_MOUND = bumps.length;
+for (let i = 0; i < 46; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*KELP.r, r = wrr(0.9, 2.1); bumps.push({ x: KELP.x + Math.cos(a)*d, z: KELP.z + Math.sin(a)*d, r, r2: r*r, h: wrr(0.6, 1.7), reef: 0 }); }
+let _rw = 0;
+function floorH(x, z){
+  let h = -14.5 + 1.5*Math.sin(x*0.045 + 1.3)*Math.cos(z*0.052 - 0.4) + 0.45*Math.sin(x*0.13 + z*0.09), rw = 0;
+  for (let i = 0; i < bumps.length; i++) { const b = bumps[i], dx = x - b.x, dz = z - b.z, d2 = dx*dx + dz*dz;
+    if (d2 < b.r2*5) { const e = Math.exp(-d2/b.r2); h += b.h*e; if (b.reef) rw += e; } }
+  rw = Math.min(1, rw); _rw = rw;
+  if (rw > 0.02) h += (fbm(x*0.7, z*0.7) - 0.5)*1.5*rw;
+  const d = Math.hypot(x, z); if (d > AREA_R + 6) h -= (d - AREA_R - 6)*0.3;
+  return Math.min(h, -3.4);
+}
+function floorN(x, z){ const e = 0.4; return norm3([(floorH(x - e, z) - floorH(x + e, z))/(2*e), 1, (floorH(x, z - e) - floorH(x, z + e))/(2*e)]); }
+function kelpW(x, z){ return clamp(1.25 - Math.hypot(x - KELP.x, z - KELP.z)/KELP.r, 0, 1); }
+
+// ---------------------------------------------------------------- coral colliders
+// Each coral registers one or more upright ellipsoids (centre, horizontal radius, vertical radius) as it is planted.
+// A 4 m grid lists every collider that can reach a cell, so a query only reads the cell the point is in.
+const COL = [], CGRID = new Map(), ckey = (x, z) => (Math.floor(x/4) + 512)*1024 + Math.floor(z/4) + 512;
+function collider(x, y, z, rh, rv){ const i = COL.length/5, m = rh + 0.7; COL.push(x, y, z, rh, rv);
+  for (let gx = Math.floor((x - m)/4); gx <= Math.floor((x + m)/4); gx++) for (let gz = Math.floor((z - m)/4); gz <= Math.floor((z + m)/4); gz++) { const k = (gx + 512)*1024 + gz + 512; let c = CGRID.get(k); if (!c) CGRID.set(k, c = []); c.push(i); } }
+// push a body of radius pr (an object with x, y, z) out of any coral it overlaps; leaves the contact normal in o.nx, o.ny, o.nz
+function coralPush(o, pr){ const cell = CGRID.get(ckey(o.x, o.z)); if (!cell) return false; let hit = false;
+  for (let c = 0; c < cell.length; c++) { const q = cell[c]*5, RH = COL[q+3] + pr, k = RH/(COL[q+4] + pr), dx = o.x - COL[q], dy = (o.y - COL[q+1])*k, dz = o.z - COL[q+2], d2 = dx*dx + dy*dy + dz*dz;
+    if (d2 >= RH*RH) continue; const d = Math.sqrt(d2) || 1e-4, sc = RH/d; o.x = COL[q] + dx*sc; o.y = COL[q+1] + dy*sc/k; o.z = COL[q+2] + dz*sc;
+    const nl = Math.hypot(dx, dy*k, dz) || 1; o.nx = dx/nl; o.ny = dy*k/nl; o.nz = dz/nl; hit = true; }
+  return hit; }
+function coralAt(x, y, z, pr){ const cell = CGRID.get(ckey(x, z)); if (!cell) return false;
+  for (let c = 0; c < cell.length; c++) { const q = cell[c]*5, RH = COL[q+3] + pr, k = RH/(COL[q+4] + pr), dx = x - COL[q], dy = (y - COL[q+1])*k, dz = z - COL[q+2]; if (dx*dx + dy*dy + dz*dz < RH*RH) return true; }
+  return false; }
+
+// ---------------------------------------------------------------- splat buffers
+let MODE = 0;   // written to byte [3] of every splat put() emits: 0 plain, 1 shader-animated small fish, 2 rising bubble, 3 translucent leaf
+function SBuf(cap){ this.cap = cap; this.buf = new ArrayBuffer(cap*48); this.f = new Float32Array(this.buf); this.u = new Uint8Array(this.buf); this.i = new Int8Array(this.buf); this.n = 0; }
+const c255 = v => v <= 0 ? 0 : v >= 1 ? 255 : (v*255) | 0;
+function put(sb, px, py, pz, ux, uy, uz, vx, vy, vz, r, g, b, ao, nx, ny, nz, tier, sway, alpha){
+  if (sb.n >= sb.cap) return;
+  const o = sb.n*12, f = sb.f; f[o] = px; f[o+1] = py; f[o+2] = pz; f[o+3] = ux; f[o+4] = uy; f[o+5] = uz; f[o+6] = vx; f[o+7] = vy; f[o+8] = vz;
+  const q = sb.n*48 + 36, u = sb.u, s = sb.i; u[q] = c255(r); u[q+1] = c255(g); u[q+2] = c255(b); u[q+3] = c255(ao);
+  s[q+4] = clamp(nx, -1, 1)*127; s[q+5] = clamp(ny, -1, 1)*127; s[q+6] = clamp(nz, -1, 1)*127;
+  u[q+8] = tier; u[q+9] = clamp(sway, 0, 255) | 0; u[q+10] = c255(alpha); u[q+11] = MODE; sb.n++;
+}
+// disc facing n, radii ru (along dir projected into the plane) and rv
+function disc(sb, p, n, ru, rv, col, ao = 1, tier = 0, sway = 0, alpha = 1, dir){
+  const d = dir || (Math.abs(n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]);
+  const k = d[0]*n[0] + d[1]*n[1] + d[2]*n[2]; let ux = d[0] - n[0]*k, uy = d[1] - n[1]*k, uz = d[2] - n[2]*k; const l = Math.hypot(ux, uy, uz) || 1; ux /= l; uy /= l; uz /= l;
+  const vx = n[1]*uz - n[2]*uy, vy = n[2]*ux - n[0]*uz, vz = n[0]*uy - n[1]*ux;
+  put(sb, p[0], p[1], p[2], ux*ru, uy*ru, uz*ru, vx*rv, vy*rv, vz*rv, col[0], col[1], col[2], ao, n[0], n[1], n[2], tier, sway, alpha);
+}
+// two crossed strips from a to b, so a limb never vanishes edge-on
+function strip(sb, a, b, w, col, ao = 1, sway = 0, tier = 0){
+  const d = sub3(b, a), L = Math.hypot(d[0], d[1], d[2]) || 1e-4, dn = [d[0]/L, d[1]/L, d[2]/L], n1 = perp(dn), n2 = cross(dn, n1), h = L*0.56;
+  const mx = (a[0] + b[0])/2, my = (a[1] + b[1])/2, mz = (a[2] + b[2])/2;
+  put(sb, mx, my, mz, dn[0]*h, dn[1]*h, dn[2]*h, n2[0]*w, n2[1]*w, n2[2]*w, col[0], col[1], col[2], ao, n1[0], n1[1], n1[2], tier, sway, 1);
+  put(sb, mx, my, mz, dn[0]*h, dn[1]*h, dn[2]*h, n1[0]*w, n1[1]*w, n1[2]*w, col[0], col[1], col[2], ao, n2[0], n2[1], n2[2], tier, sway, 1);
+}
+function line(sb, a, b, w, col, ao = 1, seg = 0.5){ const L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), n = Math.max(1, Math.round(L/seg));
+  for (let i = 0; i < n; i++) strip(sb, mix3(a, b, i/n), mix3(a, b, (i + 1)/n), w, col, ao); }
+const tint = (c, k) => [c[0]*k, c[1]*k, c[2]*k];
+
+// ---------------------------------------------------------------- static world generation
+const ST = new SBuf(360000);
+const REEF_PAL = [[0.84, 0.36, 0.52], [0.94, 0.52, 0.18], [0.32, 0.56, 0.28], [0.56, 0.34, 0.74], [0.90, 0.78, 0.30], [0.22, 0.58, 0.54], [0.80, 0.26, 0.24]];
+function genFloor(){
+  const place = (x, z, s) => {
+    const y = floorH(x, z), rw = _rw, n = floorN(x, z), kw = kelpW(x, z);
+    const nz = fbm(x*0.35, z*0.35), rip = 0.5 + 0.5*Math.sin((x*0.8 + z*0.55)*2.2 + Math.sin(z*0.6)*1.6 + nz*4);
+    let c = tint([0.86, 0.80, 0.62], 0.80 + 0.12*rip + 0.16*nz);
+    if (kw > 0) { const t = fbm(x*1.1 + 3, z*1.1); let rk = tint([0.40, 0.38, 0.30], 0.7 + 0.5*t); if (t > 0.58) rk = mix3(rk, [0.55, 0.20, 0.26], 0.55); else if (t < 0.36) rk = mix3(rk, [0.28, 0.40, 0.20], 0.5);
+      c = mix3(c, rk, Math.min(1, kw*1.7)*0.85); }
+    if (rw > 0.03) { const t = fbm(x*1.7 + 7, z*1.7), t2 = fbm(x*0.9 - 3, z*0.9 + 11);
+      const rock = mix3(tint([0.40, 0.36, 0.31], 0.7 + 0.5*t), REEF_PAL[((t2*23.99) | 0) % REEF_PAL.length], 0.08 + 0.2*t);
+      c = mix3(c, rock, Math.min(1, rw*2.2)); }
+    const st = Math.min(1.7, 1/Math.max(0.5, n[1]));
+    disc(ST, [x, y, z], n, s*1.02*st, s*1.02, c, 0.78 + 0.22*nz - 0.28*Math.min(1, kw*1.5));
+  };
+  const s = 0.86, R = 96;
+  const RF = REEF.r + 10, inReef = (x, z, m) => (x - REEF.x)*(x - REEF.x) + (z - REEF.z)*(z - REEF.z) < (RF - m)*(RF - m);
+  for (let x = -R; x <= R; x += s) for (let z = -R; z <= R; z += s) { if (x*x + z*z > R*R || inReef(x, z, 1)) continue; place(x + wrr(-0.3, 0.3), z + wrr(-0.3, 0.3), s); }
+  for (let x = REEF.x - RF; x <= REEF.x + RF; x += 0.5) for (let z = REEF.z - RF; z <= REEF.z + RF; z += 0.5) { if (!inReef(x, z, 0)) continue; place(x + wrr(-0.18, 0.18), z + wrr(-0.18, 0.18), 0.5); }   // the reef bed gets a finer grid: it is steep and seen up close
+  const s2 = 2.8, R2 = 132;
+  for (let x = -R2; x <= R2; x += s2) for (let z = -R2; z <= R2; z += s2) { const d2 = x*x + z*z; if (d2 <= R*R || d2 > R2*R2) continue; place(x + wrr(-1, 1), z + wrr(-1, 1), s2); }
+  for (let i = 0; i < bumps.length; i++) { const b = bumps[i], n = b.reef ? 0 : 60;       // extra detail where the bed is steep
+    for (let k = 0; k < n; k++) { const a = wr()*TAU, d = Math.sqrt(wr())*b.r*1.5; place(b.x + Math.cos(a)*d, b.z + Math.sin(a)*d, b.reef ? 0.55 : 0.4); } }
+}
+// --- small life shared by both zones
+function urchin(x, z, col){ const y = floorH(x, z) + 0.06; disc(ST, [x, y, z], [0, 1, 0], 0.07, 0.07, tint(col, 0.6), 0.6);
+  for (let i = 0; i < 12; i++) { const d = fib(i, 12); if (d[1] < -0.3) continue; strip(ST, [x, y, z], [x + d[0]*0.17, y + Math.abs(d[1])*0.17, z + d[2]*0.17], 0.006, col, 0.9); } }
+function seaStar(x, z, col){ const n = floorN(x, z), p = [x, floorH(x, z) + 0.04, z], a0 = wr()*TAU, u = perp(n), v = cross(n, u);
+  disc(ST, p, n, 0.05, 0.05, col, 1);
+  for (let i = 0; i < 5; i++) { const a = a0 + i*TAU/5, d = add3(sc3(u, Math.cos(a)), sc3(v, Math.sin(a))); disc(ST, add3(p, sc3(d, 0.11)), n, 0.105, 0.032, tint(col, 0.85 + 0.3*wr()), 1, 0, 0, 1, d); } }
+// A school of tiny fish that lives entirely in the vertex shader (mode 1): U = (half length, tail offset, retreat depth), V.y = half height, normal = seeds
+function fishCloud(cx, cy, cz, n, sh, sv, cols, len, retreat){
+  MODE = 1;
+  for (let i = 0; i < n; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*sh, x = cx + Math.cos(a)*d, z = cz + Math.sin(a)*d, y = Math.min(-0.8, Math.max(cy + wrr(-sv, sv), floorH(x, z) + 0.25));
+    const c = pick(cols), s1 = wr()*2 - 1, s2 = wr()*2 - 1, k = wr()*2 - 1, L = len*wrr(0.8, 1.25);
+    put(ST, x, y, z, L, 0, retreat, 0, L*0.42, 0, c[0], c[1], c[2], 1, s1, s2, k, 0, 0, 1);
+    put(ST, x, y, z, L*0.5, L*1.25, retreat, 0, L*0.5, 0, c[0]*0.8, c[1]*0.8, c[2]*0.85, 1, s1, s2, k, 0, 0, 1); }
+  MODE = 0;
+}
+function bubbleVent(x, z){ const y = floorH(x, z); MODE = 2; for (let i = 0; i < 9; i++) put(ST, x + wrr(-0.1, 0.1), y, z + wrr(-0.1, 0.1), wrr(0.012, 0.03), 0, 0, 0, 1, 0, 0.92, 0.98, 1, 1, wr()*2 - 1, wr()*2 - 1, 0, 3, 0, 0.95); MODE = 0; }
+
+function genKelp(){
+  for (let k = 0; k < 150; k++) {
+    const a = wr()*TAU, d = Math.sqrt(wr())*KELP.r, x = KELP.x + Math.cos(a)*d, z = KELP.z + Math.sin(a)*d;
+    if (Math.hypot(x, z) < 11) continue;
+    const y0 = floorH(x, z), nSt = 2 + ((wr()*3) | 0), ph = wr()*TAU, shade = wrr(0.78, 1.05);
+    for (let i = 0; i < 12; i++) { const b = wr()*TAU, r = wr()*0.3; disc(ST, [x + Math.cos(b)*r, y0 + 0.05 + (0.3 - r)*0.5, z + Math.sin(b)*r], norm3([Math.cos(b), 0.8, Math.sin(b)]), 0.11, 0.07, tint([0.42, 0.34, 0.16], wrr(0.7, 1.1)), 0.6); }   // holdfast
+    for (let s = 0; s < nSt; s++) {
+      const y1 = -wrr(0.35, 3.2), H = y1 - y0, nodes = Math.max(5, Math.round(H/0.56)), lean = [wrr(-2.2, 2.2), wrr(-2.2, 2.2)], tw = wr()*TAU, rad = wrr(0.08, 0.3);
+      const at = t => [x + lean[0]*t*t + Math.cos(tw + t*5)*rad*(0.25 + t), y0 + H*t, z + lean[1]*t*t + Math.sin(tw + t*5)*rad*(0.25 + t)];
+      for (let i = 0; i < nodes; i++) {
+        const t0 = i/nodes, t1 = (i + 1)/nodes, p0 = at(t0), p1 = at(t1), sw = Math.pow(t1, 1.5)*225;
+        strip(ST, p0, p1, 0.022, tint([0.52, 0.45, 0.18], shade*(0.75 + 0.3*t1)), 0.9, sw);
+        if (i < 2) continue;
+        const an = ph + i*2.4 + s*1.3, dh = [Math.cos(an), 0, Math.sin(an)], len = wrr(0.55, 0.9)*(0.65 + 0.5*Math.sin(t1*PI)), droop = lerp(wrr(0.5, 1.1), wrr(-0.25, 0.3), t1*t1);
+        const b0 = [p1[0] + dh[0]*0.07, p1[1], p1[2] + dh[2]*0.07];
+        disc(ST, b0, dh, 0.045, 0.03, tint([0.80, 0.72, 0.30], shade), 1, 0, sw, 1, [0, 1, 0]);                                   // gas bladder
+        const side0 = cross(dh, [0, 1, 0]), psi = wrr(-1.2, 1.2), col = tint(mix3([0.44, 0.36, 0.11], [0.90, 0.72, 0.20], Math.pow(t1, 0.8)), shade*wrr(0.82, 1.12)), w = wrr(0.065, 0.10);
+        MODE = 3; let q = b0;
+        for (let g = 0; g < 2; g++) { const u = norm3([dh[0], -droop*(0.6 + 0.8*g), dh[2]]), up2 = cross(u, side0), sd = add3(sc3(side0, Math.cos(psi + g*0.5)), sc3(up2, Math.sin(psi + g*0.5))), nrm = norm3(cross(u, sd)), hl = len*0.27;
+          disc(ST, [q[0] + u[0]*hl, q[1] + u[1]*hl, q[2] + u[2]*hl], nrm, hl*1.25, w*(g ? 0.72 : 1), g ? tint(col, 1.08) : col, 0.62 + 0.38*t1, 0, sw, 1, u); q = add3(q, sc3(u, hl*1.9)); }
+        MODE = 0;
+      }
+      const top = at(1); MODE = 3;                                                              // canopy mat under the surface
+      for (let j = 0; j < 14; j++) { const an = wr()*TAU, len = wrr(0.6, 1.25), u = norm3([Math.cos(an), wrr(-0.1, 0.1), Math.sin(an)]), r = wrr(0.2, 1.3);
+        disc(ST, [top[0] + u[0]*r, Math.min(-0.25, top[1] + wrr(-0.2, 0.6)), top[2] + u[2]*r], norm3([wrr(-0.25, 0.25), 1, wrr(-0.25, 0.25)]), len*0.5, wrr(0.08, 0.13), tint([0.88, 0.70, 0.18], shade*wrr(0.85, 1.1)), 1, 0, 225, 1, u); }
+      MODE = 0;
+    }
+  }
+  for (let i = 0; i < 420; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*KELP.r*1.05, x = KELP.x + Math.cos(a)*d, z = KELP.z + Math.sin(a)*d, t = wr();   // understory
+    if (t < 0.3) urchin(x, z, pick([[0.42, 0.20, 0.55], [0.55, 0.16, 0.22], [0.12, 0.10, 0.16]])); else if (t < 0.5) seaStar(x, z, pick([[0.98, 0.50, 0.14], [0.85, 0.22, 0.20], [0.80, 0.62, 0.30]]));
+    else { const y = floorH(x, z), col = pick([[0.60, 0.16, 0.24], [0.42, 0.50, 0.16], [0.70, 0.30, 0.20]]); MODE = 3;                         // red and green algae tufts
+      for (let j = 0; j < 7; j++) { const b = wr()*TAU, u = norm3([Math.cos(b)*0.7, 1, Math.sin(b)*0.7]), h = wrr(0.14, 0.34); disc(ST, [x + u[0]*h, y + u[1]*h, z + u[2]*h], norm3([Math.cos(b + 1.5), 0.2, Math.sin(b + 1.5)]), h, wrr(0.04, 0.08), tint(col, wrr(0.8, 1.2)), 0.85, 0, 14, 1, u); }
+      MODE = 0; } }
+  for (let i = 0; i < 26; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*KELP.r*0.9, x = KELP.x + Math.cos(a)*d, z = KELP.z + Math.sin(a)*d;
+    fishCloud(x, floorH(x, z) + wrr(2, 8), z, 14 + ((wr()*16) | 0), 2.6, 1.0, wr() < 0.6 ? [[0.50, 0.64, 0.84], [0.40, 0.52, 0.74]] : [[0.95, 0.74, 0.26], [0.90, 0.62, 0.22]], 0.075, 0); }
+}
+// --- coral kit: every builder plants itself on the bed at (x, z) and registers its own colliders
+const pick = a => a[(wr()*a.length) | 0];
+function lump(cx, cy, cz, r, col, groove, squash = 0.8){
+  const n = clamp(Math.round(r*r*210), 36, 240), dr = r*Math.sqrt(4*PI/n)*0.8;
+  for (let i = 0; i < n; i++) { const d = fib(i, n); if (d[1] < -0.25) continue;
+    const g = 0.7 + 0.3*Math.sin(d[0]*groove + Math.sin(d[2]*groove*0.7 + d[1]*5)*2.2), k = r*(1 + 0.06*Math.sin(d[0]*7 + cx)*Math.sin(d[2]*7 + cz));
+    disc(ST, [cx + d[0]*k, cy + d[1]*k*squash, cz + d[2]*k], norm3([d[0], d[1]/squash, d[2]]), dr, dr, tint(col, g), 0.55 + 0.45*clamp(d[1] + 0.4, 0, 1)); }
+  collider(cx, cy, cz, r, r*squash);
+}
+function coralBrain(x, z, r){ lump(x, floorH(x, z) + r*0.1, z, r, pick([[0.72, 0.62, 0.28], [0.60, 0.68, 0.36], [0.82, 0.66, 0.42], [0.58, 0.48, 0.66]]), 13); }
+function coralBoulder(x, z, r){ const col = pick([[0.80, 0.72, 0.30], [0.50, 0.64, 0.34], [0.66, 0.54, 0.76], [0.78, 0.60, 0.40]]), n = 3 + ((wr()*3) | 0);
+  for (let i = 0; i < n; i++) { const a = wr()*TAU, d = wr()*r*0.7, bx = x + Math.cos(a)*d, bz = z + Math.sin(a)*d, rr = r*wrr(0.45, 0.8); lump(bx, floorH(bx, bz) + rr*0.25, bz, rr, tint(col, wrr(0.85, 1.1)), 30, 0.95); } }
+function stag(x, y, z, s, col){
+  const limb = (a, d, len, rad, depth) => { const b = add3(a, sc3(d, len));
+    strip(ST, a, b, rad, tint(col, 0.72 + 0.09*(3 - depth)), depth ? 0.75 : 1);
+    if (!depth) { disc(ST, b, d, rad*1.5, rad*1.5, mix3(col, [1, 1, 0.92], 0.65), 1, 0, 0, 1); return; }
+    const kids = depth === 3 ? 4 : 2 + ((wr()*2) | 0);
+    for (let i = 0; i < kids; i++) limb(b, norm3([d[0] + wrr(-0.95, 0.95), d[1] + wrr(0.05, 0.6), d[2] + wrr(-0.95, 0.95)]), len*wrr(0.62, 0.85), rad*0.76, depth - 1); };
+  limb([x, y, z], [0, 1, 0], 0.15*s, 0.045*s, 3);
+}
+function coralThicket(x, z, s){ const col = pick([[0.72, 0.56, 0.92], [0.96, 0.88, 0.64], [0.98, 0.54, 0.44], [0.34, 0.58, 0.98], [0.98, 0.84, 0.28], [0.50, 0.86, 0.66]]), n = 2 + ((wr()*4) | 0);
+  for (let i = 0; i < n; i++) { const a = wr()*TAU, d = i ? wrr(0.25, 0.6)*s : 0, bx = x + Math.cos(a)*d, bz = z + Math.sin(a)*d, ss = s*wrr(0.8, 1.2); stag(bx, floorH(bx, bz) - 0.05, bz, ss, tint(col, wrr(0.88, 1.08))); collider(bx, floorH(bx, bz) + 0.22*ss, bz, 0.24*ss, 0.26*ss); } }
+function coralTable(x, z, r){
+  const col = pick([[0.30, 0.64, 0.56], [0.64, 0.50, 0.32], [0.46, 0.68, 0.36], [0.72, 0.46, 0.62], [0.36, 0.52, 0.80]]), y = floorH(x, z), tiers = 1 + ((wr()*3) | 0); let h = wrr(0.3, 0.6), cx = x, cz = z;
+  for (let t = 0; t < tiers; t++) { const rr = r*(1 - 0.2*t), tilt = norm3([wrr(-0.2, 0.2), 1, wrr(-0.2, 0.2)]), u = perp(tilt), v = cross(tilt, u), rings = Math.max(3, Math.round(rr/0.15));
+    strip(ST, [cx, y - 0.1, cz], [cx, y + h, cz], rr*0.14, tint(col, 0.55), 0.6);
+    for (let i = 0; i <= rings; i++) { const q = rr*i/rings, m = i ? Math.round(TAU*q/0.2) : 1;
+      for (let j = 0; j < m; j++) { const a = j/m*TAU + i*0.5, cu = Math.cos(a)*q, cv = Math.sin(a)*q, lift = q*q*0.18/rr;
+        disc(ST, [cx + u[0]*cu + v[0]*cv + tilt[0]*lift, y + h + u[1]*cu + v[1]*cv + tilt[1]*lift, cz + u[2]*cu + v[2]*cv + tilt[2]*lift], tilt, 0.135, 0.135, i === rings ? mix3(col, [1, 1, 0.9], 0.28) : tint(col, 0.8 + 0.3*Math.sin(a*9 + i)), 0.9); } }
+    collider(cx, y + h + rr*0.06, cz, rr, 0.16); collider(cx, y + h*0.5, cz, rr*0.2, h*0.5);
+    cx += wrr(-0.4, 0.4)*r; cz += wrr(-0.4, 0.4)*r; h += wrr(0.28, 0.5); }
+}
+function coralLettuce(x, z, s){
+  const col = pick([[0.84, 0.76, 0.34], [0.54, 0.72, 0.38], [0.80, 0.56, 0.36], [0.62, 0.52, 0.78], [0.90, 0.62, 0.50]]), y = floorH(x, z), n = 10 + ((wr()*10) | 0);
+  for (let i = 0; i < n; i++) { const a = i*2.4, f = i/n, d = (0.06 + 0.4*Math.sqrt(f))*s, el = 1.25 - 0.8*f, o = [Math.cos(a), 0, Math.sin(a)], size = wrr(0.15, 0.26)*s;
+    const u = [o[0]*Math.cos(el), Math.sin(el), o[2]*Math.cos(el)], nrm = [-o[0]*Math.sin(el), Math.cos(el), -o[2]*Math.sin(el)], c = [x + o[0]*d + u[0]*size*0.6, y + u[1]*size*0.6, z + o[2]*d + u[2]*size*0.6];
+    disc(ST, c, nrm, size, size*0.9, tint(col, 0.7 + 0.3*f), 0.6 + 0.4*f, 0, 0, 1, u);
+    disc(ST, [c[0] + u[0]*size*0.8, c[1] + u[1]*size*0.8, c[2] + u[2]*size*0.8], nrm, size*0.2, size*0.8, mix3(col, [1, 1, 0.92], 0.6), 1, 0, 0, 1, u); }
+  collider(x, y + 0.14*s, z, 0.5*s, 0.26*s);
+}
+function coralPillar(x, z, s){
+  const col = pick([[0.80, 0.68, 0.42], [0.66, 0.62, 0.40], [0.74, 0.52, 0.46], [0.56, 0.62, 0.50]]), n = 5 + ((wr()*8) | 0);
+  for (let i = 0; i < n; i++) { const a = wr()*TAU, d = wr()*0.34*s, bx = x + Math.cos(a)*d, bz = z + Math.sin(a)*d, y = floorH(bx, bz) - 0.05, h = wrr(0.35, 1.1)*s*(1 - d/s), w = wrr(0.045, 0.075)*s, segs = Math.max(1, Math.ceil(h/0.3)), lx = wrr(-0.12, 0.12), lz = wrr(-0.12, 0.12);
+    for (let k = 0; k < segs; k++) strip(ST, [bx + lx*h*k/segs, y + h*k/segs, bz + lz*h*k/segs], [bx + lx*h*(k + 1)/segs, y + h*(k + 1)/segs, bz + lz*h*(k + 1)/segs], w, tint(col, 0.65 + 0.4*(k + 1)/segs), 0.65 + 0.35*(k + 1)/segs);
+    disc(ST, [bx + lx*h, y + h, bz + lz*h], [0, 1, 0], w*1.5, w*1.5, mix3(col, [1, 1, 0.9], 0.5), 1, 1, 0, 0.9); }
+  collider(x, floorH(x, z) + 0.4*s, z, 0.4*s, 0.5*s);
+}
+function coralSoft(x, z, s){
+  const col = pick([[0.98, 0.42, 0.62], [0.96, 0.32, 0.38], [0.98, 0.62, 0.28], [0.82, 0.48, 0.96], [0.98, 0.90, 0.92]]), y = floorH(x, z) - 0.03, top = [x, y + 0.3*s, z];
+  MODE = 3; strip(ST, [x, y, z], top, 0.045*s, mix3(col, [1, 1, 1], 0.55), 0.8, 5); const nb = 5 + ((wr()*3) | 0);
+  for (let i = 0; i < nb; i++) { const a = i*2.4, d = norm3([Math.cos(a)*wrr(0.4, 1), wrr(0.5, 1), Math.sin(a)*wrr(0.4, 1)]), e = add3(top, sc3(d, wrr(0.22, 0.42)*s));
+    strip(ST, [x, y + 0.15*s + 0.03*i*s, z], e, 0.025*s, mix3(col, [1, 1, 1], 0.4), 0.9, 14*s);
+    for (let j = 0; j < 8; j++) { const o = fib(j, 8), r = wrr(0.04, 0.065)*s; disc(ST, [e[0] + o[0]*0.09*s, e[1] + o[1]*0.08*s, e[2] + o[2]*0.09*s], o, r, r, tint(col, wrr(0.85, 1.15)), 1, 0, 26*s, 1); } }
+  MODE = 0; collider(x, y + 0.15*s, z, 0.09*s, 0.2*s);
+}
+function coralFan(x, z, h){
+  const col = pick([[0.68, 0.30, 0.84], [0.96, 0.34, 0.26], [0.98, 0.70, 0.20], [0.94, 0.42, 0.66]]), y = floorH(x, z) - 0.05, yaw = wr()*TAU, ax = [Math.cos(yaw), 0, Math.sin(yaw)], nrm = [-ax[2], 0, ax[0]];
+  strip(ST, [x, y, z], [x, y + h*0.25, z], 0.03, tint(col, 0.6), 0.8, 0);
+  for (const k of [-0.34, 0, 0.34]) collider(x + ax[0]*h*k, y + h*(0.62 - Math.abs(k)*0.35), z + ax[2]*h*k, h*0.24, h*(0.42 - Math.abs(k)*0.3));
+  MODE = 3; const ribs = 13;
+  for (let i = 0; i < ribs; i++) { const a = (i/(ribs - 1) - 0.5)*2.2, d = norm3([ax[0]*Math.sin(a), Math.cos(a), ax[2]*Math.sin(a)]), len = h*(0.72 + 0.28*Math.cos(a*1.3))*wrr(0.85, 1), segs = Math.max(3, Math.round(len/0.11));
+    for (let k = 0; k < segs; k++) { const t = (k + 0.5)/segs, p = [x + d[0]*len*t, y + h*0.18 + d[1]*len*t, z + d[2]*len*t];
+      disc(ST, p, nrm, len/segs*0.85, 0.035 + 0.05*t, tint(col, 0.75 + 0.35*t), 0.95, 1, 26*t*(h/1.2), 0.92, d); } }
+  MODE = 0;
+}
+function coralWhips(x, z, s){
+  const col = pick([[0.96, 0.30, 0.22], [0.98, 0.62, 0.18], [0.94, 0.84, 0.30], [0.86, 0.30, 0.56]]), n = 4 + ((wr()*6) | 0);
+  for (let i = 0; i < n; i++) { const a = wr()*TAU, bx = x + Math.cos(a)*0.12, bz = z + Math.sin(a)*0.12, y = floorH(bx, bz) - 0.03, len = wrr(0.7, 1.7)*s, lean = [Math.cos(a)*wrr(0.1, 0.5), Math.sin(a)*wrr(0.1, 0.5)];
+    for (let k = 0; k < 6; k++) { const t0 = k/6, t1 = (k + 1)/6; strip(ST, [bx + lean[0]*len*t0*t0, y + len*t0, bz + lean[1]*len*t0*t0], [bx + lean[0]*len*t1*t1, y + len*t1, bz + lean[1]*len*t1*t1], 0.013, tint(col, 0.75 + 0.35*t1), 0.8 + 0.2*t1, 44*t1*t1*s); } }
+}
+function coralTubes(x, z, s){
+  const col = pick([[0.98, 0.82, 0.22], [0.64, 0.36, 0.88], [0.98, 0.54, 0.22], [0.34, 0.74, 0.88]]), n = 3 + ((wr()*4) | 0);
+  for (let k = 0; k < n; k++) { const a = wr()*TAU, d = wr()*0.2*s, bx = x + Math.cos(a)*d, bz = z + Math.sin(a)*d, y = floorH(bx, bz) - 0.05, r = wrr(0.055, 0.11)*s, h = wrr(0.35, 0.95)*s, lean = [wrr(-0.2, 0.2), 1, wrr(-0.2, 0.2)];
+    const rings = Math.max(3, Math.round(h/(r*1.5)));
+    for (let i = 0; i <= rings; i++) { const t = i/rings, rr = r*(0.75 + 0.35*t), cx = bx + lean[0]*h*t, cz = bz + lean[2]*h*t;
+      for (let j = 0; j < 6; j++) { const b = j/6*TAU + i*0.5, nx = Math.cos(b), nz = Math.sin(b);
+        disc(ST, [cx + nx*rr, y + h*t, cz + nz*rr], [nx, 0, nz], h/rings*0.75, rr*0.62, i === rings ? mix3(col, [1, 1, 1], 0.4) : tint(col, 0.7 + 0.3*t), 0.7 + 0.3*t); } }
+    disc(ST, [bx + lean[0]*h, y + h - 0.03, bz + lean[2]*h], [0, 1, 0], r*0.8, r*0.8, tint(col, 0.22), 0.5);
+    collider(bx + lean[0]*h*0.5, y + h*0.5, bz + lean[2]*h*0.5, r*1.25 + Math.abs(lean[0])*h*0.3, h*0.52);
+  }
+}
+function spongeBarrel(x, z, s){
+  const col = pick([[0.64, 0.34, 0.30], [0.52, 0.32, 0.42], [0.72, 0.48, 0.30]]), y = floorH(x, z) - 0.05, r = wrr(0.3, 0.5)*s, h = wrr(0.6, 1.0)*s, rings = Math.max(4, Math.round(h/0.15));
+  for (let i = 0; i <= rings; i++) { const t = i/rings, rr = r*(0.68 + 0.42*Math.sin(t*PI*0.8)), m = Math.max(6, Math.round(TAU*rr/0.17));
+    for (let j = 0; j < m; j++) { const b = j/m*TAU, nx = Math.cos(b), nz = Math.sin(b);
+      disc(ST, [x + nx*rr, y + h*t, z + nz*rr], norm3([nx, 0.15, nz]), h/rings*0.8, 0.105, i === rings ? mix3(col, [1, 0.9, 0.8], 0.35) : tint(col, 0.6 + 0.25*Math.sin(j*1.57) + 0.25*t), 0.6 + 0.4*t, 0, 0, 1, [0, 1, 0]); } }
+  disc(ST, [x, y + h*0.8, z], [0, 1, 0], r*0.85, r*0.85, tint(col, 0.14), 0.4); collider(x, y + h*0.5, z, r*1.15, h*0.55);
+}
+function coralAnemone(x, z, s){
+  const col = pick([[0.96, 0.60, 0.72], [0.60, 0.90, 0.52], [0.96, 0.90, 0.70], [0.74, 0.52, 0.95]]), y = floorH(x, z), tip = mix3(col, [1, 1, 1], 0.55);
+  disc(ST, [x, y + 0.04, z], [0, 1, 0], 0.2*s, 0.2*s, tint(col, 0.5), 0.6); collider(x, y + 0.08, z, 0.22*s, 0.2*s);
+  for (let i = 0; i < 40; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*0.18*s, dir = norm3([Math.cos(a)*(0.25 + d*3), 1, Math.sin(a)*(0.25 + d*3)]), len = wrr(0.14, 0.28)*s, b = [x + Math.cos(a)*d, y + 0.04, z + Math.sin(a)*d];
+    strip(ST, b, add3(b, sc3(dir, len*0.6)), 0.014*s, col, 0.8, 9);
+    strip(ST, add3(b, sc3(dir, len*0.6)), add3(b, sc3(dir, len)), 0.017*s, tip, 1, 26); }
+  fishCloud(x, y + 0.42*s, z, 2 + ((wr()*2) | 0), 0.16, 0.08, [[1.0, 0.48, 0.10]], 0.05, 0.12);                                                  // resident clownfish
+}
+function giantClam(x, z, s){
+  const y = floorH(x, z), yaw = wr()*TAU, ax = [Math.cos(yaw), 0, Math.sin(yaw)], sd = [-ax[2], 0, ax[0]], L = wrr(0.4, 0.65)*s, col = pick([[0.14, 0.46, 0.98], [0.18, 0.84, 0.62], [0.58, 0.30, 0.90], [0.22, 0.78, 0.90]]);
+  for (let i = 0; i <= 10; i++) { const t = i/10 - 0.5, wv = Math.sin(i*1.9)*0.035*s, hgt = (0.16 - t*t*0.4)*s;
+    disc(ST, [x + ax[0]*t*L, y + hgt + 0.02, z + ax[2]*t*L], [0, 1, 0], 0.05*s, 0.03*s, [0.05, 0.05, 0.08], 0.5, 0, 0, 1, ax);
+    for (const k of [-1, 1]) { const o = (0.075*s + wv)*k;
+      disc(ST, [x + ax[0]*t*L + sd[0]*o, y + hgt + 0.03, z + ax[2]*t*L + sd[2]*o], norm3([sd[0]*k*0.5, 1, sd[2]*k*0.5]), 0.062*s, 0.055*s, tint(col, (i & 1) ? 1 : 0.6), 1);
+      disc(ST, [x + ax[0]*t*L + sd[0]*o*2.1, y + hgt*0.55, z + ax[2]*t*L + sd[2]*o*2.1], norm3([sd[0]*k, 0.5, sd[2]*k]), 0.08*s, 0.09*s, tint([0.80, 0.76, 0.66], (i & 1) ? 1 : 0.72), 0.8); } }
+  collider(x, y + 0.08*s, z, L*0.5, 0.15*s);
+}
+function seaGrass(x, z){
+  const y = floorH(x, z);
+  for (let i = 0; i < 7; i++) { const a = wr()*TAU, d = wr()*0.25, h = wrr(0.25, 0.6), b = [x + Math.cos(a)*d, y, z + Math.sin(a)*d];
+    strip(ST, b, [b[0] + wrr(-0.1, 0.1), y + h*0.55, b[2] + wrr(-0.1, 0.1)], 0.02, [0.30, 0.52, 0.24], 0.8, 6);
+    strip(ST, [b[0], y + h*0.5, b[2]], [b[0] + wrr(-0.15, 0.15), y + h, b[2] + wrr(-0.15, 0.15)], 0.018, [0.42, 0.66, 0.30], 1, 22); }
+}
+const ANTHIAS = [[1.0, 0.52, 0.14], [0.98, 0.36, 0.56], [0.86, 0.34, 0.90], [1.0, 0.70, 0.20]], CHROMIS = [[0.34, 0.86, 0.80], [0.30, 0.66, 0.98], [0.56, 0.92, 0.70]];
+function genReef(){
+  const plant = (x, z, big) => { const t = wr();
+    if (t < 0.10) coralBrain(x, z, wrr(0.3, 0.7)*big); else if (t < 0.17) coralBoulder(x, z, wrr(0.5, 0.9)*big); else if (t < 0.31) coralThicket(x, z, wrr(1.0, 1.8)*big);
+    else if (t < 0.41) coralTable(x, z, wrr(0.5, 1.2)*big); else if (t < 0.52) coralLettuce(x, z, wrr(0.8, 1.6)*big); else if (t < 0.60) coralPillar(x, z, wrr(0.8, 1.4)*big);
+    else if (t < 0.69) coralSoft(x, z, wrr(0.9, 1.7)); else if (t < 0.76) coralFan(x, z, wrr(0.7, 1.4)*big); else if (t < 0.82) coralWhips(x, z, wrr(0.8, 1.3));
+    else if (t < 0.87) coralTubes(x, z, wrr(0.8, 1.4)*big); else if (t < 0.90) spongeBarrel(x, z, wrr(0.8, 1.3)*big); else if (t < 0.94) coralAnemone(x, z, wrr(0.9, 1.5));
+    else if (t < 0.96) giantClam(x, z, wrr(0.8, 1.5)); else if (t < 0.98) urchin(x, z, [0.10, 0.08, 0.14]); else seaStar(x, z, pick([[0.16, 0.34, 0.95], [0.96, 0.46, 0.14], [0.85, 0.2, 0.25]])); };
+  for (let i = 0; i < N_MOUND; i++) { const b = bumps[i], n = 20 + ((wr()*9) | 0);
+    for (let k = 0; k < n; k++) { const a = wr()*TAU, d = Math.sqrt(wr())*b.r*1.05; plant(b.x + Math.cos(a)*d, b.z + Math.sin(a)*d, 1.35); }
+    const top = floorH(b.x, b.z);
+    fishCloud(b.x, top + 1.0, b.z, 22 + ((wr()*22) | 0), b.r*0.55, 0.55, ANTHIAS, 0.062, 0.7);
+    if (wr() < 0.7) { const a = wr()*TAU, x = b.x + Math.cos(a)*b.r*0.6, z = b.z + Math.sin(a)*b.r*0.6; fishCloud(x, floorH(x, z) + 0.8, z, 16 + ((wr()*18) | 0), 1.6, 0.4, CHROMIS, 0.055, 0.6); } }
+  for (let i = 0; i < 230; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*REEF.r*1.08; plant(REEF.x + Math.cos(a)*d, REEF.z + Math.sin(a)*d, 0.95); }
+  for (let i = 0; i < 9500; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*REEF.r*1.1, x = REEF.x + Math.cos(a)*d, z = REEF.z + Math.sin(a)*d, y = floorH(x, z); if (_rw < 0.22) continue;   // encrusting life on the rock
+    const n = floorN(x, z), col = mix3([0.42, 0.38, 0.32], pick(REEF_PAL), wrr(0.45, 0.8));
+    if (i % 4) { const r = wrr(0.06, 0.17); disc(ST, [x + n[0]*0.03, y + 0.03, z + n[2]*0.03], n, r, r*wrr(0.6, 1), tint(col, wrr(0.75, 1.1)), 0.9); }
+    else { const r = wrr(0.09, 0.22), u = perp(n), v = cross(n, u);                                                  // low cushion of coral: a small dome of discs
+      for (let j = 0; j < 6; j++) { const b = j*TAU/5, k = j < 5 ? 0.6 : 0, o = add3(sc3(u, Math.cos(b)*k), sc3(v, Math.sin(b)*k)), nn = norm3(add3(n, sc3(o, 1.2)));
+        disc(ST, [x + o[0]*r + n[0]*r*(j < 5 ? 0.25 : 0.55), y + o[1]*r + n[1]*r*(j < 5 ? 0.25 : 0.55), z + o[2]*r + n[2]*r*(j < 5 ? 0.25 : 0.55)], nn, r*0.62, r*0.62, tint(col, j < 5 ? wrr(0.8, 1) : 1.2), j < 5 ? 0.75 : 1); } } }
+  for (let i = 0; i < 12; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*REEF.r*0.9, x = REEF.x + Math.cos(a)*d, z = REEF.z + Math.sin(a)*d;      // fusiliers streaming over the reef
+    fishCloud(x, Math.min(-2, floorH(x, z) + wrr(2.5, 5)), z, 36, 3.2, 0.7, [[0.25, 0.55, 0.98], [0.98, 0.84, 0.20], [0.30, 0.62, 0.95]], 0.085, 0); }
+  for (let i = 0; i < 18; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*REEF.r, x = REEF.x + Math.cos(a)*d, z = REEF.z + Math.sin(a)*d; bubbleVent(x, z); }
+  for (let i = 0; i < 260; i++) { const a = wr()*TAU, d = Math.sqrt(wr())*AREA_R, x = Math.cos(a)*d, z = Math.sin(a)*d; floorH(x, z); if (_rw < 0.1 && kelpW(x, z) < 0.2) seaGrass(x, z); }
+}
+function genBoat(){
+  const n = 900, Lh = 3.9, Bh = 1.25, D = 0.85;
+  for (let i = 0; i < n; i++) { const d = fib(i, n); if (d[1] > 0.12) continue;
+    const taper = d[2] < 0 ? 1 - 0.55*Math.pow(-d[2], 2.2) : 1 - 0.12*d[2]*d[2];
+    const p = [d[0]*Bh*taper, d[1]*D, d[2]*Lh], nrm = norm3([d[0]/Bh, d[1]/D, d[2]/Lh*0.4]);
+    disc(ST, p, nrm, 0.3, 0.26, d[1] > -0.18 ? [0.90, 0.90, 0.86] : tint([0.52, 0.15, 0.13], 0.8 + 0.3*wr()), 0.55 + 0.3*(-d[1]), 0, 0, 1, [0, 0, 1]); }
+  strip(ST, [0, -D + 0.05, 3.2], [0, -D - 0.5, 3.6], 0.2, [0.2, 0.2, 0.22], 0.6);                           // rudder
+  for (let i = 0; i < 3; i++) { const a = i*TAU/3; disc(ST, [Math.cos(a)*0.16, -D - 0.25 + Math.sin(a)*0.16, 3.25], [0, 0.3, 1], 0.15, 0.08, [0.75, 0.62, 0.3], 0.8); }
+  const al = [0.82, 0.86, 0.9];                                                                            // dive ladder at the stern
+  line(ST, [-0.3, 0, 4.15], [-0.3, -2.1, 4.35], 0.03, al, 1, 0.4); line(ST, [0.3, 0, 4.15], [0.3, -2.1, 4.35], 0.03, al, 1, 0.4);
+  for (let i = 0; i < 5; i++) { const y = -0.35 - i*0.4; strip(ST, [-0.3, y, 4.18 + i*0.04], [0.3, y, 4.18 + i*0.04], 0.03, al, 1); }
+  const anchor = [-3, floorH(-3, -15), -15];                                                               // anchor line off the bow
+  line(ST, [0, -0.2, -3.7], [anchor[0], anchor[1] + 0.3, anchor[2]], 0.03, [0.85, 0.80, 0.66], 1, 0.6);
+  strip(ST, [anchor[0], anchor[1] + 0.9, anchor[2]], [anchor[0], anchor[1], anchor[2]], 0.06, [0.18, 0.18, 0.2], 0.8);
+  strip(ST, [anchor[0] - 0.4, anchor[1] + 0.25, anchor[2]], [anchor[0] + 0.4, anchor[1] + 0.25, anchor[2]], 0.06, [0.18, 0.18, 0.2], 0.8);
+}
+
+// ---------------------------------------------------------------- fish templates
+// local frame: x forward (nose at +L/2), y up, z to the fish's right
+function mkFish(sp){
+  const L = sp.L, H = sp.H, W = sp.W, P = [], U = [], V = [], N = [], C = [], Wt = [];
+  const add = (p, u, v, n, c, w) => { P.push(p[0], p[1], p[2]); U.push(u[0], u[1], u[2]); V.push(v[0], v[1], v[2]); N.push(n[0], n[1], n[2]); C.push(c255(c[0]), c255(c[1]), c255(c[2])); Wt.push(w); };
+  const prof = u => Math.max(Math.pow(Math.sin(PI*Math.pow(u, 0.72)), 0.72), u > 0.5 ? 0.17 : 0)*(1 - 0.25*u*u);
+  const NU = Math.max(7, Math.round(sp.rings || 9));
+  for (let iu = 0; iu < NU; iu++) { const u = (iu + 0.5)/NU, pr = prof(u), x = L*(0.5 - u), NT = Math.max(5, Math.round(4 + pr*(sp.around || 6)));
+    for (let it = 0; it < NT; it++) { const th = (it + (iu & 1)*0.5)/NT*TAU, s = Math.sin(th), c = Math.cos(th);
+      const y = H*0.5*pr*s, z = W*0.5*pr*c, circ = PI*(H + W)*0.5*pr;
+      const tn = norm3([0, c*H, -s*W]), nrm = norm3([(0.5 - u)*0.35, s*W, c*H]);
+      const shadeK = 0.78 + 0.22*s, col = sp.col(u, s, hash2(iu*7 + it, 3));
+      add([x, y, z], [L/NU*0.72, 0, 0], sc3(tn, Math.max(0.012, circ/NT*0.72)), nrm, tint(col, shadeK), Math.pow(clamp((u - 0.3)/0.7, 0, 1), 2)); } }
+  const fin = sp.fin || sp.col(0.5, 1, 0.5), tl = sp.tail || L*0.26, th = sp.tailH || H*0.62;
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 5; j++) { const t = (i + 0.5)/4, s = (j/4 - 0.5)*2; if (sp.fork && Math.abs(s) < 0.3 && t > 0.45) continue;   // tail fan
+    add([-L*0.5 - tl*t + (sp.fork ? -Math.abs(s)*tl*0.4 : 0), s*th*(0.25 + 0.85*t), 0], [tl/4*0.8, 0, 0], [0, th*(0.25 + 0.85*t)/4*0.9, 0], [0, 0, 1], tint(fin, 0.85 + 0.2*t), 1); }
+  const dn = sp.dorsal || 5;
+  for (let i = 0; i < dn; i++) { const u = 0.3 + 0.4*i/Math.max(1, dn - 1), fh = (sp.dorsalH || H*0.28)*(0.6 + 0.4*Math.sin((i + 0.5)/dn*PI));
+    add([L*(0.5 - u), H*0.5*prof(u) + fh*0.7, 0], [L*0.4/dn*0.8, 0, 0], [0, fh, 0], [0, 0, 1], fin, Math.pow(clamp((u - 0.3)/0.7, 0, 1), 2));
+    if (i > dn/2) add([L*(0.5 - u), -H*0.5*prof(u) - fh*0.45, 0], [L*0.4/dn*0.8, 0, 0], [0, fh*0.7, 0], [0, 0, 1], fin, Math.pow(clamp((u - 0.3)/0.7, 0, 1), 2)); }
+  for (const s of [-1, 1]) {
+    add([L*0.14, -H*0.12, s*(W*0.5*prof(0.36) + L*0.04)], [-L*0.07, -L*0.03, s*L*0.04], [0, L*0.035, 0], [0, 0.3, s], fin, 0);              // pectoral
+    const ex = L*(0.5 - 0.13), ey = H*0.5*prof(0.13)*0.35, ez = s*(W*0.5*prof(0.13)*0.93 + 0.004), er = Math.max(0.011, H*0.085);
+    add([ex, ey, ez], [er, 0, 0], [0, er, 0], [0, 0, s], [0.95, 0.95, 0.85], 0);
+    add([ex + er*0.15, ey, ez + s*0.004], [er*0.55, 0, 0], [0, er*0.55, 0], [0, 0, s], [0.03, 0.03, 0.04], 0); }
+  return { n: Wt.length, P: new Float32Array(P), U: new Float32Array(U), V: new Float32Array(V), N: new Float32Array(N), C: new Uint8Array(C), W: new Float32Array(Wt) };
+}
+const bars = (u, n, w, a = 0.12, b = 0.92) => u > a && u < b && ((u*n) % 1) < w;
+const SPECIES = [
+  { key: 'sergeant', name: 'Sergeant major', L: 0.36, H: 0.21, W: 0.075, zone: 'reef', school: 8, count: 24, cruise: 1.2, flee: 5.2, alert: 5.5, alt: [0.8, 4.5], goo: [0.85, 0.2, 0.2],
+    col: (u, s) => bars(u, 5.4, 0.34) ? [0.07, 0.07, 0.10] : mix3([0.92, 0.94, 0.90], [0.98, 0.86, 0.18], clamp(s*1.4, 0, 1)), fin: [0.75, 0.78, 0.75] },
+  { key: 'parrot', name: 'Parrotfish', L: 0.64, H: 0.27, W: 0.14, zone: 'reef', school: 2, count: 8, cruise: 1.0, flee: 4.4, alert: 6.5, alt: [0.6, 2.6], rings: 11, around: 8, goo: [0.9, 0.25, 0.3],
+    col: (u, s, r) => u < 0.2 ? [0.30, 0.82, 0.50] : r > 0.72 ? [0.98, 0.50, 0.66] : mix3([0.10, 0.70, 0.76], [0.20, 0.50, 0.92], clamp(0.5 - s*0.5, 0, 1)), fin: [0.20, 0.52, 0.95] },
+  { key: 'tang', name: 'Blue tang', L: 0.42, H: 0.25, W: 0.07, zone: 'reef', school: 5, count: 10, cruise: 1.4, flee: 5.6, alert: 6.0, alt: [1, 5], goo: [0.85, 0.2, 0.25],
+    col: (u, s) => u > 0.84 ? [0.98, 0.86, 0.16] : (u > 0.28 && u < 0.8 && Math.abs(s - 0.35) < 0.28) ? [0.04, 0.06, 0.20] : [0.12, 0.38, 0.95], fin: [0.98, 0.86, 0.16] },
+  { key: 'butterfly', name: 'Butterflyfish', L: 0.30, H: 0.24, W: 0.06, zone: 'reef', school: 2, count: 8, cruise: 1.0, flee: 5.0, alert: 5.5, alt: [0.6, 3], goo: [0.9, 0.3, 0.2],
+    col: (u, s) => (u > 0.08 && u < 0.17) ? [0.05, 0.05, 0.07] : u < 0.3 ? [0.96, 0.96, 0.92] : [0.98, 0.84, 0.16], fin: [0.98, 0.80, 0.15] },
+  { key: 'grouper', name: 'Grouper', L: 1.2, H: 0.48, W: 0.32, zone: 'reef', school: 1, count: 3, cruise: 0.55, flee: 3.3, alert: 5.0, alt: [0.5, 1.6], rings: 14, around: 10, dorsal: 7, goo: [0.8, 0.15, 0.15],
+    col: (u, s, r) => r > 0.8 ? [0.80, 0.70, 0.52] : r < 0.25 ? [0.26, 0.18, 0.12] : mix3([0.62, 0.50, 0.36], [0.44, 0.32, 0.20], clamp(s + 0.4, 0, 1)), fin: [0.36, 0.26, 0.18] },
+  { key: 'garibaldi', name: 'Garibaldi', L: 0.44, H: 0.26, W: 0.10, zone: 'kelp', school: 1, count: 10, cruise: 0.85, flee: 4.6, alert: 5.5, alt: [0.8, 6], goo: [0.95, 0.3, 0.1],
+    col: (u, s) => mix3([1.0, 0.62, 0.14], [1.0, 0.40, 0.05], clamp(s*0.5 + 0.5, 0, 1)), fin: [1.0, 0.50, 0.10] },
+  { key: 'bass', name: 'Kelp bass', L: 0.58, H: 0.20, W: 0.11, zone: 'kelp', school: 3, count: 9, cruise: 1.1, flee: 5.2, alert: 6.0, alt: [1.5, 9], rings: 11, goo: [0.8, 0.2, 0.18],
+    col: (u, s, r) => s < -0.3 ? [0.90, 0.88, 0.74] : r > 0.7 ? [0.76, 0.76, 0.52] : [0.40, 0.44, 0.22], fin: [0.52, 0.52, 0.26] },
+  { key: 'barracuda', name: 'Barracuda', L: 1.3, H: 0.17, W: 0.12, zone: 'open', school: 4, count: 8, cruise: 2.1, flee: 7.5, alert: 8.5, alt: [3, 9], rings: 15, around: 3, dorsal: 3, fork: 1, tail: 0.2, tailH: 0.14, goo: [0.8, 0.18, 0.2],
+    col: (u, s) => s > 0.35 ? (bars(u, 9, 0.3, 0.3) ? [0.20, 0.26, 0.32] : [0.36, 0.46, 0.56]) : [0.86, 0.90, 0.94], fin: [0.30, 0.34, 0.40] },
+];
+for (const sp of SPECIES) { sp.T = mkFish(sp); sp.rad = Math.max(sp.H, sp.W)*0.5; }
+
+// ---------------------------------------------------------------- GL
+const cv = $('c');
+const gl = cv.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
+if (!gl) { showErr('This game needs WebGL2.'); return; }
+const COMMON = `
+uniform float uCamY; uniform float uTime;
+vec3 waterCol(vec3 d){ float k=exp(min(uCamY,0.)*.05);
+  vec3 c=mix(vec3(.004,.045,.10),vec3(.018,.19,.32),smoothstep(-1.,.05,d.y)); c=mix(c,vec3(.09,.42,.52),smoothstep(0.,1.,d.y)); return c*(.5+.7*k); }
+float caust(vec2 p,float t){ vec2 q=p*.5;
+  q+=vec2(sin(q.y*1.7+t*.9),cos(q.x*1.5-t*.7))*.7; q+=vec2(sin(q.y*2.9-t*1.1),cos(q.x*2.6+t*.8))*.35;
+  float a=sin(q.x*2.1)+sin(q.y*2.3)+sin((q.x+q.y)*1.4); return pow(clamp(1.-abs(a)*.45,0.,1.),3.)*2.4; }
+vec3 finish(vec3 c){ c=c/(c+vec3(.6))*1.35; return sqrt(c); }
+const vec3 ABSORB=vec3(.050,.012,.008); const float FOG=.040;`;
+const VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aC; layout(location=1) in vec3 aP; layout(location=2) in vec3 aU; layout(location=3) in vec3 aV;
+layout(location=4) in vec4 aCol; layout(location=5) in vec4 aN; layout(location=6) in vec4 aM;
+uniform mat4 uVP; uniform vec3 uCam; uniform vec3 uCR; uniform vec3 uCU;
+out vec2 vC; out vec3 vCol; out vec3 vCa; out vec3 vW; out float vA; flat out float vTier;
+${COMMON}
+void main(){
+  float sway=aM.y/255., mode=aM.w; vec3 p=aP, U=aU, V=aV, Nn=aN.xyz;
+  if(mode>.5&&mode<1.5){                                   // small fish: wander round a home point, duck into the coral when the diver is close
+    float s1=aN.x*6.283, s2=aN.y, t=uTime*(.55+.35*s2)+s1*3.;
+    vec3 o=vec3(sin(t)*.5+sin(t*2.3+s1)*.15, sin(t*1.3+s2*5.)*.18, cos(t*.8+s1)*.5+cos(t*1.9)*.15);
+    vec2 h=normalize(vec2(cos(t)*.5+cos(t*2.3+s1)*.345, -sin(t*.8+s1)*.4-sin(t*1.9)*.285)+1e-4);
+    float hide=smoothstep(4.2,1.8,distance(uCam,aP))*step(.001,aU.z);
+    vec3 hd=vec3(h.x,0.,h.y);
+    p=aP+o*(1.+aN.z*.5)*(1.-hide*.9)-vec3(0.,hide*aU.z,0.)-hd*aU.y*(1.-hide*.6);
+    U=hd*aU.x*(1.-hide*.6); V=normalize(cross(hd,uCam-p))*aV.y*(1.-hide*.6); Nn=normalize(uCam-p)+vec3(0.,.7,0.);
+  } else if(mode>1.5&&mode<2.5){                           // bubble column from the bed to the surface
+    float H=-aP.y-.3, s=aN.x*.5+.5, f=fract(uTime*(.10+.04*aN.y)+s);
+    p=aP+vec3(sin(f*30.+s*40.)*.35*f, f*H, cos(f*26.+s*17.)*.35*f);
+    float r=aU.x*(.6+f*1.4); U=uCR*r; V=uCU*r; Nn=uCam-p;
+  } else if(sway>0.){ float ph=aP.x*.21+aP.z*.17;
+    p.x+=sway*(sin(uTime*.55+ph)*1.5+sin(uTime*1.3+ph*2.3+aP.y*.4)*.35);
+    p.z+=sway*(cos(uTime*.43+ph*1.3)*1.0+sin(uTime*1.1+aP.y*.5)*.3); }
+  vec3 w=p+U*aC.x+V*aC.y;
+  vec3 toC=uCam-p; float dist=length(toC); vec3 N=normalize(Nn); if(dot(N,toC)<0.) N=-N;
+  float depth=max(0.,-p.y), dk=clamp(depth/22.,0.,1.);
+  vec3 L=normalize(vec3(.3,1.,.2));
+  float dif=max(dot(N,L),0.);
+  vec3 sun=mix(vec3(1.,.96,.82),vec3(.5,.84,.92),dk)*exp(-depth*.04)*1.7;
+  vec3 amb=mix(vec3(.34,.52,.58),vec3(.13,.32,.44),dk)*(.4+.6*aCol.a)*(.72+.28*N.y);
+  vec3 c=aCol.rgb*aCol.rgb;
+  vec3 lit=c*(amb+sun*dif*.6*aCol.a);
+  if(mode>2.5) lit+=c*sun*max(dot(-N,L),0.)*vec3(1.25,1.,.55)*.95*aCol.a;      // light coming through the leaf
+  vec3 ca=c*sun*aCol.a*exp(-depth*.05)*smoothstep(-.1,.6,N.y)*.75;
+  if(aM.x>2.5){ lit=c*1.4+vec3(.25); ca=vec3(0.); }
+  vec3 att=exp(-dist*ABSORB); float f=1.-exp(-dist*FOG);
+  vCol=mix(lit*att,waterCol(-toC/max(dist,1e-3)),f); vCa=ca*att*(1.-f);
+  vC=aC; vW=w; vA=aM.z/255.; vTier=aM.x;
+  gl_Position=uVP*vec4(w,1.);
+}`;
+const FS = `#version 300 es
+precision highp float;
+in vec2 vC; in vec3 vCol; in vec3 vCa; in vec3 vW; in float vA; flat in float vTier;
+uniform float uA2C;
+out vec4 o;
+${COMMON}
+float hash(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+void main(){
+  float r2=dot(vC,vC); if(r2>1.) discard;
+  float a; vec3 col=vCol;
+  if(vTier<.5){ a=(1.-smoothstep(.55,1.,r2))*vA; col+=vCa*caust(vW.xz+vW.y*.3,uTime); }
+  else if(vTier<2.5){ a=exp(-r2*3.)*vA; a=clamp(a+(hash(gl_FragCoord.xy)-.5)*.18*a,0.,1.); col+=vCa*caust(vW.xz+vW.y*.3,uTime)*step(vTier,1.5); }
+  else { float hl=exp(-dot(vC-vec2(-.35,.4),vC-vec2(-.35,.4))*14.); a=(smoothstep(.4,.82,r2)*.7+.14+hl)*vA; col+=vec3(hl); }
+  if(uA2C>.5){ if(a<.03) discard; o=vec4(finish(col),a); }
+  else { if(a<hash(gl_FragCoord.xy)*.98+.01) discard; o=vec4(finish(col),1.); }
+}`;
+const BG_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aC; uniform vec3 uR; uniform vec3 uU; uniform vec3 uF; out vec3 vD;
+void main(){ vD=uF+uR*aC.x+uU*aC.y; gl_Position=vec4(aC,0.,1.); }`;
+const BG_FS = `#version 300 es
+precision highp float;
+in vec3 vD; uniform vec3 uCam; out vec4 o;
+${COMMON}
+void main(){
+  vec3 d=normalize(vD); vec3 col=waterCol(d);
+  if(d.y>.002){ float t=-uCam.y/d.y; vec2 q=(uCam+d*t).xz;
+    vec2 g=vec2(sin(q.x*.9+uTime*1.1)+sin(q.y*1.7-uTime*.8+q.x*.5)+.6*sin(q.x*3.1+q.y*2.3+uTime*2.),
+                cos(q.y*.8+uTime*.9)+sin(q.x*1.9+uTime*1.3)+.6*cos(q.y*3.4-q.x*1.7+uTime*1.7))*.16;
+    vec3 n=normalize(vec3(g.x,-1.,g.y)); vec3 rf=refract(d,n,1.33); vec3 sc;
+    if(dot(rf,rf)>0.){ float sd=max(dot(rf,normalize(vec3(.3,1.,.2))),0.);
+      sc=mix(vec3(.42,.72,.86),vec3(.78,.94,1.),clamp(rf.y,0.,1.))*1.5+vec3(1.,.95,.8)*pow(sd,48.)*5.; }
+    else sc=waterCol(reflect(d,n))*.85;
+    float f=1.-exp(-t*FOG); col=mix(sc*exp(-t*ABSORB),col,f); }
+  vec3 s=normalize(vec3(.3,1.,.2)), e1=normalize(cross(s,vec3(0.,0.,1.))), e2=cross(s,e1), a=d-s*dot(d,s);     // sun shafts
+  float ang=atan(dot(a,e2),dot(a,e1));
+  float rays=pow(.5+.5*sin(ang*17.+sin(ang*5.+uTime*.25)*2.+uTime*.12),4.)*.6+pow(.5+.5*sin(ang*41.-uTime*.2+sin(ang*9.)*3.),6.)*.4;
+  col+=vec3(.45,.8,.8)*rays*smoothstep(-.25,.75,dot(d,s))*exp(min(uCamY,0.)*.07)*.16;
+  o=vec4(finish(col),1.);
+}`;
+function shader(type, src){ const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const m = gl.getShaderInfoLog(s); log('shader error', m); throw new Error(m); } return s; }
+function program(vs, fs){ const p = gl.createProgram(); gl.attachShader(p, shader(gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name.replace('[0]', ''); u[nm] = gl.getUniformLocation(p, nm); }
+  return { p, u }; }
+const PR = program(VS, FS), BG = program(BG_VS, BG_FS);
+const A2C = gl.getParameter(gl.SAMPLES) > 0;
+const cornerBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+function pointers(off){
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 48, off); gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 48, off + 12); gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 48, off + 24);
+  gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, 48, off + 36); gl.vertexAttribPointer(5, 4, gl.BYTE, true, 48, off + 40); gl.vertexAttribPointer(6, 4, gl.UNSIGNED_BYTE, false, 48, off + 44);
+}
+function mkVao(data, usage){
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, data, usage);
+  for (let i = 1; i <= 6; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribDivisor(i, 1); } pointers(0);
+  gl.bindVertexArray(null); return { vao, vbo };
+}
+const bgVao = gl.createVertexArray(); gl.bindVertexArray(bgVao); gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
+
+let STV = null; const chunks = [];
+const DYN = new SBuf(30000), VM = new SBuf(400); let DYNV, VMV;
+function buildWorld(){
+  const t0 = performance.now();
+  genFloor(); const nF = ST.n; genKelp(); const nK = ST.n; genReef(); const nR = ST.n; genBoat();
+  // sort splats into 24 m cells so far-off water can be skipped
+  const CS = 24, key = i => { const o = i*12; return Math.floor((ST.f[o] + 240)/CS) + 32*Math.floor((ST.f[o+2] + 240)/CS); };
+  const cnt = new Map(); for (let i = 0; i < ST.n; i++) { const k = key(i); cnt.set(k, (cnt.get(k) || 0) + 1); }
+  let off = 0; const start = new Map(); for (const [k, n] of cnt) { start.set(k, off); chunks.push({ off, n, x: ((k % 32) + 0.5)*CS - 240, z: (Math.floor(k/32) + 0.5)*CS - 240 }); off += n; }
+  const out = new Uint8Array(ST.n*48), src = ST.u, fill = new Map();
+  for (let i = 0; i < ST.n; i++) { const k = key(i), j = start.get(k) + (fill.get(k) || 0); fill.set(k, (fill.get(k) || 0) + 1); out.set(src.subarray(i*48, i*48 + 48), j*48); }
+  STV = mkVao(out, gl.STATIC_DRAW); DYNV = mkVao(DYN.buf.byteLength, gl.DYNAMIC_DRAW); VMV = mkVao(VM.buf.byteLength, gl.DYNAMIC_DRAW);
+  log(`world: ${ST.n} splats (floor ${nF}, kelp ${nK - nF}, reef ${nR - nK}, boat ${ST.n - nR}) in ${chunks.length} chunks, ${COL.length/5} coral colliders, ${(performance.now() - t0) | 0} ms, a2c ${A2C}`);
+}
+
+// ---------------------------------------------------------------- game state
+const G = { state: 'menu', t: 0, fps: 0 };
+const player = { x: 0, y: -3.2, z: 9.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: -0.18, reload: 0, recoil: 0, breath: 2, kick: 0 };
+const stats = { shots: 0, hits: 0, misses: 0, kills: 0, by: {}, time: 0, deepest: 0 };
+const input = { keys: {}, dx: 0, dy: 0, jx: 0, jy: 0, up: 0, down: 0, fire: false, end: false };
+const fishes = [], schools = [];
+const spear = { on: false, stuck: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, dx: 0, dy: 0, dz: -1, life: 0, hit: false, done: true, trail: 0 };
+const cam = { r: [1, 0, 0], u: [0, 1, 0], f: [0, 0, -1] };
+let calm = false;
+
+function zonePoint(sp){
+  for (let k = 0; k < 20; k++) {
+    let x, z, y;
+    if (sp.zone === 'open') { const a = sr()*TAU, d = srr(14, 58); x = Math.cos(a)*d; z = Math.sin(a)*d; }
+    else { const Z = sp.zone === 'reef' ? REEF : KELP, a = sr()*TAU, d = Math.sqrt(sr())*Z.r*0.95; x = Z.x + Math.cos(a)*d; z = Z.z + Math.sin(a)*d; }
+    const fl = floorH(x, z); y = sp.zone === 'open' ? -srr(sp.alt[0], sp.alt[1]) : fl + srr(sp.alt[0], sp.alt[1]);
+    y = clamp(y, fl + sp.rad + 0.35, -1.4); if (y > fl + sp.rad + 0.3 && !coralAt(x, y, z, sp.rad + 0.3)) return [x, y, z];
+  }
+  return [0, -6, 0];
+}
+function spawnAll(){
+  fishes.length = 0; schools.length = 0;
+  for (const sp of SPECIES) for (let i = 0; i < sp.count; i += sp.school) {
+    const sc = { sp, target: zonePoint(sp), timer: srr(4, 12) }; schools.push(sc); const home = zonePoint(sp);
+    for (let k = 0; k < sp.school && i + k < sp.count; k++) { const a = sr()*TAU;
+      fishes.push({ sp, sc, alive: true, respawn: 0, x: home[0] + srr(-1, 1), y: home[1] + srr(-0.4, 0.4), z: home[2] + srr(-1, 1), hx: Math.cos(a), hy: 0, hz: Math.sin(a), spd: sp.cruise, phase: sr()*TAU,
+        off: [srr(-1, 1)*0.5*sp.school**0.5, srr(-0.5, 0.5)*0.4*sp.school**0.5, srr(-1, 1)*0.5*sp.school**0.5], flee: 0, fx: 0, fy: 0, fz: 0, scale: srr(0.88, 1.15), yaw: 0, pitch: 0 }); }
+  }
+}
+function resetDive(){
+  sr = mulberry32(SEED); G.t = 0;
+  Object.assign(player, { x: 0, y: -3.2, z: 9.5, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: -0.18, reload: 0, recoil: 0, breath: 2, kick: 0 });
+  Object.assign(stats, { shots: 0, hits: 0, misses: 0, kills: 0, by: {}, time: 0, deepest: 0 });
+  spear.on = false; spear.done = true; P.n = 0; spawnAll(); $('catchN').textContent = '0'; $('last').style.opacity = 0;
+}
+
+// ---------------------------------------------------------------- particles
+const PMAX = 7000;
+const P = { n: 0, x: new Float32Array(PMAX*3), v: new Float32Array(PMAX*3), U: new Float32Array(PMAX*3), V: new Float32Array(PMAX*3), N: new Float32Array(PMAX*3), c: new Uint8Array(PMAX*3), life: new Float32Array(PMAX), max: new Float32Array(PMAX), size: new Float32Array(PMAX), kind: new Uint8Array(PMAX) };
+// kind 0 = chunk of fish, 1 = blood cloud, 2 = bubble, 3 = silt
+function pAdd(kind, x, y, z, vx, vy, vz, life, size, r, g, b){
+  if (P.n >= PMAX) return -1; const i = P.n++, o = i*3;
+  P.x[o] = x; P.x[o+1] = y; P.x[o+2] = z; P.v[o] = vx; P.v[o+1] = vy; P.v[o+2] = vz; P.c[o] = r; P.c[o+1] = g; P.c[o+2] = b;
+  P.life[i] = P.max[i] = life; P.size[i] = size; P.kind[i] = kind; return i;
+}
+function pKill(i){ const j = --P.n; if (i === j) return; const o = i*3, q = j*3;
+  for (const A of [P.x, P.v, P.U, P.V, P.N, P.c]) { A[o] = A[q]; A[o+1] = A[q+1]; A[o+2] = A[q+2]; }
+  P.life[i] = P.life[j]; P.max[i] = P.max[j]; P.size[i] = P.size[j]; P.kind[i] = P.kind[j]; }
+function updateParticles(dt){
+  for (let i = P.n - 1; i >= 0; i--) {
+    const o = i*3, k = P.kind[i]; P.life[i] -= dt;
+    if (P.life[i] <= 0 || (k === 2 && P.x[o+1] > -0.08)) { pKill(i); continue; }
+    if (k === 2) { P.v[o] += (Math.sin(G.t*9 + i) *1.6 - P.v[o]*2)*dt; P.v[o+2] += (Math.cos(G.t*8 + i*1.7)*1.6 - P.v[o+2]*2)*dt; P.v[o+1] += (1.7 - P.v[o+1])*3*dt; }
+    else { const dr = Math.exp(-(k === 0 ? 2.3 : 3)*dt); P.v[o] *= dr; P.v[o+1] = P.v[o+1]*dr - (k === 0 ? 0.55 : k === 3 ? 0.06 : -0.05)*dt; P.v[o+2] *= dr; }
+    P.x[o] += P.v[o]*dt; P.x[o+1] += P.v[o+1]*dt; P.x[o+2] += P.v[o+2]*dt;
+    if (k === 0) { const fl = floorH(P.x[o], P.x[o+2]) + 0.03; if (P.x[o+1] < fl) { P.x[o+1] = fl; P.v[o] = P.v[o+1] = P.v[o+2] = 0; } }
+  }
+}
+function bubbles(x, y, z, n, spread, size){ for (let i = 0; i < n; i++) pAdd(2, x + srr(-spread, spread), y + srr(-spread, spread), z + srr(-spread, spread), srr(-0.4, 0.4), srr(0.3, 1.4), srr(-0.4, 0.4), srr(3, 7), size*srr(0.5, 1.4), 235, 250, 255); }
+function silt(x, y, z, n, k){ for (let i = 0; i < n; i++) pAdd(3, x + srr(-0.3, 0.3), y + srr(0, 0.2), z + srr(-0.3, 0.3), srr(-1, 1)*k, srr(0.2, 1.2)*k, srr(-1, 1)*k, srr(1.6, 3.4), srr(0.14, 0.3), 214, 200, 160); }
+
+// ---------------------------------------------------------------- fish
+function fishBasis(F, B){
+  const cy = Math.cos(F.yaw), sy = Math.sin(F.yaw), cp = Math.cos(F.pitch), sp = Math.sin(F.pitch);
+  B[0] = sy*cp; B[1] = sp; B[2] = -cy*cp; B[3] = -sy*sp; B[4] = cp; B[5] = cy*sp; B[6] = cy; B[7] = 0; B[8] = sy;   // forward, up, right
+}
+const _B = new Float32Array(9);
+// calls fn(i, wx, wy, wz) with each splat's world position; shared by drawing and by the burst, so chunks start exactly where the fish was
+function fishEach(F, fn){
+  const T = F.sp.T, s = F.scale, B = _B; fishBasis(F, B);
+  const amp = F.sp.L*0.16*(0.55 + 0.45*Math.min(2, F.spd/F.sp.cruise)), kw = 5.5/F.sp.L;
+  for (let i = 0; i < T.n; i++) { const o = i*3, x = T.P[o]*s, y = T.P[o+1]*s, z = (T.P[o+2] + Math.sin(F.phase + T.P[o]*kw)*amp*T.W[i])*s;
+    fn(i, F.x + B[0]*x + B[3]*y + B[6]*z, F.y + B[1]*x + B[4]*y + B[7]*z, F.z + B[2]*x + B[5]*y + B[8]*z, o, T, B, s); }
+}
+function drawFish(F){
+  const dx = F.x - player.x, dy = F.y - player.y, dz = F.z - player.z; if (dx*dx + dy*dy + dz*dz > 62*62) return;
+  fishEach(F, (i, wx, wy, wz, o, T, B, s) => {
+    const ux = T.U[o]*s, uy = T.U[o+1]*s, uz = T.U[o+2]*s, vx = T.V[o]*s, vy = T.V[o+1]*s, vz = T.V[o+2]*s, nx = T.N[o], ny = T.N[o+1], nz = T.N[o+2];
+    put(DYN, wx, wy, wz, B[0]*ux + B[3]*uy + B[6]*uz, B[1]*ux + B[4]*uy + B[7]*uz, B[2]*ux + B[5]*uy + B[8]*uz, B[0]*vx + B[3]*vy + B[6]*vz, B[1]*vx + B[4]*vy + B[7]*vz, B[2]*vx + B[5]*vy + B[8]*vz,
+      T.C[o]/255, T.C[o+1]/255, T.C[o+2]/255, 1, B[0]*nx + B[3]*ny + B[6]*nz, B[1]*nx + B[4]*ny + B[7]*nz, B[2]*nx + B[5]*ny + B[8]*nz, 0, 0, 1); });
+}
+function scare(F, fromX, fromY, fromZ, secs){
+  if (calm || !F.alive) return; let dx = F.x - fromX, dy = F.y - fromY, dz = F.z - fromZ; const l = Math.hypot(dx, dy, dz) || 1;
+  F.fx = dx/l + srr(-0.35, 0.35); F.fy = dy/l*0.5 + srr(-0.2, 0.25); F.fz = dz/l + srr(-0.35, 0.35); F.flee = Math.max(F.flee, secs);
+}
+function scareNear(x, y, z, r, secs){ for (const F of fishes) { if (!F.alive) continue; const dx = F.x - x, dy = F.y - y, dz = F.z - z; if (dx*dx + dy*dy + dz*dz < r*r) scare(F, x, y, z, secs*srr(0.7, 1.2)); } }
+function updateFish(dt){
+  const pspd = Math.hypot(player.vx, player.vy, player.vz), noise = 0.5 + 0.5*Math.min(1, pspd/2.6);
+  for (const sc of schools) { sc.timer -= dt; if (sc.timer <= 0) { sc.target = zonePoint(sc.sp); sc.timer = srr(7, 16); } }
+  for (const F of fishes) {
+    const sp = F.sp;
+    if (!F.alive) { F.respawn -= dt; if (F.respawn <= 0) { const p = zonePoint(sp); if (Math.hypot(p[0] - player.x, p[1] - player.y, p[2] - player.z) > 30) { F.alive = true; F.x = p[0]; F.y = p[1]; F.z = p[2]; F.flee = 0; F.spd = sp.cruise; } else F.respawn = 3; } continue; }
+    const dxp = F.x - player.x, dyp = F.y - player.y, dzp = F.z - player.z, dp = Math.hypot(dxp, dyp, dzp);
+    if (F.flee <= 0 && dp < sp.alert*noise) { scare(F, player.x, player.y, player.z, srr(1.8, 3.2)); for (const O of fishes) if (O.sc === F.sc && O !== F) scare(O, player.x, player.y, player.z, srr(1.6, 3)); }
+    let tx, ty, tz, want, turn;
+    if (F.flee > 0) { F.flee -= dt; tx = F.fx; ty = F.fy; tz = F.fz; want = sp.flee; turn = 7; if (F.flee <= 0) { F.sc.target = zonePoint(sp); F.sc.timer = srr(6, 12); } }
+    else { const T = F.sc.target; tx = T[0] + F.off[0] - F.x; ty = T[1] + F.off[1] - F.y; tz = T[2] + F.off[2] - F.z; const d = Math.hypot(tx, ty, tz) || 1;
+      if (d < 1.4 && sp.school === 1) F.sc.timer = Math.min(F.sc.timer, 0.5);
+      want = sp.cruise*clamp(d/3, 0.35, 1); tx /= d; ty /= d; tz /= d; turn = 2.2; }
+    const fl = floorH(F.x, F.z) + sp.rad + 0.3;                                              // keep off the bed and under the surface
+    if (F.y < fl + 0.8) ty += (fl + 0.8 - F.y)*1.6; if (F.y > -1.6) ty -= (F.y + 1.6)*1.5;
+    const dc = Math.hypot(F.x, F.z); if (dc > AREA_R + 4) { tx -= F.x/dc*1.5; tz -= F.z/dc*1.5; }
+    F.hx += (tx - F.hx)*turn*dt; F.hy += (ty*0.7 - F.hy)*turn*dt; F.hz += (tz - F.hz)*turn*dt;
+    const hl = Math.hypot(F.hx, F.hy, F.hz) || 1; F.hx /= hl; F.hy /= hl; F.hz /= hl;
+    F.spd += (want - F.spd)*Math.min(1, 3.5*dt);
+    F.x += F.hx*F.spd*dt; F.y += F.hy*F.spd*dt; F.z += F.hz*F.spd*dt; if (F.y < fl) F.y = fl; if (F.y > -0.7) F.y = -0.7;
+    if (coralPush(F, sp.rad + 0.06)) { F.hx += F.nx*4*dt; F.hy += (F.ny + 0.5)*4*dt; F.hz += F.nz*4*dt; }
+    F.yaw = Math.atan2(F.hx, -F.hz); F.pitch = Math.asin(clamp(F.hy, -0.6, 0.6)); F.phase += dt*(3.5 + F.spd*5.5);
+  }
+}
+function killFish(F, dx, dy, dz){
+  F.alive = false; F.respawn = srr(28, 46); const g = F.sp.goo;
+  fishEach(F, (i, wx, wy, wz, o, T, B, s) => {
+    let rx = wx - F.x, ry = wy - F.y, rz = wz - F.z; const l = Math.hypot(rx, ry, rz) || 1, v = srr(1.5, 6);
+    const j = pAdd(0, wx, wy, wz, rx/l*v + dx*srr(1, 5), ry/l*v + dy*srr(1, 5) + srr(0, 1.6), rz/l*v + dz*srr(1, 5), srr(1.6, 3.4), 1, T.C[o], T.C[o+1], T.C[o+2]); if (j < 0) return;
+    const q = j*3, ux = T.U[o]*s, uy = T.U[o+1]*s, uz = T.U[o+2]*s, vx = T.V[o]*s, vy = T.V[o+1]*s, vz = T.V[o+2]*s;
+    P.U[q] = B[0]*ux + B[3]*uy + B[6]*uz; P.U[q+1] = B[1]*ux + B[4]*uy + B[7]*uz; P.U[q+2] = B[2]*ux + B[5]*uy + B[8]*uz;
+    P.V[q] = B[0]*vx + B[3]*vy + B[6]*vz; P.V[q+1] = B[1]*vx + B[4]*vy + B[7]*vz; P.V[q+2] = B[2]*vx + B[5]*vy + B[8]*vz;
+    P.N[q] = rx/l; P.N[q+1] = ry/l; P.N[q+2] = rz/l; });
+  const big = F.sp.L*F.scale, nC = Math.round(8 + big*14);
+  for (let i = 0; i < nC; i++) pAdd(1, F.x + srr(-1, 1)*big*0.3, F.y + srr(-1, 1)*big*0.2, F.z + srr(-1, 1)*big*0.3, srr(-2.2, 2.2) + dx*2, srr(-1.2, 2.2), srr(-2.2, 2.2) + dz*2, srr(1.4, 2.8), big*srr(0.22, 0.5), g[0]*255*srr(0.7, 1), g[1]*255, g[2]*255);
+  bubbles(F.x, F.y, F.z, 6 + ((big*8) | 0), big*0.3, 0.035);
+  stats.kills++; stats.by[F.sp.key] = (stats.by[F.sp.key] || 0) + 1;
+  $('catchN').textContent = stats.kills; const L = $('last'); L.textContent = F.sp.name; L.style.opacity = 1; G.lastT = 2.5; G.hitT = 0.25;
+  scareNear(F.x, F.y, F.z, 9, 3); sfxPop(big);
+}
+
+// ---------------------------------------------------------------- spear
+function segDist2(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz){            // squared distance between segments ab and cd
+  const ux = bx - ax, uy = by - ay, uz = bz - az, vx = dx - cx, vy = dy - cy, vz = dz - cz, wx = ax - cx, wy = ay - cy, wz = az - cz;
+  const a = ux*ux + uy*uy + uz*uz, b = ux*vx + uy*vy + uz*vz, c = vx*vx + vy*vy + vz*vz, d = ux*wx + uy*wy + uz*wz, e = vx*wx + vy*wy + vz*wz, D = a*c - b*b;
+  let s = D < 1e-9 ? 0 : clamp((b*e - c*d)/D, 0, 1), t = c < 1e-9 ? 0 : clamp((b*s + e)/c, 0, 1); s = a < 1e-9 ? 0 : clamp((b*t - d)/a, 0, 1);
+  const px = wx + ux*s - vx*t, py = wy + uy*s - vy*t, pz = wz + uz*s - vz*t; return px*px + py*py + pz*pz;
+}
+function muzzle(){ const k = [0.17, -0.17, 0.98]; return [player.x + cam.r[0]*k[0] + cam.u[0]*k[1] + cam.f[0]*k[2], player.y + cam.r[1]*k[0] + cam.u[1]*k[1] + cam.f[1]*k[2], player.z + cam.r[2]*k[0] + cam.u[2]*k[1] + cam.f[2]*k[2]]; }
+// The gun sits low and right of the eye, so the spear is aimed to cross the sight line at whatever the crosshair is on
+function aimDist(){ const f = cam.f; let best = 14;
+  for (const F of fishes) { if (!F.alive) continue; const dx = F.x - player.x, dy = F.y - player.y, dz = F.z - player.z, t = dx*f[0] + dy*f[1] + dz*f[2]; if (t < 1 || t > best) continue;
+    const px = dx - f[0]*t, py = dy - f[1]*t, pz = dz - f[2]*t, r = F.sp.L*F.scale*0.6 + 0.3; if (px*px + py*py + pz*pz < r*r) best = t; }
+  for (let t = 1; t < best; t += 0.25) { const x = player.x + f[0]*t, y = player.y + f[1]*t, z = player.z + f[2]*t; if (y < floorH(x, z) || coralAt(x, y, z, 0)) { best = t; break; } }
+  return Math.max(1.5, best); }
+function fire(){
+  if (G.state !== 'play' || player.reload > 0) return false;
+  setCam(); spearDone(); const m = muzzle(), ad = aimDist(), aim = [player.x + cam.f[0]*ad, player.y + cam.f[1]*ad, player.z + cam.f[2]*ad], d = norm3(sub3(aim, m));
+  Object.assign(spear, { on: true, stuck: false, done: false, hit: false, x: m[0], y: m[1], z: m[2], vx: d[0]*34 + player.vx*0.3, vy: d[1]*34 + player.vy*0.3, vz: d[2]*34 + player.vz*0.3, dx: d[0], dy: d[1], dz: d[2], life: 14, trail: 0 });
+  stats.shots++; player.reload = 1.15; player.recoil = 1; bubbles(m[0], m[1], m[2], 7, 0.06, 0.022); sfxShot(); return true;
+}
+function spearDone(){ if (spear.done) return; spear.done = true; if (spear.hit) stats.hits++; else stats.misses++; }
+function updateSpear(dt){
+  if (!spear.on) return;
+  spear.life -= dt; if (spear.life <= 0) { spearDone(); spear.on = false; return; }
+  if (spear.stuck) return;
+  const px = spear.x, py = spear.y, pz = spear.z, dr = Math.exp(-1.55*dt);
+  spear.vx *= dr; spear.vz *= dr; spear.vy = spear.vy*dr - 1.3*dt;
+  spear.x += spear.vx*dt; spear.y += spear.vy*dt; spear.z += spear.vz*dt;
+  const sp = Math.hypot(spear.vx, spear.vy, spear.vz) || 1; spear.dx = spear.vx/sp; spear.dy = spear.vy/sp; spear.dz = spear.vz/sp;
+  if (sp > 5) {
+    for (const F of fishes) { if (!F.alive) continue; const ddx = F.x - spear.x, ddy = F.y - spear.y, ddz = F.z - spear.z, d2 = ddx*ddx + ddy*ddy + ddz*ddz; if (d2 > 9) continue;
+      const hl = F.sp.L*F.scale*0.42, r = F.sp.rad*F.scale*1.12 + 0.055;
+      if (segDist2(px, py, pz, spear.x, spear.y, spear.z, F.x - F.hx*hl, F.y - F.hy*hl, F.z - F.hz*hl, F.x + F.hx*hl, F.y + F.hy*hl, F.z + F.hz*hl) < r*r) { spear.hit = true; killFish(F, spear.dx, spear.dy, spear.dz); spear.vx *= 0.7; spear.vy *= 0.7; spear.vz *= 0.7; }
+      else if (d2 < 6.5 && F.flee <= 0) scare(F, spear.x, spear.y, spear.z, srr(1.5, 2.6)); }
+    spear.trail -= dt; if (spear.trail <= 0) { spear.trail = 0.02; bubbles(spear.x - spear.dx*0.9, spear.y - spear.dy*0.9, spear.z - spear.dz*0.9, 1, 0.03, 0.016); }
+  } else spearDone();
+  for (let k = 1; k <= 4 && !spear.stuck; k++) { const t = k/4, x = px + (spear.x - px)*t, y = py + (spear.y - py)*t, z = pz + (spear.z - pz)*t;       // coral stops a spear dead
+    if (coralAt(x, y, z, 0.02)) { spear.x = x; spear.y = y; spear.z = z; spear.stuck = true; spear.life = Math.min(spear.life, 9); silt(x, y, z, 4, 0.4); if (sp > 5) { scareNear(x, y, z, 5, 2); sfxThud(); } spearDone(); } }
+  if (spear.stuck) return;
+  const fl = floorH(spear.x, spear.z);
+  if (spear.y < fl) { spear.y = fl; spear.stuck = true; spear.life = Math.min(spear.life, 9); silt(spear.x, fl, spear.z, sp > 5 ? 12 : 3, clamp(sp/15, 0.3, 1.2)); if (sp > 5) { scareNear(spear.x, fl, spear.z, 6, 2.2); sfxThud(); } spearDone(); }
+  if (spear.y > -0.15) { spear.y = -0.15; spear.vy = Math.min(0, spear.vy); }
+}
+
+// ---------------------------------------------------------------- player
+function setCam(){ const cy = Math.cos(player.yaw), sy = Math.sin(player.yaw), cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+  cam.f = [sy*cp, sp, -cy*cp]; cam.r = [cy, 0, sy]; cam.u = cross(cam.r, cam.f); }
+function nearBoat(){ return Math.hypot(player.x - LADDER[0], player.y - LADDER[1], player.z - LADDER[2]) < 4.6; }
+function updatePlayer(dt){
+  const s = IS_TOUCH ? 0.0042 : 0.0023; player.yaw += input.dx*s; player.pitch = clamp(player.pitch - input.dy*s, -1.5, 1.5); input.dx = input.dy = 0; setCam();
+  const K = input.keys; let mz = (K.KeyW || K.ArrowUp ? 1 : 0) - (K.KeyS || K.ArrowDown ? 1 : 0) + input.jy, mx = (K.KeyD || K.ArrowRight ? 1 : 0) - (K.KeyA || K.ArrowLeft ? 1 : 0) + input.jx;
+  const my = (K.Space || input.up ? 1 : 0) - (K.KeyC || K.ControlLeft || input.down ? 1 : 0), fast = K.ShiftLeft || K.ShiftRight;
+  let ax = cam.f[0]*mz + cam.r[0]*mx, ay = cam.f[1]*mz + my, az = cam.f[2]*mz + cam.r[2]*mx; const al = Math.hypot(ax, ay, az);
+  if (al > 1) { ax /= al; ay /= al; az /= al; }
+  const acc = fast ? 9.5 : 5.4, dr = Math.exp(-1.8*dt);
+  player.vx = player.vx*dr + ax*acc*dt; player.vy = player.vy*dr + ay*acc*dt; player.vz = player.vz*dr + az*acc*dt;
+  const d = Math.hypot(player.x, player.z);
+  if (d > AREA_R) { const k = (d - AREA_R)*0.9*dt; player.vx -= player.x/d*k; player.vz -= player.z/d*k; }
+  player.x += player.vx*dt; player.y += player.vy*dt; player.z += player.vz*dt;
+  const fl = floorH(player.x, player.z) + 0.75, spd = Math.hypot(player.vx, player.vy, player.vz);
+  if (player.y < fl) { player.y = fl; if (player.vy < 0) player.vy = 0; if (spd > 1.4 && sr() < dt*9) silt(player.x + cam.f[0]*0.5, fl - 0.7, player.z + cam.f[2]*0.5, 2, 0.5); }
+  for (let k = 0; k < 4 && coralPush(player, 0.34); k++) { const vn = player.vx*player.nx + player.vy*player.ny + player.vz*player.nz; if (vn < 0) { player.vx -= player.nx*vn; player.vy -= player.ny*vn; player.vz -= player.nz*vn; } }   // corals overlap, so settle a few times
+  if (player.y > -0.65) { player.y = -0.65; if (player.vy > 0) player.vy = 0; }
+  if (d > AREA_R + 14) { player.x *= (AREA_R + 14)/d; player.z *= (AREA_R + 14)/d; }
+  player.reload = Math.max(0, player.reload - dt); player.recoil = Math.max(0, player.recoil - dt*3.2); player.kick += spd*dt;
+  player.breath -= dt; if (player.breath <= 0) { player.breath = srr(3.6, 5); const b = [player.x + cam.f[0]*0.35 - cam.u[0]*0.22, player.y + cam.f[1]*0.35 - cam.u[1]*0.22, player.z + cam.f[2]*0.35 - cam.u[2]*0.22]; bubbles(b[0], b[1], b[2], 9, 0.08, 0.03); sfxBreath(); }
+  if (input.fire) { if (fire() && IS_TOUCH) input.fire = input.holdFire; if (!IS_TOUCH) input.fire = false; }
+  stats.time += dt; stats.deepest = Math.max(stats.deepest, -player.y);
+  if (input.end) { input.end = false; if (nearBoat()) endDive(); }
+}
+function sim(dt){ G.t += dt; updatePlayer(dt); if (G.state !== 'play') return; updateFish(dt); updateSpear(dt); updateParticles(dt); }
+
+// ---------------------------------------------------------------- viewmodel (camera space: x right, y up, z forward)
+const GUN = new SBuf(200); let GUN_SPEAR0 = 0;
+(function buildGun(){
+  const blk = [0.10, 0.12, 0.14], org = [0.95, 0.42, 0.10], steel = [0.80, 0.84, 0.88], glove = [0.07, 0.09, 0.13];
+  strip(GUN, [0.205, -0.205, 0.22], [0.17, -0.17, 0.98], 0.019, blk, 1); strip(GUN, [0.21, -0.215, 0.18], [0.198, -0.2, 0.5], 0.034, blk, 0.9);
+  strip(GUN, [0.207, -0.21, 0.30], [0.218, -0.33, 0.23], 0.027, blk, 0.9);
+  strip(GUN, [0.215, -0.185, 0.5], [0.186, -0.158, 0.96], 0.009, org, 1); strip(GUN, [0.185, -0.185, 0.5], [0.156, -0.158, 0.96], 0.009, org, 1);
+  for (let i = 0; i < 16; i++) { const d = fib(i, 16); disc(GUN, [0.215 + d[0]*0.045, -0.275 + d[1]*0.06, 0.265 + d[2]*0.05], d, 0.034, 0.034, glove, 0.8); }
+  strip(GUN, [0.225, -0.30, 0.24], [0.40, -0.56, -0.05], 0.058, [0.05, 0.16, 0.22], 0.9);
+  GUN_SPEAR0 = GUN.n;
+  strip(GUN, [0.196, -0.176, 0.26], [0.163, -0.150, 1.20], 0.0065, steel, 1); strip(GUN, [0.164, -0.151, 1.15], [0.1615, -0.149, 1.25], 0.013, [0.35, 0.37, 0.4], 1);
+})();
+function buildViewmodel(){
+  VM.n = 0; const n = player.reload > 0.28 ? GUN_SPEAR0 : GUN.n, r = cam.r, u = cam.u, f = cam.f, k = player.recoil*player.recoil;
+  const ox = Math.sin(player.kick*1.6)*0.006, oy = -0.012*Math.max(0, player.reload - 0.3) + Math.cos(player.kick*3.2)*0.004 + k*0.012, oz = -k*0.09;
+  for (let i = 0; i < n; i++) { const o = i*12, g = GUN.f, q = i*48 + 36, b = GUN.u, s = GUN.i;
+    const X = g[o] + ox, Y = g[o+1] + oy, Z = g[o+2] + oz, t = (a, b2, c) => [r[0]*a + u[0]*b2 + f[0]*c, r[1]*a + u[1]*b2 + f[1]*c, r[2]*a + u[2]*b2 + f[2]*c];
+    const p = t(X, Y, Z), U = t(g[o+3], g[o+4], g[o+5]), V = t(g[o+6], g[o+7], g[o+8]), N = t(s[q+4]/127, s[q+5]/127, s[q+6]/127);
+    put(VM, player.x + p[0], player.y + p[1], player.z + p[2], U[0], U[1], U[2], V[0], V[1], V[2], b[q]/255, b[q+1]/255, b[q+2]/255, b[q+3]/255, N[0], N[1], N[2], 0, 0, 1); }
+}
+
+// ---------------------------------------------------------------- dynamic splats
+const SNOW = new Float32Array(240*3); { const r = mulberry32(5); for (let i = 0; i < SNOW.length; i++) SNOW[i] = r()*26; }
+function buildDynamic(){
+  DYN.n = 0; const r = cam.r, u = cam.u, f = cam.f;
+  for (const F of fishes) if (F.alive) drawFish(F);
+  if (spear.on) { const tip = [spear.x, spear.y, spear.z], d = [spear.dx, spear.dy, spear.dz], tail = sub3(tip, sc3(d, 0.95));
+    strip(DYN, tail, tip, 0.008, [0.80, 0.84, 0.88], 1); strip(DYN, sub3(tip, sc3(d, 0.1)), tip, 0.016, [0.35, 0.37, 0.4], 1); }
+  for (let i = 0; i < P.n; i++) { const o = i*3, k = P.kind[i], t = P.life[i]/P.max[i], x = P.x[o], y = P.x[o+1], z = P.x[o+2], cr = P.c[o]/255, cg = P.c[o+1]/255, cb = P.c[o+2]/255;
+    if (k === 0) put(DYN, x, y, z, P.U[o], P.U[o+1], P.U[o+2], P.V[o], P.V[o+1], P.V[o+2], cr, cg, cb, 1, P.N[o], P.N[o+1], P.N[o+2], 0, 0, Math.min(1, P.life[i]/0.7));
+    else { const s = k === 2 ? P.size[i] : P.size[i]*(1 + (1 - t)*2.4), a = k === 2 ? 0.95 : k === 1 ? 0.62*t : 0.42*t;
+      put(DYN, x, y, z, r[0]*s, r[1]*s, r[2]*s, u[0]*s, u[1]*s, u[2]*s, cr, cg, cb, 1, -f[0], -f[1] + 0.4, -f[2], k === 2 ? 3 : 2, 0, a); } }
+  const B = 26, dx = G.t*0.12, dy = -G.t*0.05;                                 // marine snow drifting in a box that follows the camera
+  for (let i = 0; i < SNOW.length; i += 3) { const x = player.x + ((SNOW[i] + dx - player.x) % B + B) % B - B/2, y = player.y + ((SNOW[i+1] + dy - player.y) % B + B) % B - B/2, z = player.z + ((SNOW[i+2] - player.z) % B + B) % B - B/2;
+    if (y > -0.2) continue; const s = 0.016 + (i % 5)*0.004; put(DYN, x, y, z, r[0]*s, r[1]*s, r[2]*s, u[0]*s, u[1]*s, u[2]*s, 0.9, 0.95, 0.9, 1, -f[0], -f[1], -f[2], 2, 0, 0.55); }
+}
+
+// ---------------------------------------------------------------- render
+const mP = new Float32Array(16), mV = new Float32Array(16), mVP = new Float32Array(16);
+function mul4(o, a, b){ for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c*4 + r] = a[r]*b[c*4] + a[4 + r]*b[c*4 + 1] + a[8 + r]*b[c*4 + 2] + a[12 + r]*b[c*4 + 3]; }
+let FOVY = 1.2;
+let RSCALE = 1;
+function resize(){ const dpr = TEST ? 1 : Math.min(devicePixelRatio || 1, IS_TOUCH ? 1.5 : 1.75)*RSCALE, w = Math.round(innerWidth*dpr), h = Math.round(innerHeight*dpr); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } }
+function render(){
+  resize(); setCam(); const asp = cv.width/cv.height, r = cam.r, u = cam.u, f = cam.f, e = [player.x, player.y, player.z];
+  FOVY = asp < 1 ? 1.45 : 1.2; const t = 1/Math.tan(FOVY/2), nr = 0.07, fr = 300;
+  mP.fill(0); mP[0] = t/asp; mP[5] = t; mP[10] = (fr + nr)/(nr - fr); mP[11] = -1; mP[14] = 2*fr*nr/(nr - fr);
+  mV.set([r[0], u[0], -f[0], 0, r[1], u[1], -f[1], 0, r[2], u[2], -f[2], 0, -(r[0]*e[0] + r[1]*e[1] + r[2]*e[2]), -(u[0]*e[0] + u[1]*e[1] + u[2]*e[2]), f[0]*e[0] + f[1]*e[1] + f[2]*e[2], 1]);
+  mul4(mVP, mP, mV);
+  buildDynamic(); buildViewmodel();
+  gl.viewport(0, 0, cv.width, cv.height); gl.disable(gl.BLEND);
+  gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+  gl.useProgram(BG.p); gl.uniform1f(BG.u.uCamY, e[1]); gl.uniform1f(BG.u.uTime, G.t); gl.uniform3fv(BG.u.uCam, e);
+  const ty = Math.tan(FOVY/2), tx = ty*asp; gl.uniform3f(BG.u.uR, r[0]*tx, r[1]*tx, r[2]*tx); gl.uniform3f(BG.u.uU, u[0]*ty, u[1]*ty, u[2]*ty); gl.uniform3fv(BG.u.uF, f);
+  gl.bindVertexArray(bgVao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.clear(gl.DEPTH_BUFFER_BIT); if (A2C) gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+  gl.useProgram(PR.p); gl.uniformMatrix4fv(PR.u.uVP, false, mVP); gl.uniform3fv(PR.u.uCam, e); gl.uniform1f(PR.u.uCamY, e[1]); gl.uniform1f(PR.u.uTime, G.t); gl.uniform1f(PR.u.uA2C, A2C ? 1 : 0); gl.uniform3fv(PR.u.uCR, r); gl.uniform3fv(PR.u.uCU, u);
+  gl.bindVertexArray(STV.vao); gl.bindBuffer(gl.ARRAY_BUFFER, STV.vbo); let drawn = 0;
+  for (const c of chunks) { const dx = c.x - e[0], dz = c.z - e[2]; if (dx*dx + dz*dz > 74*74) continue;
+    const base = dx*f[0] + dz*f[2] - e[1]*f[1], dmax = base + Math.max(0, -26*f[1]); if (dmax + 18 < 0) continue;
+    pointers(c.off*48); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, c.n); drawn += c.n; }
+  G.drawn = drawn;
+  gl.bindVertexArray(DYNV.vao); gl.bindBuffer(gl.ARRAY_BUFFER, DYNV.vbo); gl.bufferSubData(gl.ARRAY_BUFFER, 0, DYN.u, 0, DYN.n*48); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, DYN.n);
+  gl.depthRange(0, 0.04);
+  gl.bindVertexArray(VMV.vao); gl.bindBuffer(gl.ARRAY_BUFFER, VMV.vbo); gl.bufferSubData(gl.ARRAY_BUFFER, 0, VM.u, 0, VM.n*48); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, VM.n);
+  gl.depthRange(0, 1); gl.bindVertexArray(null);
+}
+
+// ---------------------------------------------------------------- HUD
+function fmtTime(s){ s = Math.floor(s); return String(Math.floor(s/60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+function marker(el, x, z, label, pin = 118){ const rel = angDiff(Math.atan2(x - player.x, -(z - player.z)), player.yaw), k = clamp(rel/1.1, -1, 1);
+  el.style.left = (130 + k*(Math.abs(rel) > 1.1 ? pin : 118)) + 'px'; el.style.opacity = Math.abs(rel) > 1.1 ? 0.4 : 1; el.textContent = (rel < -1.1 ? '‹ ' : '') + label + (rel > 1.1 ? ' ›' : ''); }
+function updateHud(dt){
+  $('depth').firstChild.nodeValue = (-player.y).toFixed(1); $('time').textContent = fmtTime(stats.time);
+  marker($('mkKelp'), KELP.x, KELP.z, 'KELP'); marker($('mkReef'), REEF.x, REEF.z, 'REEF', 176); marker($('mkBoat'), 0, 3, 'BOAT ' + Math.round(Math.hypot(player.x, player.z - 3)) + 'm');
+  const rl = $('reload'); rl.style.opacity = player.reload > 0 ? 1 : 0; $('reloadF').style.width = (100 - player.reload/1.15*100) + '%'; $('cross').className = player.reload > 0 ? 'empty' : '';
+  if (G.hitT > 0) { G.hitT -= dt; $('hitm').style.opacity = clamp(G.hitT*5, 0, 1); }
+  if (G.lastT > 0) { G.lastT -= dt; if (G.lastT <= 0) $('last').style.opacity = 0; }
+  const nb = nearBoat(); $('prompt').style.opacity = nb ? 1 : 0; if (nb) $('prompt').innerHTML = IS_TOUCH ? 'At the boat' : 'Press <b>E</b> to end the dive';
+  $('bEnd').style.display = nb && IS_TOUCH ? 'flex' : 'none'; $('warn').style.opacity = Math.hypot(player.x, player.z) > AREA_R ? 1 : 0;
+}
+
+// ---------------------------------------------------------------- audio
+let AC = null, master = null;
+function audioInit(){ if (AC || TEST) return; try { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = 0.55; master.connect(AC.destination);
+  const len = AC.sampleRate*3, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); let b = 0; for (let i = 0; i < len; i++) { b = (b + (Math.random()*2 - 1)*0.03)/1.03; d[i] = b*4; }
+  const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; const g = AC.createGain(); g.gain.value = 0.5; s.connect(f); f.connect(g); g.connect(master); s.start(); } catch (e) { AC = null; } }
+function noise(t0, dur, type, f0, f1, g0, q){ const len = Math.max(1, (AC.sampleRate*dur) | 0), buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random()*2 - 1;
+  const s = AC.createBufferSource(); s.buffer = buf; const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q || 0.7; f.frequency.setValueAtTime(f0, t0); if (f1) f.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(g0, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur); s.connect(f); f.connect(g); g.connect(master); s.start(t0); }
+function tone(t0, dur, type, f0, f1, g0){ const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+  const g = AC.createGain(); g.gain.setValueAtTime(g0, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.02); }
+function sfxShot(){ if (!AC) return; const t = AC.currentTime; tone(t, 0.16, 'sine', 170, 55, 0.8); noise(t, 0.3, 'lowpass', 1400, 200, 0.55); noise(t + 0.02, 0.5, 'bandpass', 900, 2400, 0.12, 3); }
+function sfxPop(big){ if (!AC) return; const t = AC.currentTime; tone(t, 0.22, 'sine', 240 - big*90, 50, 0.7); noise(t, 0.28, 'lowpass', 900, 160, 0.7); noise(t + 0.05, 0.5, 'bandpass', 1300, 2600, 0.16, 4); }
+function sfxThud(){ if (!AC) return; noise(AC.currentTime, 0.14, 'lowpass', 500, 120, 0.35); }
+function sfxBreath(){ if (!AC) return; const t = AC.currentTime; for (let i = 0; i < 9; i++) tone(t + i*0.07 + Math.random()*0.03, 0.09, 'sine', 320 + Math.random()*500, 700 + Math.random()*900, 0.05); noise(t, 0.8, 'bandpass', 700, 1500, 0.07, 2); }
+
+// ---------------------------------------------------------------- flow and input
+function showOverlay(title, html, btn){ $('overlay').style.display = 'flex'; $('card').querySelector('h1').textContent = title; $('lead').innerHTML = html; $('go').textContent = btn; $('go').disabled = false; $('hud').style.display = 'none'; $('touchui').style.display = 'none'; }
+function results(){ const acc = stats.shots ? Math.round(stats.hits/stats.shots*100) : 0; let h = '<table>';
+  h += `<tr><td>Dive time</td><td>${fmtTime(stats.time)}</td></tr><tr><td>Shots</td><td>${stats.shots}</td></tr><tr><td>Hits</td><td>${stats.hits}</td></tr><tr><td>Misses</td><td>${stats.misses}</td></tr><tr><td>Accuracy</td><td>${acc}%</td></tr>`;
+  let first = true; for (const sp of SPECIES) if (stats.by[sp.key]) { h += `<tr${first ? ' class="sep"' : ''}><td>${sp.name}</td><td>${stats.by[sp.key]}</td></tr>`; first = false; }
+  h += `<tr class="sep"><td>Fish killed</td><td>${stats.kills}</td></tr></table>`; return h; }
+function endDive(){ if (G.state !== 'play') return; spearDone(); G.state = 'over'; input.fire = false; if (document.pointerLockElement) document.exitPointerLock(); showOverlay('BACK ABOARD', results(), 'DIVE AGAIN'); log('dive over', JSON.stringify(stats)); }
+let pointerLockOK = true;
+function wantLock(){ if (IS_TOUCH || TEST || !pointerLockOK) return; try { const r = cv.requestPointerLock(); if (r && r.catch) r.catch(() => { pointerLockOK = false; }); } catch (e) { pointerLockOK = false; } }
+document.addEventListener('pointerlockerror', () => { pointerLockOK = false; });
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && G.state === 'play' && pointerLockOK && !IS_TOUCH) pause(); });
+function pause(){ if (G.state !== 'play') return; G.state = 'paused'; input.fire = false; showOverlay('PAUSED', '<p>The fish are getting on with their day.</p>', 'RESUME'); }
+function start(){
+  audioInit(); if (G.state === 'over' || G.state === 'menu') resetDive(); G.state = 'play';
+  $('overlay').style.display = 'none'; $('hud').style.display = 'block'; if (IS_TOUCH) $('touchui').style.display = 'block'; wantLock();
+  if (IS_TOUCH && document.documentElement.requestFullscreen && !document.fullscreenElement) { try { const r = document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+}
+$('go').addEventListener('click', start);
+$('ctl').innerHTML = IS_TOUCH ? 'Left thumb: swim &nbsp;·&nbsp; Right thumb: drag to look<br>FIRE to shoot &nbsp;·&nbsp; UP / DOWN to rise and sink<br>Swim to the boat ladder to end the dive.'
+  : 'WASD swim where you look · Mouse look · Click fire<br>Space rise · C sink · Shift kick hard (fish hear it)<br>E at the boat ladder to end the dive · Esc pause';
+window.addEventListener('keydown', e => { input.keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); if (e.code === 'KeyE') input.end = true; if ((e.code === 'KeyP' || e.code === 'Escape') && G.state === 'play' && (!pointerLockOK || IS_TOUCH)) pause(); });
+window.addEventListener('keyup', e => { input.keys[e.code] = false; });
+window.addEventListener('blur', () => { input.keys = {}; });
+let dragLook = false;
+cv.addEventListener('mousedown', e => { if (G.state !== 'play' || IS_TOUCH) return; if (!document.pointerLockElement) wantLock(); if (e.button === 0) input.fire = true; else if (e.button === 2) dragLook = true; });
+window.addEventListener('mouseup', e => { if (e.button === 2) dragLook = false; });
+cv.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('mousemove', e => { if (IS_TOUCH || G.state !== 'play') return; if (document.pointerLockElement || dragLook || (!pointerLockOK && (e.buttons & 1))) { input.dx += e.movementX; input.dy += e.movementY; } });
+const touches = new Map();
+const btnHit = (el, x, y) => { if (el.style.display === 'none') return false; const r = el.getBoundingClientRect(); return x > r.left - 8 && x < r.right + 8 && y > r.top - 8 && y < r.bottom + 8; };
+window.addEventListener('touchstart', e => {
+  if (G.state !== 'play') return; e.preventDefault();
+  for (const t of e.changedTouches) { const x = t.clientX, y = t.clientY; let role;
+    if (btnHit($('bFire'), x, y)) { role = 'fire'; input.fire = input.holdFire = true; }
+    else if (btnHit($('bUp'), x, y)) { role = 'up'; input.up = 1; } else if (btnHit($('bDown'), x, y)) { role = 'down'; input.down = 1; }
+    else if (btnHit($('bEnd'), x, y)) { role = 'btn'; input.end = true; } else if (btnHit($('bPause'), x, y)) { role = 'btn'; pause(); }
+    else if (x < innerWidth*0.42 && ![...touches.values()].some(v => v.role === 'joy')) { role = 'joy'; const jb = $('joyBase'); jb.style.display = 'block'; jb.style.left = x + 'px'; jb.style.top = y + 'px'; }
+    else role = 'look';
+    touches.set(t.identifier, { role, x0: x, y0: y, x, y }); }
+}, { passive: false });
+window.addEventListener('touchmove', e => { e.preventDefault();
+  for (const t of e.changedTouches) { const s = touches.get(t.identifier); if (!s) continue; const x = t.clientX, y = t.clientY;
+    if (s.role === 'joy') { let dx = x - s.x0, dy = y - s.y0; const l = Math.hypot(dx, dy), m = 50; if (l > m) { dx *= m/l; dy *= m/l; } input.jx = dx/m; input.jy = -dy/m; $('joyKnob').style.transform = `translate(${dx}px,${dy}px)`; }
+    else if (s.role === 'look' || s.role === 'fire') { input.dx += x - s.x; input.dy += y - s.y; }
+    s.x = x; s.y = y; } }, { passive: false });
+function touchEnd(e){ for (const t of e.changedTouches) { const s = touches.get(t.identifier); if (!s) continue;
+  if (s.role === 'joy') { input.jx = input.jy = 0; $('joyBase').style.display = 'none'; $('joyKnob').style.transform = ''; }
+  if (s.role === 'fire') input.fire = input.holdFire = false; if (s.role === 'up') input.up = 0; if (s.role === 'down') input.down = 0; touches.delete(t.identifier); } }
+window.addEventListener('touchend', touchEnd); window.addEventListener('touchcancel', touchEnd);
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+// ---------------------------------------------------------------- loop
+let last = 0, fpsA = 0, fpsN = 0;
+function frame(now){
+  requestAnimationFrame(frame); const dt = Math.min(0.05, (now - last)/1000 || 0.016); last = now;
+  if (G.state === 'play' && !TEST) sim(dt); else if (G.state === 'menu' || G.state === 'over') { G.t += dt; if (!TEST) { player.yaw += dt*0.05; updateFish(dt); updateParticles(dt); } }
+  render(); if (G.state === 'play') updateHud(dt);
+  fpsA += dt; if (++fpsN >= 30) { G.fps = Math.round(fpsN/fpsA); fpsA = fpsN = 0; if (!TEST && G.state === 'play' && G.fps < 27 && RSCALE > 0.5) RSCALE *= 0.85; }   // drop resolution on slow phones
+}
+
+// ---------------------------------------------------------------- test API
+window.SF = {
+  state: () => ({ state: G.state, t: +G.t.toFixed(2), pos: [player.x, player.y, player.z].map(v => +v.toFixed(2)), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3), reload: +player.reload.toFixed(2),
+    alive: fishes.filter(f => f.alive).length, fish: fishes.length, particles: P.n, dyn: DYN.n, drawn: G.drawn, statics: ST.n, fps: G.fps, nearBoat: nearBoat(), spear: { on: spear.on, stuck: spear.stuck, done: spear.done }, stats: JSON.parse(JSON.stringify(stats)) }),
+  step(sec, h = 1/60){ const n = Math.round(sec/h); for (let i = 0; i < n; i++) sim(h); return this.state(); },
+  tp(x, y, z, yaw, pitch){ player.x = x; player.y = y; player.z = z; player.vx = player.vy = player.vz = 0; if (yaw !== undefined) player.yaw = yaw; if (pitch !== undefined) player.pitch = pitch; setCam(); },
+  lookAt(x, y, z){ const dx = x - player.x, dy = y - player.y, dz = z - player.z; player.yaw = Math.atan2(dx, -dz); player.pitch = Math.atan2(dy, Math.hypot(dx, dz)); setCam(); },
+  fishList: () => fishes.map((f, i) => ({ i, key: f.sp.key, alive: f.alive, pos: [f.x, f.y, f.z].map(v => +v.toFixed(2)), flee: +f.flee.toFixed(2) })),
+  nearest(key){ let b = -1, bd = 1e9; fishes.forEach((f, i) => { if (!f.alive || (key && f.sp.key !== key)) return; const d = Math.hypot(f.x - player.x, f.y - player.y, f.z - player.z); if (d < bd) { bd = d; b = i; } }); return b; },
+  // hover `dist` metres from fish i, looking at it; lead = aim where it will be when the spear arrives
+  stalk(i, dist = 3, lead = true){ const f = fishes[i]; this.tp(f.x - f.hz*dist, Math.min(-1, f.y + 0.2), f.z + f.hx*dist); const t = lead ? dist/30 : 0; this.lookAt(f.x + f.hx*f.spd*t, f.y + f.hy*f.spd*t, f.z + f.hz*f.spd*t); },
+  fire: () => fire(), calm(v){ calm = !!v; if (calm) for (const f of fishes) f.flee = 0; }, key(code, down){ input.keys[code] = !!down; }, endDive, floorH, coralAt, colliders: () => { const a = []; for (let i = 0; i < COL.length; i += 5) a.push([COL[i], COL[i+1], COL[i+2], COL[i+3], COL[i+4]].map(v => +v.toFixed(2))); return a; },
+  start, pause, zones: { KELP, REEF, AREA_R, LADDER },
+};
+
+// ---------------------------------------------------------------- boot
+try { buildWorld(); spawnAll(); setCam(); requestAnimationFrame(frame); $('go').textContent = 'DIVE'; $('go').disabled = false; if (TEST) start(); log('ready'); }
+catch (e) { showErr(String(e.message || e)); log('boot failed', e); }
+})();
+</script>
+</body>
+</html>

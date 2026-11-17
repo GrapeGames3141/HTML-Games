@@ -75,6 +75,8 @@ Better rods, reels, line, lures, and boat access broaden options without removin
 
 ## 7. Hunting: woodland stalking
 
+**Started as [First Light](firstlight/firstlight.html)** (2026-11-16): a stand-hunting take on this idea with two spots (tree stand, duck blind), four weapons and a range of game. The stalking, tracking and recovery loop below is not built yet; see `firstlight/AGENTS.md`.
+
 A grounded woodland hunt built around reading sound, tracks, sightlines, cover, and simple wind or noise cues. The loop is to spot an animal with binoculars, follow its tracks, approach without alarming it, choose a clear opportunity, then find and recover it. Animals patrol, feed, notice the player, and flee in readable ways; they are not static targets.
 
 Start with a scoped rifle, with a bow as a later option. Clear sight alignment, movement, and recoil feedback make careful aim rewarding. Misses disturb nearby animals, and tracking plus recovery matter as much as taking the shot. Day, weather, changing locations, and different hunts create variety. The emphasis is patient observation and accurate recovery, without a graphic focus.
@@ -93,8 +95,10 @@ Ripples, splashes, bubbles, taut retrieval line, and schools scattering make mis
 
 ## 9. Scuba spearfishing
 
-Scuba spearfishing shifts the same outdoor theme underwater. From a moored boat, the player explores a daytime reef, kelp patch, or rocky shallows in first person. They swim freely, watch the changing depth, visibility, current, and available tank air as clear game cues, then return to the boat to finish a dive. The player sees fish directly underwater and approaches them from changing angles.
+Scuba spearfishing shifts the same outdoor theme underwater, kept deliberately simple. From a moored boat, the player swims freely in first person through one swimmable area that contains both a kelp forest and a coral reef. There is no air tank and no air limit: the player stays down as long as they like and returns to the boat to finish a dive.
 
-The core loop is to spot a fish, move quietly into range, aim a short-range speargun, fire a finite-speed spear, retrieve the tethered spear, secure the catch, and choose when to head back. A hand spear can come later. One shot followed by retrieval or reload makes each decision matter. Silt, moving plants, reactive schools, and disturbed targets create feedback for both motion and missed shots.
+The core loop is to spot a fish, move into range, aim a short-range speargun, and fire a finite-speed spear. There is no tether and no retrieval. A hit makes the fish burst apart, the same way the insects explode in Splat Meadow, and the kill counts immediately; there is nothing to reel in or secure. The speargun then reloads for the next shot.
 
-Limited air and the distance back to the boat make each dive a choice between pursuing one more catch and returning with what you have. Progression can open tank capacity, fins, a torch, better spearguns or reels, and new sites; wreck exploration is a later option. The smallest version is one calm reef, a fixed boat, a few fish types, and a clear return with results. Record shots, hits, misses, landed fish, species and size records, dive duration, deepest in-game depth, and air remaining on return.
+Kelp gives cover and broken sightlines, while the reef gives open water and colour, so the two zones play differently inside the same dive. Silt, moving plants, reactive schools, and disturbed targets create feedback for both motion and missed shots.
+
+The smallest version is one swimmable area with the kelp forest and the coral reef, a fixed boat, a few fish types, and a clear return with results. Record shots, hits, misses, fish killed by species, and dive duration. Later options: better spearguns, fins, a torch, new sites, and wreck exploration.

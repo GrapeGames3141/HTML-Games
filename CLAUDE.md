@@ -4,7 +4,7 @@ Start every session by reading this file, the root `AGENTS.md`, and the target g
 
 ## Repository layout
 
-The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `splat`, `dustdevil`, and `merlin` are root-owned game folders. Development prototypes live under `experiments/`; never auto-list them in the arcade or include them in the Pages build unless the user explicitly promotes one. Local commits are useful history, not an off-machine backup.
+The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `splat`, `dustdevil`, `merlin`, `spearfish`, and `firstlight` are root-owned game folders. Development prototypes live under `experiments/`; never auto-list them in the arcade or include them in the Pages build unless the user explicitly promotes one. Local commits are useful history, not an off-machine backup.
 
 | Source game | Source file | Drive release copy |
 | --- | --- | --- |
@@ -17,6 +17,8 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Dust Devil | `dustdevil\dustdevil.html` | none yet |
 | Castle Defense | `castle-defense\castle-defense.html` | none yet |
 | Merlin's Tower Defense | `merlin\merlin.html` | none yet |
+| Spearfish | `spearfish\spearfish.html` | none yet |
+| First Light | `firstlight\firstlight.html` | none yet |
 
 `experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks.
 

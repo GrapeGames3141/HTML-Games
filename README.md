@@ -9,12 +9,14 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Appalachian Eagle | `appalachian-eagle/appalachian-eagle.html` | `http://127.0.0.1:8000/appalachian-eagle/appalachian-eagle.html` |
 | Ashgrove | `ashgrove/ashgrove.html` | `http://127.0.0.1:8000/ashgrove/ashgrove.html` |
 | Broadside | `broadside/broadside.html` | `http://127.0.0.1:8000/broadside/broadside.html` |
+| First Light | `firstlight/firstlight.html` | `http://127.0.0.1:8000/firstlight/firstlight.html` |
 | Dust Devil | `dustdevil/dustdevil.html` | `http://127.0.0.1:8000/dustdevil/dustdevil.html` |
 | Castle Defense | `castle-defense/castle-defense.html` | `http://127.0.0.1:8000/castle-defense/castle-defense.html` |
 | Merlin's Tower Defense | `merlin/merlin.html` | `http://127.0.0.1:8000/merlin/merlin.html` |
 | Prism Swarm | `prism-swarm/prism-swarm.html` | `http://127.0.0.1:8000/prism-swarm/prism-swarm.html` |
 | Bug Splatter | `splat/splat.html` | `http://127.0.0.1:8000/splat/splat.html` |
 | Splatcraft | `splatcraft/splatcraft.html` | `http://127.0.0.1:8000/splatcraft/splatcraft.html` |
+| Spearfish | `spearfish/spearfish.html` | `http://127.0.0.1:8000/spearfish/spearfish.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
 
