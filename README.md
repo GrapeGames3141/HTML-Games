@@ -24,7 +24,7 @@ Development prototypes live under [`experiments/`](experiments/), outside the ar
 
 ## Arcade website
 
-The root `index.html` is the GrapeGames Arcade: nine playable games, search, category filters, a random-game button and a last-played marker. The lobby uses plain HTML, CSS and JavaScript; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
+The root `index.html` is the GrapeGames Arcade: playable games, search, category filters, a random-game button and a last-played marker. The lobby uses plain HTML, CSS and JavaScript; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
 
 Castle Defense / Bastion of the Four Roads was copied unchanged from `GrapeGames3141/castle-defense`, commit `37444662367c43e09db5d56691162bccb66ef9fc`. Its existing Tailwind CDN reference is retained.
 
@@ -34,7 +34,9 @@ The `Publish arcade to GitHub Pages` workflow publishes on pushes to `main` and 
 
 Expected project URL: <https://grapegames3141.github.io/HTML-Games/>.
 
-Validate and package locally with `node --check arcade.js` and `python tools/build-pages.py`. The generated `work/pages/` directory contains only playable site files, excluding source snapshots, research references, local tools, and `experiments/`. It includes generated compatibility aliases for the prior five `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
+Add a new top-level game folder containing `<folder>/<folder>.html` and push it to `main`: the next Pages build discovers it, adds a card, and publishes its runtime assets. The source lobby is a curated fallback; serve `work/pages/` to see every discovered game. Optional `game.json` in the game folder can set string fields `entry` (a different, meaningful HTML filename in that folder), `title`, `description`, `category`, `controls`, and `requirements`. Without metadata, the card uses the HTML title, an Arcade category, and generic details. Existing curated cards retain their designed descriptions and category. The build copies common web runtime files (HTML, JS, CSS, JSON, images, audio, video, fonts, WASM, and glTF/bin assets); hidden files, tools, snapshots, references, and other source-only directories are excluded. External assets remain the game's responsibility. Local HTML links must resolve within the packaged site and use relative paths. Add the game to the source tables in this README and CLAUDE.md as required by repository instructions.
+
+Validate and package locally with `node --check arcade.js`, `python -m unittest discover -s tools -p test_build_pages.py`, and `python tools/build-pages.py`. The generated `work/pages/` directory contains only playable site files, excluding source snapshots, research references, local tools, and `experiments/`. It includes generated compatibility aliases for the prior five `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
 
 Use this prompt for Claude Code:
 
