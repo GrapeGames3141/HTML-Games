@@ -37,6 +37,8 @@ Possible later additions—special ammunition, weather, campaign structure, salv
 
 An Apache-style helicopter flies low through dunes and canyons against tank columns, radar vehicles, fortified outposts, bridges, fuel stores, and hangars. The flight model would be forgiving but weighty: banking, dust, recoil, and low passes should sell the machine without requiring a full simulator.
 
+The player can switch between rockets and a .50-cal machine gun as alternate fire modes: rockets deliver explosive hits and area damage, while the .50-cal provides rapid, sustained fire.
+
 Targets should have parts that matter. A player can immobilize a vehicle, disable its weapon, collapse a route, or trigger a fuel explosion, rather than only reducing an abstract health bar. Missions might ask the player to stop a convoy before it reaches a tunnel, defend a rescue crew, first disable defenses and then escort a transport, or get close enough to extract someone.
 
 The playful hook is a winch. It could lift cargo, recover wreckage, rescue vehicles, or let a badly swung load hit something unintended. It gives the game a physical sandbox role alongside combat.
