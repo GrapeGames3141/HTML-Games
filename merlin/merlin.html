@@ -64,6 +64,7 @@ canvas#c{display:block;width:100vw;height:100vh;touch-action:none}
 button{pointer-events:auto;margin-top:18px;padding:13px 34px;border-radius:30px;border:0;background:linear-gradient(180deg,#f1d389,#c9973c);color:#2a1c06;font:700 18px Georgia,serif;cursor:pointer;box-shadow:0 6px 24px rgba(232,194,106,.35)}
 button:hover{filter:brightness(1.1)}
 #endStats{font-size:16px;color:var(--ink);margin:10px 0}
+#perf{position:fixed;right:14px;bottom:10px;color:#cfe;font:12px ui-monospace,Consolas,monospace;z-index:4;text-shadow:0 1px 2px #000;pointer-events:none}
 #err{position:fixed;left:10px;bottom:10px;color:#ff8;font:12px monospace;white-space:pre-wrap;z-index:9}
 </style>
 </head>
@@ -98,7 +99,7 @@ button:hover{filter:brightness(1.1)}
     <div class="card f"><b>🔥 Fire</b>Dry wood burns: ladders, rams, towers. Soldiers on fire run about looking for a puddle.</div>
     <div class="card l"><b>⚡ Lightning</b>One bolt, one target. Unless they are standing in water. Then it's everyone.</div>
   </div>
-  <p><kbd>Mouse</kbd> look &nbsp; <kbd>Click</kbd> cast &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> or <kbd>Wheel</kbd> pick a spell &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> mute</p>
+  <p><kbd>Mouse</kbd> look &nbsp; <kbd>Click</kbd> cast &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> or <kbd>Wheel</kbd> pick a spell &nbsp; <kbd>P</kbd> pause &nbsp; <kbd>M</kbd> mute &nbsp; <kbd>F</kbd> frame rate</p>
   <p>Merlin stays on his tower. Keep the walls and the gate standing through six waves.</p>
   <button id="go">Defend the castle</button>
 </div>
@@ -109,6 +110,7 @@ button:hover{filter:brightness(1.1)}
 </div>
 <div id="pause" class="ov hide"><h1>Paused</h1><h2>Merlin is pretending to consult a book.</h2><button id="resume">Back to work</button></div>
 <div id="err"></div>
+<div id="perf"></div>
 <script>
 'use strict';
 /* === Core: utilities, RNG, matrices ======================================= */
@@ -283,7 +285,7 @@ const pShadow = prog(`layout(location=0) in vec3 aP; uniform mat4 uVP; void main
 
 const pPart = prog(`
 layout(location=0) in vec4 aP; layout(location=1) in vec4 aC; uniform mat4 uVP; uniform float uPS; out vec4 vC;
-void main(){ gl_Position=uVP*vec4(aP.xyz,1.); gl_PointSize=min(aP.w*uPS/max(gl_Position.w,.1),420.); vC=aC; }`, `
+void main(){ gl_Position=uVP*vec4(aP.xyz,1.); gl_PointSize=min(aP.w*uPS/max(gl_Position.w,.1),uPS*.3); vC=aC; }`, `
 in vec4 vC; out vec4 o; uniform float uAdd;
 void main(){ vec2 q=gl_PointCoord*2.-1.; float r=dot(q,q); if(r>1.) discard; float a=1.-r; a*=a;
   o=uAdd>.5 ? vec4(vC.rgb*vC.a*a,1.) : vec4(vC.rgb,vC.a*a); }`);
@@ -312,7 +314,10 @@ void main(){ vec3 c=texture(uTex,vU).rgb+texture(uBloom,vU).rgb*uBloomK; c*=1.12
   o=vec4(c,1.); }`);
 
 /* render targets */
-let W = 0, H = 0, fbMS = null, rbC = null, rbD = null, fbRes = null, texRes = null, bl = [];
+let W = 0, H = 0, fbMS = null, rbC = null, rbD = null, rbDR = null, fbRes = null, texRes = null, bl = [];
+/* RS is the adaptive render scale; PIXEL_CAP keeps 4K displays from drawing 4x MSAA HDR at full size */
+let RS = 1, rsMax = 1, lastCss = '';
+const PIXEL_CAP = 2.9e6;
 function mkTex(w, h) {
   const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
   gl.texImage2D(gl.TEXTURE_2D, 0, CFMT, w, h, 0, gl.RGBA, CTYPE, null);
@@ -322,11 +327,13 @@ function mkTex(w, h) {
 }
 function mkFbo(t) { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return f; }
 function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-  const w = Math.max(2, (innerWidth * dpr) | 0), h = Math.max(2, (innerHeight * dpr) | 0);
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5), fw = innerWidth * dpr, fh = innerHeight * dpr;
+  const css = innerWidth + 'x' + innerHeight; if (css !== lastCss) { lastCss = css; RS = rsMax = 1; }
+  const k = Math.min(1, Math.sqrt(PIXEL_CAP / (fw * fh))) * RS;
+  const w = Math.max(2, Math.round(fw * k)), h = Math.max(2, Math.round(fh * k));
   if (w === W && h === H) return;
   W = w; H = h; cv.width = w; cv.height = h;
-  if (fbMS) gl.deleteFramebuffer(fbMS); if (rbC) gl.deleteRenderbuffer(rbC); if (rbD) gl.deleteRenderbuffer(rbD);
+  if (fbMS) gl.deleteFramebuffer(fbMS); if (rbC) gl.deleteRenderbuffer(rbC); if (rbD) gl.deleteRenderbuffer(rbD); if (rbDR) gl.deleteRenderbuffer(rbDR); rbDR = null;
   if (fbRes) gl.deleteFramebuffer(fbRes); if (texRes) gl.deleteTexture(texRes);
   for (const b of bl) { gl.deleteFramebuffer(b.f); gl.deleteTexture(b.t); }
   texRes = mkTex(w, h); fbRes = mkFbo(texRes);
@@ -340,6 +347,11 @@ function resize() {
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, rbC);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rbD);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { gl.deleteFramebuffer(fbMS); gl.deleteRenderbuffer(rbC); fbMS = null; rbC = null; SAMPLES = 0; gl.bindRenderbuffer(gl.RENDERBUFFER, rbD); }
+    else {
+      /* single-sample depth on the resolve target, so particles can be drawn after the MSAA resolve */
+      rbDR = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rbDR); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbRes); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rbDR);
+    }
   }
   if (!fbMS) {
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
@@ -1424,6 +1436,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Digit1') setSpell(0); else if (e.code === 'Digit2') setSpell(1); else if (e.code === 'Digit3') setSpell(2);
   else if (e.code === 'KeyQ') setSpell(G.spell - 1); else if (e.code === 'KeyE') setSpell(G.spell + 1);
   else if (e.code === 'KeyP') { setPaused(!G.paused); if (G.paused && document.exitPointerLock) document.exitPointerLock(); }
+  else if (e.code === 'KeyF') { perfOn = !perfOn; $('perf').textContent = ''; }
   else if (e.code === 'KeyM') { muted = !muted; if (master) master.gain.value = muted ? 0 : .55; }
   else if (e.code === 'Space' && noLock) G.fireBtn = true;
 });
@@ -1443,7 +1456,7 @@ function inputCamera(dt) {
 }
 
 /* === HUD: bars, banner, speech bubbles ==================================== */
-let bannerT = 0, quoteT = 0; const bubs = [];
+let bannerT = 0, quoteT = 0, audT = 0, audW = -1, audF = -1; const bubs = [], SP_U = document.querySelectorAll('.sp u');
 function banner(h, p, dur) { const b = $('banner'); b.children[0].textContent = h; b.children[1].textContent = p; b.classList.add('on'); bannerT = dur; }
 function combo(t) { const c = $('combo'); c.textContent = t; c.classList.remove('go'); void c.offsetWidth; c.classList.add('go'); }
 function merlinSay(t, delay = 0) { setTimeout(() => { const q = $('quote'); q.textContent = t; q.classList.add('on'); quoteT = 3.8; }, delay * 1000); }
@@ -1456,7 +1469,7 @@ function hud(dt) {
   $('bWall').style.width = w + '%'; $('bWall').classList.toggle('low', w < 35); $('bGate').style.width = g + '%'; $('bGate').classList.toggle('low', g < 35 || G.gate.fire > 0);
   $('mana').firstElementChild.style.width = G.mana + '%'; $('mana').classList.toggle('low', G.mana < [3, 22, 40][G.spell]);
   $('kK').textContent = G.kills; $('kF').textContent = G.fled;
-  const us = document.querySelectorAll('.sp u'); us[1].style.height = clamp(G.cd[1] / .45, 0, 1) * 100 + '%'; us[2].style.height = clamp(G.cd[2] / 1.5, 0, 1) * 100 + '%';
+  const us = SP_U; us[1].style.height = clamp(G.cd[1] / .45, 0, 1) * 100 + '%'; us[2].style.height = clamp(G.cd[2] / 1.5, 0, 1) * 100 + '%';
   const xh = $('xh'), col = ['var(--water)', 'var(--fire)', 'var(--bolt)'][G.spell]; xh.style.borderColor = col; xh.style.color = col; xh.style.opacity = G.aim && G.aim.far ? .3 : 1;
   xh.style.display = G.st === 'play' && !G.paused ? '' : 'none';
   if (locked) { xh.style.left = '50%'; xh.style.top = '50%'; } else { xh.style.left = (mouseN[0] * .5 + .5) * 100 + '%'; xh.style.top = (.5 - mouseN[1] * .5) * 100 + '%'; }
@@ -1471,10 +1484,12 @@ function hud(dt) {
     b.el.style.opacity = Math.min(1, b.t * 8, (2.5 - b.t) * 4);
     b.el.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,-100%) scale(${clamp(60 / p[3], .75, 1.15).toFixed(2)})`;
   }
-  if (AC) {
-    const tnow = AC.currentTime; waterG.gain.setTargetAtTime(G.pour && !muted ? .32 : 0, tnow, .06);
-    let fsum = G.gate.fire + G.wf.length * .6; for (const m of G.mac) fsum += m.fire; for (const s of G.sol) if (s.st === 'panic') fsum += .25;
-    fireG.gain.setTargetAtTime(Math.min(.45, fsum * .14) * (.7 + .5 * Math.random()), tnow, .05);
+  if (AC && (audT += dt) > .1) {
+    /* only schedule a gain change when the target really moves; per-frame scheduling piles up automation events */
+    audT = 0; const tnow = AC.currentTime, wt = G.pour && !muted ? .32 : 0;
+    if (wt !== audW) { audW = wt; waterG.gain.setTargetAtTime(wt, tnow, .06); }
+    let fsum = G.gate.fire + G.wf.length * .6 + G.gf.length * .3; for (const m of G.mac) fsum += m.fire; for (const s of G.sol) if (s.st === 'panic') fsum += .25;
+    const ft = Math.min(.42, fsum * .14); if (Math.abs(ft - audF) > .03 || (ft === 0 && audF !== 0)) { audF = ft; fireG.gain.setTargetAtTime(ft, tnow, .15); }
   }
 }
 
@@ -1516,6 +1531,8 @@ function render() {
   setCommon(pSky); const th = Math.tan(FOV / 2);
   gl.uniform3fv(pSky.u.uR, cam.r); gl.uniform3fv(pSky.u.uU, cam.u); gl.uniform3fv(pSky.u.uF, cam.f); gl.uniform3fv(pSky.u.uMoon, MOON); gl.uniform2f(pSky.u.uTan, th * W / H, th);
   gl.bindVertexArray(emptyVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  /* resolve MSAA (colour and depth), then blend particles into the cheaper single-sample target */
+  if (fbMS) { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbMS); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbRes); gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST); gl.bindFramebuffer(gl.FRAMEBUFFER, fbRes); }
   gl.depthMask(false); gl.enable(gl.BLEND);
   gl.useProgram(pPart.p); gl.uniformMatrix4fv(pPart.u.uVP, false, VP); gl.uniform1f(pPart.u.uPS, H / (2 * th));
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(pPart.u.uAdd, 0);
@@ -1524,7 +1541,6 @@ function render() {
   gl.bindVertexArray(pVaoB); gl.bindBuffer(gl.ARRAY_BUFFER, pBufB); gl.bufferData(gl.ARRAY_BUFFER, pbB.subarray(0, pnB * 8), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, pnB);
   if (rbn) { gl.useProgram(pRib.p); gl.uniformMatrix4fv(pRib.u.uVP, false, VP); gl.bindVertexArray(rbVao); gl.bindBuffer(gl.ARRAY_BUFFER, rbBuf); gl.bufferData(gl.ARRAY_BUFFER, rbA.subarray(0, rbn * 9), gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, rbn); }
   gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-  if (fbMS) { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbMS); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbRes); gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST); }
   /* bloom */
   gl.bindVertexArray(emptyVao); gl.activeTexture(gl.TEXTURE0);
   gl.useProgram(pDown.p); gl.uniform1i(pDown.u.uTex, 0);
@@ -1540,10 +1556,21 @@ function render() {
   gl.uniform1i(pFinal.u.uTex, 0); gl.uniform1i(pFinal.u.uBloom, 1); gl.uniform1f(pFinal.u.uFlash, G.flash * G.flash); gl.uniform1f(pFinal.u.uHurt, G.hurt); gl.uniform1f(pFinal.u.uBloomK, HDR ? .34 : .5);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
-let lastT = 0, acc = 0;
+let lastT = 0, acc = 0, ftAvg = 16.7, ftSlow = 0, ftGood = 0, upAt = -1e9, perfOn = QS.has('fps'), perfT = 0;
+/* drop the render scale when frames stay slow; try going back up once things have been smooth for a while */
+function adapt(raw, now) {
+  if (raw > .25 || raw <= 0 || document.hidden || G.paused || G.st === 'title') return;
+  ftAvg += (raw * 1000 - ftAvg) * .06;
+  if (ftAvg > 21) {
+    ftGood = 0; ftSlow += raw;
+    if (ftSlow > 2.5 && RS > .55) { RS = Math.max(.55, RS * .85); if (now - upAt < 10) { rsMax = RS; upAt = -1e9; } ftSlow = 0; ftAvg = 17; }
+  } else { ftSlow = 0; if (ftAvg < 17.6) { ftGood += raw; if (ftGood > 25 && RS < rsMax) { RS = Math.min(rsMax, RS / .85); upAt = now; ftGood = 0; } } }
+}
 function frame(ts) {
   requestAnimationFrame(frame);
-  const now = ts / 1000, dt = Math.min(.1, now - lastT || 0); lastT = now;
+  const now = ts / 1000, raw = now - lastT || 0, dt = Math.min(.1, raw); lastT = now;
+  adapt(raw, now);
+  if (perfOn && (perfT += raw) > .3) { perfT = 0; $('perf').textContent = (1000 / ftAvg).toFixed(0) + ' fps  ' + ftAvg.toFixed(1) + ' ms  ' + W + 'x' + H + '  scale ' + RS.toFixed(2) + '  particles ' + pn; }
   resize(); inputCamera(dt); updCamera(); computeAim();
   if (G.st === 'title') { G.t += dt; updParts(dt); if (rnd() < dt * 14) part(1, G.tip[0], G.tip[1], G.tip[2], rr(-1, 1), rr(0, 2), rr(-1, 1), rr(.5, 1.2), .3, .05, .4, .8, 2, 1, -1, 1); }
   else if (!G.paused && !TEST_HOLD) { acc += dt; let n = 0; while (acc >= 1 / 60 && n < 4) { update(1 / 60); acc -= 1 / 60; n++; } if (n === 4) acc = 0; }
@@ -1554,7 +1581,7 @@ function frame(ts) {
 let TEST_HOLD = false;
 window.MT = {
   G,
-  state() { return { st: G.st, wave: G.wave, phase: G.phase, t: +G.t.toFixed(1), wall: +G.wall.toFixed(1), gate: +G.gate.hp.toFixed(1), gateFire: +G.gate.fire.toFixed(2), mana: +G.mana.toFixed(0), sol: G.sol.length, active: G.sol.filter(isActive).length, states: G.sol.reduce((o, s) => { o[s.st] = (o[s.st] || 0) + 1; return o; }, {}), mac: G.mac.map(m => ({ type: m.type, x: +m.x.toFixed(1), z: +m.z.toFixed(1), hp: +m.hp.toFixed(0), fire: +m.fire.toFixed(2), wet: +m.wet.toFixed(2), st: m.st, crew: m.crew.length, stuck: +m.stuck.toFixed(1) })), kills: G.kills, fled: G.fled, breach: G.breach, wrecks: G.wrecks, parts: pn, verts: dyn.n / VSZ }; },
+  state() { return { st: G.st, wave: G.wave, phase: G.phase, t: +G.t.toFixed(1), wall: +G.wall.toFixed(1), gate: +G.gate.hp.toFixed(1), gateFire: +G.gate.fire.toFixed(2), mana: +G.mana.toFixed(0), sol: G.sol.length, active: G.sol.filter(isActive).length, states: G.sol.reduce((o, s) => { o[s.st] = (o[s.st] || 0) + 1; return o; }, {}), mac: G.mac.map(m => ({ type: m.type, x: +m.x.toFixed(1), z: +m.z.toFixed(1), hp: +m.hp.toFixed(0), fire: +m.fire.toFixed(2), wet: +m.wet.toFixed(2), st: m.st, crew: m.crew.length, stuck: +m.stuck.toFixed(1) })), kills: G.kills, fled: G.fled, breach: G.breach, wrecks: G.wrecks, parts: pn, verts: dyn.n / VSZ, res: [W, H], rs: RS }; },
   start() { resetGame(); }, hold(b) { TEST_HOLD = b; },
   step(s) { for (let i = 0, n = Math.round(s * 60); i < n; i++) update(1 / 60); },
   aim(x, z, y) { G.aimO = { x, y: y === undefined ? hgt(x, z) : y, z }; G.aim = G.aimO; G.aim.far = tooFar(G.aim); },
