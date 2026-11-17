@@ -61,6 +61,14 @@ The [camera-matched High comparison](evidence/high-realism-comparison.jpg) shows
 
 Select **High** in the Effects panel or open `Astra-demo.html?q=high` to use these settings. The first selection of High builds the additional geometry and retains it for subsequent quality changes. Run `node verify.mjs --high-realism` to capture the three updated stations and exercise repeated quality changes and the waterfall effect switch.
 
+## High coastal surf and rock weathering
+
+The [matched coastal views](evidence/surf-comparison.jpg) compare the previous High build at `a5bc71e` with this pass. The beach and tide-pool stations use their entry cameras. A third camera sits offshore, facing the arch.
+
+- A directional swell shoals near the strand. Curved wave fronts wrap around the arch feet, and the short waves diminish on their sheltered sides. An animated shallow film runs up the sand and leaves a damp edge for several seconds. The enclosed tide pools and stream mouth are excluded from the beach wash.
+- The arch and offshore stacks use denser geometry on High. Their tidal notches change the silhouettes near sea level. Tilted sediment beds, interrupted joints and a damp lower band continue across the rock faces and the arch ceiling.
+- Run `node verify.mjs --surf` to capture both station views, the offshore arch, and the same arch 1.9 seconds later. The check cycles through all three graphics presets, toggles the ocean, and exercises the forced no-float path.
+
 ## Differences and limits
 
 - The cascade solver uses a 2D floor plan with height-aware direct light. Its probes cannot represent several vertically overlapping cave chambers.

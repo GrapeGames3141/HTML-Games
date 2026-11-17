@@ -182,7 +182,41 @@ try {
   await connect();
   for (let m of ['Page.enable', 'Runtime.enable', 'Log.enable']) await call(m);
   await size(960, 600);
-  if (process.argv.includes('--high-realism')) {
+  if (process.argv.includes('--surf')) {
+    await open('?test&seed=412&q=high');
+    await js('DEMO.all(true)');
+    for (const [id, name] of [[1, 'beach'], [2, 'pools']]) {
+      const state = await station(id);
+      assert.equal(state.quality, 'high');
+      assert(state.effective[5]);
+      await screenshot('surf-' + name);
+    }
+    await js('DEMO.cam([-27,3.6,84],0,0);DEMO.lookAt(-29,3.3,112)');
+    await screenshot('surf-arch');
+    await js('DEMO.step(1.9)');
+    await screenshot('surf-arch-next-wave');
+    for (const q of ['low', 'medium', 'high']) {
+      await js('DEMO.quality("' + q + '")');
+      const stops = q === 'low' ? [1, 2, 3, 4, 5, 6, 7, 8] : [1, 2, 8];
+      for (const id of stops) {
+        const state = await station(id);
+        assert.equal(state.quality, q);
+        assert.equal(await js('DEMO.inspect().glError'), 0);
+      }
+    }
+    await station(1);
+    await js('DEMO.toggle(6,false);DEMO.step(.2)');
+    assert.equal(await js('DEMO.state().effective[5]'), false);
+    await js('DEMO.toggle(6,true);DEMO.step(.2)');
+    assert.equal(await js('DEMO.state().effective[5]'), true);
+    await open('?test&seed=412&q=high&nofloat');
+    for (const id of [1, 2, 8]) {
+      await station(id);
+      assert.equal(await js('DEMO.inspect().glError'), 0);
+    }
+    assert.deepEqual(errors, []);
+    console.log('Coast captures, preset changes, ocean toggle and no-float path passed');
+  } else if (process.argv.includes('--high-realism')) {
     await open('?test&seed=412&q=high');
     await js('DEMO.all(true)');
     const names = {2: 'tide-pools', 4: 'forest', 6: 'waterfall'};

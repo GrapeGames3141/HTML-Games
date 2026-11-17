@@ -1299,6 +1299,44 @@
           }
         }
       }
+      function tidalNotch(y) {
+        return exp(-((y - 0.48) ** 2) / 0.85);
+      }
+      function coastalFaces(rings, color) {
+        const count = rings[0].length;
+        const normals = rings.map((ring, j) => ring.map((p, i) => {
+          const up = sub(rings[min(j + 1, rings.length - 1)][i], rings[max(j - 1, 0)][i]);
+          const across = sub(ring[(i + 1) % count], ring[(i + count - 1) % count]);
+          return unit(cross(up, across));
+        }));
+        for (let j = 1; j < rings.length; j++) for (let i = 0; i < count; i++) {
+          const k = (i + 1) % count;
+          for (const corners of [[[j-1,i],[j,i],[j,k]], [[j-1,i],[j,k],[j-1,k]]]) {
+            const verts = corners.map(([row,col]) => rings[row][col]);
+            const plane = unit(cross(sub(verts[1],verts[0]),sub(verts[2],verts[0])));
+            tri(...verts,color,35,corners.map(([row,col]) => unit(blend(normals[row][col],plane,.24))));
+          }
+        }
+      }
+      function wornStack(x,z,r,h) {
+        const rows = max(15,Math.ceil(h * 1.8)), cols = 36, rings = [];
+        for (let j = 0; j <= rows; j++) {
+          const t = j / rows, ring = [];
+          for (let i = 0; i < cols; i++) {
+            const a = TAU * i / cols;
+            const y = -2 + h*t + (.22+.49*t)*sin(2*a+.3) + .18*t*cos(5*a+x);
+            const bed = y*.83 + r*(.13*cos(a)-.09*sin(a));
+            const outline = 1+.12*sin(3*a+x)+.067*cos(7*a+z)+.035*sin(11*a+.44*y);
+            const shelf = .06*sin(bed)+.04*cos(2.3*bed+.35*sin(a));
+            const rr = r*(outline*(1-.43*t-.10*smooth(.87,1,t))+shelf) - min(.65,r*.15)*tidalNotch(y);
+            ring.push([x+rr*cos(a)+t*h*.09,y,z+.76*rr*sin(a)]);
+          }
+          rings.push(ring);
+        }
+        coastalFaces(rings,rgb('b7a48c'));
+        const rim = rings[rows];
+        for(let i=0;i<cols;i++) tri([x+h*.09,h-1.65,z],rim[(i+1)%cols],rim[i],rgb('9a987b'),35);
+      }
       function stack(x, z, r, h) {
         const n = 19;
         let prev = [];
@@ -1327,10 +1365,10 @@
           prev = ring;
         }
       }
-      function seaArch(x, z) {
+      function seaArch(x, z, detailed) {
         // One continuous weathered limestone bridge, including the soffit.
-        const n = 37,
-          m = 14,
+        const n = detailed ? 86 : 37,
+          m = detailed ? 32 : 14,
           rings = [];
         for (let j = 0; j <= n; j++) {
           let t = j / n,
@@ -1343,6 +1381,16 @@
             let v = (k * TAU) / m,
               relief = 1 + 0.06 * cos(v * 3 + a * 4) + 0.047 * sin(a * 13 + v * 2),
               rad = radius * cos(v) * relief;
+            if (detailed) {
+              const y = -1.5+st*(9.2+rad)+.61*sin(a*3.4);
+              const bed = y*.85 + .14*(ct*10.1) - .10*sin(v)*radius;
+              const worn = radius*(relief+.052*sin(bed*1.64)+.04*cos(5*v+a*9))
+                - .67*tidalNotch(y) - .20*max(0,cos(a*21+v*3))**5;
+              ring.push([x+ct*(10.1+worn*cos(v))+1.3*st,
+                -1.5+st*(9.2+worn*cos(v))+.61*sin(a*3.4),
+                z+sin(v)*worn*1.23+st*1.05]);
+              continue;
+            }
             ring.push([
               x + ct * (10.1 + rad) + 1.3 * st,
               -1.5 + st * (9.2 + rad) + 0.61 * sin(a * 3.4),
@@ -1350,6 +1398,12 @@
             ]);
           }
           rings.push(ring);
+        }
+        if (detailed) {
+          coastalFaces(rings,rgb('bda88d'));
+          wornStack(x-10,z,4.9,4.7);
+          wornStack(x+10,z,4,3.8);
+          return;
         }
         for (let j = 0; j < n; j++)
           for (let k = 0; k < m; k++) {
@@ -1366,12 +1420,12 @@
         stack(x + 10, z, 4, 3.8);
       }
       function beachDecor() {
-        seaArch(-29, 112);
-        stack(6, 127, 8.6, 19);
-        stack(24, 136, 4.8, 11);
-        stack(-105, 133, 7, 12);
-        stack(53, 136, 10, 19);
-        stack(65, 142, 5, 10);
+        landDetail(detailed => {
+          seaArch(-29,112,detailed);
+          const makeStack = detailed ? wornStack : stack;
+          for(const dims of [[6,127,8.6,19],[24,136,4.8,11],[-105,133,7,12],[53,136,10,19],[65,142,5,10]])
+            makeStack(...dims);
+        });
         for (let [x, z, h, b] of [
           [-67, 63, 9, 2],
           [-53, 57, 11, 1.6],
@@ -2680,6 +2734,35 @@ float ridge=.006+.014*noise(vec2(a*9.,1.))+.019*noise(vec2(a*23.,3.));
 float headland=smoothstep(base-.005,base+.002,d.y)*(1.-smoothstep(base+ridge-.002,base+ridge+.002,d.y));
 return mix(c,mix(vec3(.54,.69,.71),horizon(),.36),headland*.79);}
 vec4 ripple(vec2 xz){vec2 uv=(xz-waterSim.xy)/waterSim.z;if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))return vec4(.5,.5,.5,0);return texture(rippleMap,uv);}
+float coastZ(float x){return 72.+5.*sin(x*.048)+3.*sin(x*.084+.9);}
+bool openStrand(vec2 p){
+  if(length((p-vec2(-24.,67.))/vec2(6.4,4.8))<1.42 ||
+     length((p-vec2(-13.,65.))/vec2(4.,3.2))<1.42 ||
+     length((p-vec2(-35.,70.))/vec2(3.3,2.8))<1.42)return false;
+  return abs(p.x-41.-6.*sin(p.y*.066))>5.4;
+}
+float breakerPhase(vec2 p,float t){
+  return (p.y-coastZ(p.x))*.79+t*1.46+.82*sin(.27*p.x+.11*p.y)+.34*sin(.69*p.x-t*.18);
+}
+float swashLevel(float x,float t){
+  float runup=.5+.5*sin(breakerPhase(vec2(x,coastZ(x)),t-.62));
+  return .065+(.38+.095*sin(t*.31+x*.085))*pow(runup,1.35);
+}
+// The outer flank sheds a curved crest. The down-wave side of each abutment shelters short waves.
+vec4 pillarSurf(vec2 p,vec2 center,float radius){
+  vec2 d=p-center;float radial=length(d),edge=max(0.,radial-radius);
+  float lee=smoothstep(-1.,4.,-d.y)*(1.-smoothstep(radius*.50,radius+3.+.18*max(0.,-d.y),abs(d.x)))
+            *(1.-smoothstep(6.,23.,-d.y));
+  float skirt=exp(-.15*edge)*smoothstep(-.4,1.4,radial-radius);
+  float angle=atan(d.x,d.y);
+  float phase=edge*1.13-clockT*1.92+1.05*cos(angle);
+  vec2 slope=.17*skirt*cos(phase)*d/max(radial,.05);
+  return vec4(.15*skirt*sin(phase),slope,lee);
+}
+vec4 archSurf(vec2 p){
+  if(abs(p.x+29.)>31.||abs(p.y-111.)>27.)return vec4(0.);
+  return pillarSurf(p,vec2(-39.,112.),4.1)+pillarSurf(p,vec2(-19.,112.),3.4);
+}
 vec3 wave(vec2 xz,float sea){vec3 rip=fx[4]>0?(ripple(xz).rgb-.5)*vec3(2.,1.25,1.25):vec3(0);float t=clockT;
 if(highDetail>.5&&fx[11]>0&&distance(xz,vec2(-40.,-78.))<9.){
   for(int i=0;i<3;i++){
@@ -2689,7 +2772,18 @@ if(highDetail>.5&&fx[11]>0&&distance(xz,vec2(-40.,-78.))<9.){
     rip+=vec3(amp*sin(phase),amp*7.7*cos(phase)*delta/max(.04,radius));
   }
 }
-float phase=xz.y*1.4+xz.x*.36-t*1.65+.64*sin(xz.x*1.21+t*.42);vec3 small=vec3(.018*sin(phase),.006*cos(phase),.044*cos(phase));small+=vec3(.008*sin(xz.x*2.2+t),.016*cos(xz.x*2.2+t),0);if(fx[5]>0&&sea>.001){vec3 a=texture(oceanMap,xz/48.).rgb-.5,b=texture(oceanMap,mat2(.82,.57,-.57,.82)*xz/23.+.23).rgb-.5;return rip+small+sea*(a*vec3(1.5,.69,.69)+b*vec3(.30,.19,.19));}return rip+small*(.45+sea);}
+float phase=xz.y*1.4+xz.x*.36-t*1.65+.64*sin(xz.x*1.21+t*.42);vec3 small=vec3(.018*sin(phase),.006*cos(phase),.044*cos(phase));small+=vec3(.008*sin(xz.x*2.2+t),.016*cos(xz.x*2.2+t),0);if(fx[5]>0&&sea>.001){vec3 a=texture(oceanMap,xz/48.).rgb-.5,b=texture(oceanMap,mat2(.82,.57,-.57,.82)*xz/23.+.23).rgb-.5;vec3 oceanWave=a*vec3(1.5,.69,.69)+b*vec3(.30,.19,.19);
+  if(highDetail>.5){
+    vec4 local=archSurf(xz);float lee=clamp(local.w,0.,1.);
+    float surfZone=1.-smoothstep(8.,34.,abs(xz.y-coastZ(xz.x)));
+    float phase=breakerPhase(xz,t);
+    vec3 breaker=vec3(.20*sin(phase),.031*cos(phase),.16*cos(phase))*surfZone;
+    vec2 crossDir=vec2(.57,.82);
+    float crossPhase=dot(xz,crossDir)*1.16+t*1.38+.72*sin(xz.x*.17);
+    vec3 chop=vec3(.047*sin(crossPhase),crossDir*.055*cos(crossPhase));
+    return rip+(1.-.78*lee)*(small+sea*(.56*oceanWave+breaker+chop))+sea*local.xyz;
+  }
+  return rip+small+sea*oceanWave;}return rip+small*(.45+sea);}
 vec3 film(float ct,float thickness){vec3 phase=4.*3.14159*1.32*thickness*sqrt(.43+.57*ct*ct)/vec3(650.,520.,445.);return .51+.47*cos(phase);}
 `;
       // Four silhouettes share a mipmapped sheet. The sun pass samples the same gaps as the colour pass.
@@ -2822,6 +2916,27 @@ if(mat==2||mat==32){
   pigment*=.77+.34*silt+.10*vein+grit;
   if(caveDraw>.5)pigment=mix(pigment,pigment*vec3(.70,.92,1.17),.4+.5*vein);
 }
+if(mat==35){
+  // Continuous dipping beds cross the arch and its soffit. Joints offset the bedding locally.
+  vec2 face=vec2(wpos.x+.57*wpos.z,wpos.y);
+  float block=fbm(face*.17+19.);
+  float jointCoord=face.x*.175+face.y*.094+.49*noise(face*.21)+.15*noise(face*.87);
+  float joint=abs(fract(jointCoord)-.5);
+  float fault=.22*floor(jointCoord+.5);
+  float bed=wpos.y+.21*wpos.x-.105*wpos.z+fault+.66*fbm(wpos.xz*.42)+.20*sin(face.x*.61);
+  float silt=fbm(vec2(face.x*.26,bed*1.65));
+  float seam=abs(fract(bed*.49+.13*sin(bed*1.21))-.5);
+  float line=(1.-smoothstep(.016,.068+fwidth(bed)*.24,seam))*(.3+.7*smoothstep(.24,.65,silt));
+  float crack=(1.-smoothstep(.002,.021+fwidth(jointCoord)*.32,joint))*smoothstep(.42,.66,block);
+  float chips=fbm(vec2(face.x*1.13,bed*2.75));
+  pigment=mix(vec3(.50,.395,.30),col*vec3(1.14,1.095,1.025),smoothstep(.13,.81,silt));
+  pigment+=vec3(.085,.068,.047)*smoothstep(.49,.70,chips)*smoothstep(.31,.70,block);
+  pigment*=1.-.23*line-.40*crack;
+  pigment*=.90+.19*noise(face*5.6)+.07*noise(wpos.xz*19.+wpos.y);
+  float salt=.72+.31*noise(wpos.xz*.83)+.21*sin(face.x*1.1);
+  pigment=mix(pigment,pigment*vec3(.45,.54,.49),1.-smoothstep(salt,salt+.22,wpos.y));
+  pigment*=.83+.17*smoothstep(-.6,.38,n.y);
+}
 if(mat==31)pigment*=.85+.27*fbm(wpos.xz*1.8+wpos.y*.62);
 if(mat==3){
   float fissure=fbm(wpos.xz*8.+vec2(wpos.y*.22,wpos.y*.37));
@@ -2869,6 +2984,22 @@ if(mat==32){
   float shine=pow(max(0.,dot(n,normalize(v+lightV))),82.);
   float rim=pow(1.-clamp(dot(n,v),0.,1.),4.);
   result+=damp*(sunColor()*shine*.57*sunLit+vec3(.13,.18,.19)*rim);
+}
+if(highDetail>.5&&fx[5]>0&&mat==1&&wpos.y>-.25&&wpos.y<.98&&abs(wpos.z-coastZ(wpos.x))<6.5&&openStrand(wpos.xz)){
+  float level=swashLevel(wpos.x,clockT);
+  float height=wpos.y+.037*noise(wpos.xz*2.);
+  // Sample the receding run-up over the last three seconds. Older reaches dry gradually.
+  float dampSand=0.;
+  for(int i=0;i<7;i++){
+    float age=float(i)*.5, past=swashLevel(wpos.x,clockT-age);
+    dampSand=max(dampSand,(1.-smoothstep(past,past+.09,height))*exp(-age*.40));
+  }
+  float filmCover=1.-smoothstep(level-.025,level+.024,height);
+  float edge=1.-smoothstep(.009,.055,abs(height-level));
+  float lace=fbm(wpos.xz*vec2(2.1,3.4)+vec2(0.,clockT*.29));
+  result*=mix(vec3(1.),vec3(.69,.71,.70),dampSand);
+  result=mix(result,mix(result*vec3(.88,.96,.96),sky(reflect(-v,vec3(0,1,0))),.14+.29*pow(1.-max(.0,v.y),4.)),filmCover);
+  result=mix(result,vec3(.87,.92,.84),edge*smoothstep(.31,.65,lace)*.83);
 }
 if(mat==1&&wpos.y<1.9)result+=vec3(.27,.24,.18)*pow(max(dot(reflect(-lightV,n),v),0.),22.)*(1.-smoothstep(.2,1.9,wpos.y));
 if(mat==9&&fx[9]>0)result=mix(result,film(abs(dot(v,n)),365.+noise(wpos.xz*2.)*145.),.63);
@@ -2936,7 +3067,19 @@ if(highDetail>.5&&caveMode<.5&&dist<40.&&sea<.7&&reflectionRay.y>.015){
 c=mix(c,reflected,fres);
 float sunGlint=pow(max(0.,dot(normalize(v+lightV),n)),180.);c+=sunColor()*sunGlint*.64;
 float line=.16+.13*sin(wpos.x*.9+clockT*1.25)+.12*noise(wpos.xz*3.);float lace=fbm(wpos.xz*vec2(2.3,3.8)+vec2(.0,clockT*.18));
-float foam=(1.-smoothstep(line,line+.22,dep+w.x))*(.22+.78*smoothstep(.29,.62,lace));float crest=smoothstep(.29,.63,w.x+.23*w.z);c=mix(c,vec3(.91,.94,.84),sea*clamp(foam+crest*.68,0.,.94));if(highDetail>.5&&fx[11]>0&&caveMode<.5&&wpos.y<14.6&&distance(wpos.xz,vec2(-40.,-78.))<9.){
+float foam=(1.-smoothstep(line,line+.22,dep+w.x))*(.22+.78*smoothstep(.29,.62,lace));float crest=smoothstep(.29,.63,w.x+.23*w.z);float foamAmount=clamp(foam+crest*.68,0.,.94);
+if(highDetail>.5&&fx[5]>0&&sea>.001){
+  float zone=1.-smoothstep(7.,27.,abs(wpos.z-coastZ(wpos.x)));
+  float breaking=smoothstep(.56,.96,sin(breakerPhase(wpos.xz,clockT)+.51*(lace-.5)));
+  float torn=smoothstep(.30,.70,lace+.16*sin(wpos.x*.47+clockT*.27));
+  vec4 local=archSurf(wpos.xz);
+  float rim=min(abs(distance(wpos.xz,vec2(-39.,112.))-4.1),abs(distance(wpos.xz,vec2(-19.,112.))-3.4));
+  float collar=exp(-rim*.93)*(.45+.48*lace);
+  float wrap=smoothstep(.046,.127,local.x)*(.19+.59*torn);
+  float brush=(1.-smoothstep(.03,.29,dep))*(.42+.43*torn);
+  foamAmount=clamp(brush+zone*breaking*torn*.82+collar+wrap+crest*.13*(1.-clamp(local.w,0.,1.)),0.,.96);
+}
+c=mix(c,vec3(.91,.94,.84),sea*foamAmount);if(highDetail>.5&&fx[11]>0&&caveMode<.5&&wpos.y<14.6&&distance(wpos.xz,vec2(-40.,-78.))<9.){
   float froth=0.;
   for(int i=0;i<3;i++){
     vec2 d=wpos.xz-fallImpact[i].xy;
