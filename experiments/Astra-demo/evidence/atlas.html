@@ -162,10 +162,10 @@
         ['Tide pools', 'tide-pools', [5, 7, 9, 13, 14, 15]],
         ['The stream', 'stream', [5, 7, 6]],
         ['Dappled forest', 'forest', [3, 2, 4, 10]],
-        ['Glasshouse clearing', 'glasshouse', [8, 9, 10, 3, 11]],
-        ['Waterfall pool', 'waterfall', [12, 5, 7, 2, 8]],
+        ['Glasshouse clearing', 'glasshouse', [8, 9, 10, 3, 11, 17, 19]],
+        ['Waterfall pool', 'waterfall', [12, 5, 7, 2, 8, 18]],
         ['The glow cave', 'cave', [1, 4, 9, 5, 7, 2, 15]],
-        ['Cliff overlook', 'overlook', [11, 6, 3, 2]]
+        ['Cliff overlook', 'overlook', [11, 6, 3, 2, 20]]
       ];
       const names = [
         'All effects',
@@ -184,20 +184,24 @@
         'Shape-stacked shell',
         'Parallax rock relief',
         'Thickness translucency',
-        'Persistent sand tracks'
+        'Persistent sand tracks',
+        'Wipeable condensation',
+        'Layered waterfall moss',
+        'Gust-coupled pendulums',
+        'Intertidal shelf'
       ];
       const el = (id) => document.getElementById(id),
         s = el('station'),
         e = el('effect');
       for (const [i, st] of stations.entries()) s.add(new Option(i + 1 + ' · ' + st[0], i));
-      const closeups = {13:'life-shell',14:'life-barnacles',15:'life-kelp',16:'life-tracks'};
+      const closeups = {13:['life-shell','life-shell-off'],14:['life-barnacles','life-barnacles-off'],15:['life-kelp','life-kelp-off'],16:['life-tracks','life-tracks-off'],17:['field-pane-wiped','field-pane-off'],18:['field-moss','field-moss-off'],19:['field-gust','field-gust-off'],20:['field-tide-high','field-tide-off']};
       function display() {
         const i = Number(s.value),
           id = Number(e.value),
           stem = i + 1 + '-' + stations[i][1];
-        const feature = i===6 && id===15 ? 'life-cap' : closeups[id];
-        el('on').src = el('leftLink').href = feature ? feature+'.png' : stem+'-on.png';
-        el('off').src = el('rightLink').href = feature ? feature+'-off.png' : stem+(id ? '-t'+id : '')+'-off.png';
+        const feature = i===6 && id===15 ? ['life-cap','life-cap-off'] : closeups[id];
+        el('on').src = el('leftLink').href = feature ? feature[0]+'.png' : stem+'-on.png';
+        el('off').src = el('rightLink').href = feature ? feature[1]+'.png' : stem+(id ? '-t'+id : '')+'-off.png';
         history.replaceState(null, '', '#' + (i + 1) + '/' + id);
       }
       function choose(id = 0) {

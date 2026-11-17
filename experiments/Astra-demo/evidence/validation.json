@@ -17,11 +17,11 @@
       634,
       396
     ],
-    "triangles": 448881,
-    "splats": 206450,
-    "frameMs": 4.637151346914714
+    "triangles": 473417,
+    "splats": 207581,
+    "frameMs": 7.6327744043404895
   },
-  "photoBytes": 366629,
+  "photoBytes": 367356,
   "routeMeters": 560.2150146823433,
   "walk": [
     {
@@ -196,7 +196,15 @@
   "cost": [
     0,
     0,
-    5.6499998569488525,
+    71.69999980926514,
+    0,
+    0,
+    0,
+    0,
+    8.949999809265137,
+    51.85000014305115,
+    0,
+    25.399999976158142,
     0,
     0,
     0,
@@ -204,7 +212,7 @@
     0,
     0,
     0,
-    0,
+    4.099999785423279,
     0
   ],
   "touchMovement": true,
@@ -218,7 +226,6 @@
   ],
   "errors": [],
   "warnings": [
-    "[.WebGL-0x3644004c5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
-    "[.WebGL-0x3644004c5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+    "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently"
   ]
 }

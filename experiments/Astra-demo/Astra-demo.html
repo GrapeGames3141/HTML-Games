@@ -398,6 +398,12 @@
       }
       #shellTools { position:absolute; z-index:5; top:72px; left:50%; transform:translateX(-50%); padding:8px 12px; pointer-events:auto; white-space:nowrap; }
       #shellTools input { width: min(23vw,130px); vertical-align:middle; }
+      #mistTools { position:absolute; z-index:7; inset:0; display:grid; place-items:center; pointer-events:none; }
+      #mistTools[hidden] { display:none; }
+      #mistPane { width:min(78vw,680px); height:min(62vh,430px); border:1px solid rgba(222,246,238,.18); border-radius:9px; box-shadow:0 0 48px rgba(191,238,220,.16); pointer-events:auto; touch-action:none; opacity:.012; }
+      #mistCaption { position:absolute; top:calc(50% + min(31vh,215px) + 14px); padding:7px 11px; border-radius:15px; background:rgba(12,29,28,.64); color:#effff7; font-size:12px; pointer-events:auto; }
+      #studies { position:absolute; z-index:5; top:68px; right:14px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:min(430px,70vw); }
+      #studies button { font-size:12px; padding:7px 9px; }
       #dial {
         position: absolute;
         left: 50%;
@@ -574,13 +580,14 @@
         </div>
       </header>
       <div id="cross" hidden></div>
+      <div id="studies" hidden><button data-study="pane">Pane study</button><button data-study="bottles">Bottle tree</button><button data-study="moss">Moss ledge</button><button data-study="tide">Tide shelf</button><button data-study="exit" hidden>Return to station</button></div>
       <div id="compare" hidden><span class="chip">Effect on</span><span class="chip">Stand-in</span></div>
       <div id="notice" role="status" hidden></div>
       <section id="welcome" class="card">
         <div class="eyebrow">Coastal field study &nbsp; / &nbsp; 01</div>
         <h1>Littoral</h1>
         <p>
-          A walk from the sunlit shore to a luminous cave. Explore eight field stations and compare sixteen
+          A walk from the sunlit shore to a luminous cave. Explore eight field stations and compare twenty
           rendering techniques in place.
         </p>
         <div class="rule"></div>
@@ -613,8 +620,13 @@
         <label>Shell layers <input id="shellSpacing" type="range" min="0" max="1" step=".01" value="0" /></label>
         <button id="shellClose">Return to walk</button>
       </div>
+      <div id="mistTools" hidden>
+        <canvas id="mistPane" width="960" height="600" aria-label="Wipe condensation from the glass"></canvas>
+        <button id="mistCaption">Wipe the pane · return</button>
+      </div>
       <div id="dial" class="glass" hidden>
         <label>Sun angle &nbsp;<input id="sun" type="range" min="0" max="1" step=".01" value=".23" /></label>
+        <label>&nbsp; Tide &nbsp;<input id="tide" type="range" min="-1" max="1" step=".01" value="0" /> <output id="tideReadout">mid · 0.00 m</output></label>
       </div>
       <div class="touchActions" id="touchActions" hidden>
         <button id="rise" hidden>↑</button><button id="sink" hidden>↓</button><button id="use" hidden></button
@@ -692,7 +704,11 @@
         'Shape-stacked shell',
         'Parallax rock relief',
         'Thickness translucency',
-        'Persistent sand tracks'
+        'Persistent sand tracks',
+        'Wipeable condensation',
+        'Layered waterfall moss',
+        'Gust-coupled pendulums',
+        'Intertidal shelf'
       ];
       const allTechniques = effects.length + 1;
       const flags = Array(effects.length).fill(true);
@@ -800,10 +816,16 @@
         easel: false
       };
       if (!['low', 'medium', 'high'].includes(S.quality)) S.quality = 'medium';
+      let studyReturn = null;
       const shore = (x) => 72 + 5 * sin(x * 0.048) + 3 * sin(x * 0.084 + 0.9),
         streamX = (z) => 41 + 6 * sin(z * 0.066) - max(0, -z - 21) * 1.74;
       const wetRocks = new Map(),
-        bottles = [];
+        bottles = [],
+        bottleAnchors = [],
+        bottleOrigins = [],
+        bottleSwing = new Float32Array(14 * 4),
+        tide = { level: 0, wet: 0, phase: 0 },
+        mist = { active: false, clear: null, dropsMap: null, packed: null, pixels: null, drops: [], strokes: 0, dirty: false };
       const pools = [
         [-24, 67, 6.4, 4.8],
         [-13, 65, 4, 3.2],
@@ -1612,7 +1634,7 @@
                   [xx, low + 2.02, next - 0.07],
                   [xx, low, next - 0.07],
                   rgb('a8cfc1'),
-                  7
+                  side === 1 && j === 4 && k === 0 ? 130 : 7
                 );
                 layer = 'land';
               }
@@ -1659,7 +1681,9 @@
           rod([x, y + r, zz], [x, y + r + 0.42, zz], 0.085, 0.008, iron, 6, 5);
         }
         for (let i = 0; i < 13; i++) {
-          let px = x + pick([-1, 1]) * between(2.7, 3.8),
+          let plantSide = pick([-1, 1]),
+            plantOffset = between(2.7, 3.8),
+            px = x - plantOffset,
             pz = z + between(-5.4, 5.3);
           rod([px, y, pz], [px, y + 0.74, pz], 0.33, 0.47, rgb('b67652'), 2, 10);
           for (let j = 0; j < 9; j++) {
@@ -1690,13 +1714,14 @@
             ep = [tx + r * cos(a), ty + h, tz + r * sin(a)];
           rod([tx, ty + h - 1.1, tz], ep, 0.1, 0.04, bark, 3);
           let neck = add(ep, [0, -between(0.4, 0.95), 0]);
-          rod(ep, neck, 0.012, 0.012, rgb('6f6250'), 3, 3);
+          bottleAnchors.push([...ep]);
+          rod(ep, neck, 0.012, 0.012, rgb('6f6250'), 180 + i, 3);
           let col = pick(['478e79', 'b18043', '497fa0', '846293'].map(rgb));
           bottles.push([neck[0], neck[1] - 0.64, neck[2], 0.23, ...col]);
           layer = 'glass';
-          rod(neck, add(neck, [0, -0.25, 0]), 0.07, 0.07, col, 8, 9);
-          rod(add(neck, [0, -0.25, 0]), add(neck, [0, -0.39, 0]), 0.07, 0.19, col, 8, 10);
-          rod(add(neck, [0, -0.39, 0]), add(neck, [0, -0.92, 0]), 0.19, 0.18, col, 8, 10);
+          rod(neck, add(neck, [0, -0.25, 0]), 0.07, 0.07, col, 160 + i, 9);
+          rod(add(neck, [0, -0.25, 0]), add(neck, [0, -0.39, 0]), 0.07, 0.19, col, 160 + i, 10);
+          rod(add(neck, [0, -0.39, 0]), add(neck, [0, -0.92, 0]), 0.19, 0.18, col, 160 + i, 10);
           layer = 'land';
         }
 
@@ -2044,6 +2069,95 @@
         }
         seed = savedSeed;
       }
+      function waterfallMoss() {
+        // A cluster of curved shelves directly beside the plunge, each built from staggered leaf-shaped splats.
+        const saved = seed;
+        layer = 'land';
+        for (let shelf = 0; shelf < 7; shelf++) {
+          let cx = -42.4 + shelf * 0.72,
+            cz = -78.5 - shelf * 0.36,
+            cy = terrain(cx, cz) + 0.72 + shelf * 0.22;
+          ellipsoid([cx,cy,cz],[1.28,.38,.72],rgb(shelf%2?'6e7664':'85806c'),2,5,9,.16);
+          // Overlapping cap shells create dense moss depth before the small edge blades break the silhouette.
+          for(let shell=0;shell<8;shell++){
+            const t=shell/7;
+            ellipsoid([cx,cy+.025+t*.045,cz],[1.285+t*.012,.382+t*.008,.725+t*.010],t<.42?rgb('274b32'):rgb('61753a'),140+t*.09,6,16,.04);
+          }
+          for (let tuft = 0; tuft < 55; tuft++) {
+            let a = tuft * 2.39996 + shelf * .43,
+              u=.78*cos(a), v=.52*sin(a), cap=cy+.38*sqrt(max(0,1-u*u-v*v)),
+              r = .72 + .16 * sin(tuft * 2.3 + shelf),
+              lean = .045 + .022 * sin(tuft * 1.7);
+            for(let shell=0;shell<3;shell++) {
+              const spread=1-shell*.20, lift=shell*.027;
+              daub(
+                [cx + cos(a) * (r+shell*.018), cap + .08 * sin(tuft * 2.2) + lift, cz + sin(a) * (r+shell*.018) * .38],
+                [.055 * spread * cos(a), .013, .034 * spread * sin(a)],
+                [lean * spread * cos(a), (.075 + .035 * sin(tuft))*spread, lean * spread * sin(a)],
+                (tuft+shell) % 4 ? rgb('477a37') : rgb('8a9a48'),
+                140,
+                unit([u/.78,1,v/.72])
+              );
+            }
+          }
+        }
+        seed = saved;
+      }
+      function intertidalShelf() {
+        // A continuous height mesh fades into the beach and sea. Its two bowls share the same bed sampler as the water net.
+        layer = 'land';
+        const bed=(x,z)=>{
+          const u=(x+60)/10, v=(z-(shore(x)+4))/5;
+          const wobble=hypot(u+.10*sin(v*7.+u*3.),v+.09*sin(u*8.-v*2.));
+          const outline=1-smooth(.70,1.12,wobble);
+          const outlet=exp(-((u+.05)**2/.08+(v-.43)**2/.045));
+          const connectedBowl=exp(-((u-.04)**2/.052+(v+.12)**2/.075));
+          const enclosedBowl=exp(-((u+.48)**2/.028+(v+.05)**2/.040));
+          const shelf=-.20+.055*sin(x*1.7+z*.6)-.33*connectedBowl-.28*enclosedBowl-.26*outlet;
+          return mix(terrain(x,z)-.52,shelf,outline);
+        };
+        let prev = [];
+        for (let iz = 0; iz <= 25; iz++) {
+          const row = [];
+          for (let ix = 0; ix <= 41; ix++) {
+            const x = -70 + (ix / 41) * 20;
+            const z = shore(x) - 1 + (iz / 25) * 10;
+            const y = bed(x, z);
+            row.push([x, y, z]);
+          }
+          if (prev.length) for (let ix = 1; ix < row.length; ix++) {
+            const a = prev[ix - 1];
+            const b = prev[ix];
+            const c = row[ix];
+            const d = row[ix - 1];
+            tri(a, d, b, rgb('777566'), 150);
+            tri(d, c, b, rgb('777566'), 150);
+          }
+          prev = row;
+        }
+        layer = 'water';
+        let prior=[];
+        for(let iz=0;iz<=25;iz++){
+          let row=[];
+          for(let ix=0;ix<=41;ix++){
+            const x=-70+ix/41*20, z=shore(x)-1+iz/25*10;
+            const openPool=((x+59.6)/2.25)**2+((z-(shore(-59.6)+3.35))/1.62)**2<1;
+            const enclosed=((x+64.8)/2.25)**2+((z-(shore(-64.8)+3.75))/1.75)**2<1;
+            const channel=abs(x+60)<.42 && z>shore(x)+3.2;
+            const sea=openPool||channel;
+            const level=enclosed?-.32:-.015;
+            row.push({p:[x,level,z],c:[level-bed(x,z),sea?1:0,.36],wet:sea||enclosed});
+          }
+          if(prior.length)for(let ix=1;ix<row.length;ix++){
+            const q=[prior[ix-1],prior[ix],row[ix],row[ix-1]];
+            if(!q.some(v=>v.wet)||max(...q.map(v=>v.c[0]))<.018)continue;
+            tri(q[0].p,q[3].p,q[1].p,sand,12,null,[q[0].c,q[3].c,q[1].c]);
+            tri(q[3].p,q[2].p,q[1].p,sand,12,null,[q[3].c,q[2].c,q[1].c]);
+          }
+          prior=row;
+        }
+        layer = 'land';
+      }
       function fieldObjects() {
         const [x, z] = [-91, -3];
         let p = [x + 3.8, terrain(x + 3.8, z + 3.4), z + 3.4];
@@ -2069,6 +2183,10 @@
           );
         }
         tri([dx, dy + 1.03, dz - 0.3], [dx, dy + 1.03, dz + 0.33], [dx, dy + 1.46, dz - 0.2], iron, 6);
+        // A separate engraved tide hand lives beside the fixed sundial gnomon.
+        ellipsoid([dx,dy+1.045,dz],[.46,.035,.46],rgb('af9b66'),6,3,14);
+        for(const a of [0,Math.PI*.5,Math.PI,Math.PI*1.5]) rod([dx+cos(a)*.34,dy+1.075,dz+sin(a)*.34],[dx+cos(a)*.43,dy+1.078,dz+sin(a)*.43],.012,.009,iron,6,3);
+        rod([dx,dy+1.09,dz],[dx,dy+1.115,dz+.34],.024,.012,rgb('dfc187'),200,5);
         for (let i = 0; i < stations.length; i++) {
           let s = stations[i],
             px = s[2] - 2.4,
@@ -2631,7 +2749,8 @@
           if (prev)
             for (let i = 1; i < row.length; i++) {
               let vs = [prev[i - 1], prev[i], row[i], row[i - 1]];
-              if (max(...vs.map((v) => v.c[0])) < -0.01) continue;
+              // Keep a narrow future tide fringe in the mesh. Its fragment pass remains dry until T20 raises it.
+              if (max(...vs.map((v) => v.c[0] + v.c[1] * 0.92)) < -0.01) continue;
               for (let ids of [
                 [0, 3, 1],
                 [3, 2, 1]
@@ -2731,7 +2850,7 @@
 uniform vec3 eye,rightV,upV,forwardV,lightV,lightX,lightY,shadowAt,lamp;
 uniform vec2 lens,size; uniform float clockT,day,shadowSpan,shadowDepth,caveMode,highDetail;
 bool portalVisible(vec3 p){if(caveMode>.5)return true;vec2 dir=vec2(-.58238,.81291),base=vec2(-43.,-74.);float a=dot(eye.xz-base,dir),b=dot(p.xz-base,dir);for(int i=0;i<2;i++){float l=i==0?0.:82.42,t=(l-a)/(b-a+.00001);if(t<0.||t>1.)continue;vec3 hit=mix(eye,p,t);float lateral=dot(hit.xz-base,vec2(dir.y,-dir.x))-2.3*sin(l*.095),h=hit.y-(i==0?14.1:33.3);if(h>-.38&&(lateral*lateral/21.16)+pow(max(0.,h)/4.35,2.)<1.12)return true;}return false;}
-uniform int fx[16];uniform vec4 fallImpact[3];uniform vec3 waterSim;uniform sampler2D oceanMap,rippleMap,shadowMap,farShadowMap,bounceMap,opaqueColor,opaqueDepth,causticMap;
+uniform int fx[20];uniform vec4 fallImpact[3],bottlePos[14],bottleHome[14],bottleSwing[14],paneBounds;uniform vec3 waterSim;uniform float tideLevel,tideWet;uniform sampler2D oceanMap,rippleMap,shadowMap,farShadowMap,bounceMap,opaqueColor,opaqueDepth,causticMap;
 vec4 project(vec3 p){vec3 v=p-eye;float z=dot(v,forwardV);return vec4(dot(v,rightV)*lens.x,dot(v,upV)*lens.y,z*1.00023-.120014,z);}
 vec3 shadowPos(vec3 p){vec3 v=p-shadowAt;return vec3(dot(v,lightX)/shadowSpan,dot(v,lightY)/shadowSpan,-dot(v,lightV)/shadowDepth);}
 float shadow(vec3 p){vec3 s=shadowPos(p)*.5+.5;if(any(lessThan(s,vec3(.008)))||any(greaterThan(s,vec3(.992)))){vec3 v=p-vec3(0,14,0);s=.5+.5*vec3(dot(v,lightX)/192.,dot(v,lightY)/192.,-dot(v,lightV)/280.);if(any(lessThan(s,vec3(0)))||any(greaterThan(s,vec3(1))))return 1.;return step(s.z-.0011,texture(farShadowMap,s.xy).r);}float lit=0.;vec2 du=1./vec2(textureSize(shadowMap,0));for(int i=0;i<4;i++){vec2 off=vec2(float(i%2)-.5,float(i/2)-.5);lit+=step(s.z-.0017,texture(shadowMap,s.xy+off*du*1.45).r);}return .25*lit;}
@@ -2866,8 +2985,12 @@ vec3 film(float ct,float thickness){vec3 phase=4.*3.14159*1.32*thickness*sqrt(.4
       const canopySheet = makeLeafSheet();
       const gAttrs = `layout(location=0)in vec3 pos;layout(location=1)in vec3 normal;layout(location=2)in vec3 color;layout(location=3)in float material;layout(location=4)in vec3 axisU;layout(location=5)in vec3 axisV;
 uniform bool splat;out vec2 uv;out vec3 wpos,norm,col;flat out int mat;flat out float seedV;flat out float wetLevel;out float tissue;uniform vec4 crabPose;uniform float shellSpread;
-vec3 geometry(){wetLevel=material-40.;tissue=material>=72.?material-72.:material>=64.?material-64.:0.;
-mat=material>=72.?37:material>=64.?11:material>=40.?32:int(material+.2);vec3 p=pos;vec2 c=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID%4<2)?-1.:1.);uv=splat?c:vec2(0);seedV=fract(dot(pos,vec3(.421,.765,.517)));if(splat)p+=axisU*c.x+axisV*c.y;
+vec3 geometry(){wetLevel=material-40.;tissue=material>=140.?material-140.:material>=72.?material-72.:material>=64.?material-64.:0.;
+mat=material>=200.?6:material>=180.?6:material>=160.?8:material>=150.?42:material>=140.?41:material>=130.?43:material>=72.?37:material>=64.?11:material>=40.?32:int(material+.2);vec3 p=pos;vec2 c=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID%4<2)?-1.:1.);uv=splat?c:vec2(0);seedV=fract(dot(pos,vec3(.421,.765,.517)));if(splat)p+=axisU*c.x+axisV*c.y;
+if(material>=200.){vec2 dial=p.xz-vec2(-93.,-1.);float a=tideLevel*2.2;dial=mat2(cos(a),-sin(a),sin(a),cos(a))*dial;p.xz=dial+vec2(-93.,-1.);}
+int bid=int(material+.1)-(material>=180.?180:160);if(material>=160.&&material<200.&&fx[18]>0){float stringPart=material>=180.?clamp((bottleSwing[bid].w-p.y)/max(.12,bottleSwing[bid].w-(bottlePos[bid].y+.63)),0.,1.):1.;p+=bottleSwing[bid].xyz*stringPart;}
+if(mat==41){if(fx[17]<1)p.y+=10000.;float fringe=clamp(1.-abs(uv.x),0.,1.);p+=vec3(.018*sin(clockT*1.7+pos.x*3.)*fringe,.0,.013*cos(clockT*1.3+pos.z*4.)*fringe);}
+if(mat==42&&fx[19]<1)p.y+=10000.;
 if(mat==4||mat==5||mat==28||mat==29||mat==34)p.x+=sin(clockT*1.2+pos.z*.65+pos.x*.27)*(.045+.06*float(mat==5))*(.5+.5*c.y);
 if(mat==23)p+=vec3(sin(clockT*.27+pos.z)*2.,.22*sin(clockT*2.+pos.x)+c.x*.07*sin(clockT*4.),cos(clockT*.27+pos.z)*1.4);
 if(mat==24)p+=vec3(.68*sin(clockT*.65+pos.x),.04*sin(clockT+pos.y),.23*cos(clockT*.8+pos.x));
@@ -2878,12 +3001,17 @@ if(mat==36){
   norm.xz=turn*norm.xz;
 }
 if(mat==37){float sway=sin(clockT*1.3+pos.z*1.7)*(.017+.035*(1.-tissue));p.x+=sway;}
+if(mat==5&&fx[18]>0){float gust=.48*sin(clockT*.73+pos.x*.18+pos.z*.11)+.23*sin(clockT*1.71-pos.z*.23+pos.x*.07);p.xz+=vec2(.085,.052)*gust*max(0.,c.y);}
+if(mat==12&&color.g>.001&&fx[19]>0)p.y+=tideLevel*color.g;
 wpos=p;col=color;return p;}
 `;
       const gVert = sceneUniforms + gAttrs + `void main(){gl_Position=project(geometry());}`;
       const gIn = `in vec2 uv;in vec3 wpos,norm,col;flat in int mat;flat in float seedV;flat in float wetLevel;uniform bool splat;in float tissue;uniform sampler2D canopy,shellMap;float leafLight=1.;
+float mossHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float mossNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mossHash(i),mossHash(i+vec2(1.,0.)),f.x),mix(mossHash(i+vec2(0.,1.)),mossHash(i+vec2(1.)),f.x),f.y);}
 void cut(){
   if(mat==36 && texture(shellMap,col.xy).a<.5)discard;
+  if(mat==41&&!splat){float t=clamp(tissue/.09,0.,1.);vec2 p=(wpos-norm*(.055*t)).xz;float coverage=mossNoise(p*3.);float fiber=mossHash(floor(p*115.));if(norm.y<.15||coverage<.28||fiber<.05+.89*t)discard;return;}
   if(!splat)return;
   if(mat==38 || mat==39){
     float heel=length((uv-vec2(0.,-.53))/vec2(.64,.43));
@@ -2906,8 +3034,8 @@ void cut(){
     float leafWidth=pow(max(0.,1.-uv.x*uv.x),.78)*(.94+.06*sin(uv.x*27.));
     if(abs(uv.y)>leafWidth)discard;
     leafLight=.92+.07*uv.y+.15*(1.-smoothstep(.02,.12,abs(uv.y)));
-  }else if(mat==29||mat==5){
-    float width=mat==29?pow(max(0.,1.-uv.x*uv.x),.83):(.62-.50*uv.y);
+  }else if(mat==29||mat==5||mat==41){
+    float width=mat==29?pow(max(0.,1.-uv.x*uv.x),.83):mat==41?pow(max(0.,1.-uv.x*uv.x),1.55)*(.82-.32*uv.y):(.62-.50*uv.y);
     if((mat==29?abs(uv.y):abs(uv.x))>width)discard;
   }else if(dot(uv,uv)>1.+.10*sin(atan(uv.y,uv.x)*3.+seedV*26.))discard;
 }`;
@@ -2937,7 +3065,7 @@ vec4 barnacles(vec3 p,vec3 normal,vec3 view){
   }
   return textureGrad(reliefMap,uv,dx,dy);
 }
-uniform vec4 obstacles[8],bottlePos[14];uniform vec3 bottleColor[14];uniform float caveDraw;layout(location=0)out vec4 frag;layout(location=1)out vec4 normalOut;
+uniform vec4 obstacles[8];uniform vec3 bottleColor[14];uniform float caveDraw;layout(location=0)out vec4 frag;layout(location=1)out vec4 normalOut;
 float softShadow(vec3 p,vec3 ray,float farD){float visibility=1.,t=.16;for(int j=0;j<15;j++){vec3 q=p+ray*t;float d=8.;for(int i=0;i<8;i++){vec4 ob=obstacles[i];vec3 diff=q-ob.xyz;diff.y*=.33;d=min(d,length(diff)-ob.w);}if(d<.015)return .17;visibility=min(visibility,6.*d/t);t+=clamp(d,.09,2.6);if(t>farD)break;}return clamp(visibility,.17,1.);}
 void main(){cut();if(caveDraw>.5&&!portalVisible(wpos))discard;vec3 n=normalize(norm),v=normalize(eye-wpos);if(mat!=1&&dot(n,v)<0.)n=-n;float dist=length(wpos-eye);vec3 pigment=col;float grit=noise(wpos.xz*3.4+wpos.y)*.08+noise(wpos.xy*15.+wpos.z)*.038-.056;
 if(mat==1){
@@ -3016,6 +3144,23 @@ if(mat==32){
   pigment+=vec3(.10,.091,.077)*seam*(.35+.65*grain);
   n=normalize(n+vec3(noise(mineral*4.)-.5,0.,noise(mineral*4.+7.)-.5)*.11);
 }
+if(mat==41){
+  float tuft=fbm(wpos.xz*9.+vec2(wpos.y*5.,0.));
+  float shellDepth=clamp(tissue/.09,0.,1.);
+  pigment=mix(vec3(.045,.12,.075),vec3(.31,.43,.15),mix(tuft,shellDepth,.42))*(.76+.28*noise(wpos.xz*26.));
+  pigment+=vec3(.18,.22,.06)*smoothstep(.62,.89,tuft)*shellDepth;
+}
+if(mat==42){
+  float dryingPatch=fbm(wpos.xz*3.7+vec2(wpos.y*1.9,clockT*.015));
+  float submerged=1.-smoothstep(tideLevel-.07,tideLevel+.13,wpos.y+.055*dryingPatch);
+  float drying=clamp(tideWet,0.,1.);
+  damp=max(submerged,drying*(.36+.64*dryingPatch));
+  pigment=mix(pigment*vec3(.72,.68,.57),pigment*vec3(.34,.50,.47),damp);
+  vec4 shelfBarnacles=barnacles(wpos,n,v);
+  float barnacleBand=smoothstep(-.43,-.04,wpos.y)*(1.-smoothstep(-.10,.18,wpos.y));
+  pigment=mix(pigment,vec3(.76,.70,.56)*(.54+.64*shelfBarnacles.r),shelfBarnacles.g*.78*barnacleBand);
+  pigment*=1.-.36*shelfBarnacles.b*barnacleBand;
+}
 float sunLit=fx[2]>0?shadow(wpos+n*.035):.92;
 if(highDetail>.5&&fx[2]>0&&mat==1&&distance(wpos.xz,vec2(65,-24))<51.){
   vec3 sc=shadowPos(wpos+n*.035)*.5+.5;
@@ -3045,6 +3190,10 @@ if(mat==32){
   float rim=pow(1.-clamp(dot(n,v),0.,1.),4.);
   result+=damp*(sunColor()*shine*.57*sunLit+vec3(.13,.18,.19)*rim);
 }
+if(mat==42){
+  float shelfShine=pow(max(0.,dot(n,normalize(v+lightV))),96.);
+  result+=damp*(sunColor()*shelfShine*.68*sunLit+vec3(.07,.12,.13)*pow(1.-max(0.,dot(n,v)),3.));
+}
 if((fx[15]>0||(highDetail>.5&&fx[5]>0))&&mat==1&&wpos.y>-.25&&wpos.y<.98&&abs(wpos.z-coastZ(wpos.x))<6.5&&openStrand(wpos.xz)){
   float level=swashLevel(wpos.x,clockT);
   float height=wpos.y+.037*noise(wpos.xz*2.);
@@ -3063,7 +3212,7 @@ if((fx[15]>0||(highDetail>.5&&fx[5]>0))&&mat==1&&wpos.y>-.25&&wpos.y<.98&&abs(wp
 }
 if(mat==1&&wpos.y<1.9)result+=vec3(.27,.24,.18)*pow(max(dot(reflect(-lightV,n),v),0.),22.)*(1.-smoothstep(.2,1.9,wpos.y));
 if(mat==9&&fx[9]>0)result=mix(result,film(abs(dot(v,n)),365.+noise(wpos.xz*2.)*145.),.63);
-if(mat==1&&fx[2]>0&&fx[8]>0&&distance(wpos.xz,vec2(34,-77))<22.){for(int i=0;i<14;i++){vec4 bottle=bottlePos[i];float h=bottle.y-wpos.y;if(h<=0.)continue;vec2 spot=bottle.xz-lightV.xz*h/max(.09,lightV.y);float mask=1.-smoothstep(bottle.w*.5,bottle.w*1.8,length(wpos.xz-spot));result=mix(result,result*(.20+bottleColor[i]*1.25),mask*.82);}}
+if(mat==1&&fx[2]>0&&fx[8]>0&&distance(wpos.xz,vec2(34,-77))<22.){for(int i=0;i<14;i++){vec4 bottle=fx[18]>0?bottlePos[i]:bottleHome[i];float h=bottle.y-wpos.y;if(h<=0.)continue;vec2 spot=bottle.xz-lightV.xz*h/max(.09,lightV.y);float mask=1.-smoothstep(bottle.w*.5,bottle.w*1.8,length(wpos.xz-spot));result=mix(result,result*(.20+bottleColor[i]*1.25),mask*.82);}}
 if(mat==21){vec2 a=(wpos.xy-col.xy)/vec2(1.38,1.03)+vec2(.5,0);float shore=.13+.16*sin(a.x*3.+.5)-.12*a.x;vec3 miniature=a.y>.58?mix(vec3(.76,.80,.72),vec3(.37,.61,.68),a.y):mix(vec3(.25,.56,.57),vec3(.62,.80,.73),a.y+.20*sin(85.*a.y+a.x*8.));if(a.y<shore)miniature=vec3(.76,.65,.44);vec2 arch=(a-vec2(.60,.51))/vec2(.17,.23);float ring=length(arch);if(ring>.57&&ring<1.&&arch.y>-.07)miniature=vec3(.63,.53,.39);result=miniature*(.97+.055*noise(a*vec2(96,155)));}
 float lampD=length(lamp-wpos);vec3 direct=vec3(1.,.68,.34)*max(.16,dot(n,normalize(lamp-wpos)))*3.8/(1.+.38*lampD*lampD);
 if(caveDraw>.5){vec3 bounce=texture(bounceMap,(wpos.xz-vec2(-106,-85))/vec2(75.52,100.8)).rgb;result=pigment*(vec3(.105,.145,.19)+direct*ao+(fx[0]>0?bounce*1.65:vec3(.055,.075,.08)));if(mat==11)result+=col*(.53+.15*max(0.,n.y)+.03*sin(clockT+wpos.x));if(mat==27)result*=.63+.30*max(0.,dot(n,normalize(vec3(-.4,.6,.35))));if(fx[6]>0&&n.y<-.3){vec2 cu=(wpos.xz-waterSim.xy)/waterSim.z;if(all(greaterThan(cu,vec2(0)))&&all(lessThan(cu,vec2(1))))result+=vec3(.08,.25,.21)*texture(causticMap,cu).r;}}
@@ -3118,7 +3267,7 @@ vec3 reflectedShore(vec3 origin,vec3 dir,vec3 skyColor){
   }
   return skyColor;
 }
-void main(){if(col.r<-.015||(col.b>.5&&!portalVisible(wpos)))discard;float dep=max(0.,col.r),sea=col.g;vec3 w=wave(wpos.xz,sea);vec3 n=normalize(vec3(-w.y,1.,-w.z)),v=normalize(eye-wpos);float ct=max(dot(v,n),.015),dist=length(wpos-eye);
+void main(){float tideDepth=fx[19]>0?tideLevel*col.g:0.;if(col.r+tideDepth<-.015||(col.b>.5&&!portalVisible(wpos))||(col.b>.2&&col.b<.5&&fx[19]<1))discard;float dep=max(0.,col.r+tideDepth),sea=col.g;vec3 w=wave(wpos.xz,sea);vec3 n=normalize(vec3(-w.y,1.,-w.z)),v=normalize(eye-wpos);float ct=max(dot(v,n),.015),dist=length(wpos-eye);
 vec2 base=gl_FragCoord.xy/size,shift=clamp(vec2(dot(n-vec3(0,1,0),rightV),dot(n-vec3(0,1,0),upV))*min(dep,3.)*.046,vec2(-.055),vec2(.055));
 if(texture(opaqueDepth,base+shift).r<gl_FragCoord.z)shift*=.10;
 vec3 bed=texture(opaqueColor,base).rgb;if(fx[8]>0){bed=vec3(texture(opaqueColor,base+shift*1.04).r,texture(opaqueColor,base+shift).g,texture(opaqueColor,base+shift*.96).b);}
@@ -3165,10 +3314,12 @@ if(caveMode<.5)c=mix(c,horizon(),max(1.-exp(-dist*.0029),smoothstep(250.,490.,di
         gVert,
         sceneUniforms +
           gIn +
-          `uniform int blendMode;out vec4 frag;
-void main(){cut();if(mat==10&&!portalVisible(wpos))discard;vec3 n=normalize(norm),v=normalize(eye-wpos);float ct=abs(dot(v,n));vec2 base=gl_FragCoord.xy/size;float thick=mat==7?.09:mat==8?.33:mat==10?.66:.035;float optical=thick/max(.25,ct);vec2 d=fx[8]>0?vec2(dot(n,rightV),dot(n,upV))*.029*optical:vec2(0);vec3 behind=vec3(texture(opaqueColor,base+d*1.13).r,texture(opaqueColor,base+d).g,texture(opaqueColor,base+d*.87).b);
-vec3 c=behind*exp(-(1.-col)*optical*2.9);float alpha=mat==7?.16:mat==8?.62:mat==10?.78:.28;
-if(mat==7){float bloom=fbm(vec2(wpos.z*4.+wpos.x,wpos.y*.9));c=mix(c,sky(reflect(-v,n)),.22+.40*pow(1.-ct,2.));c=mix(c,vec3(.58,.71,.59),.10+.21*bloom);alpha=.18+.10*bloom;}else c=mix(c,col,mat==10?.48:.24);float rim=pow(1.-ct,2.4);c+=rim*vec3(.42,.5,.52)+pow(abs(dot(reflect(-lightV,n),v)),52.)*.52;
+          `uniform int blendMode;uniform sampler2D wipeMap;out vec4 frag;
+void main(){cut();if(mat==10&&!portalVisible(wpos))discard;vec3 n=normalize(norm),v=normalize(eye-wpos);float ct=abs(dot(v,n));vec2 base=gl_FragCoord.xy/size;float thick=(mat==7||mat==43)?.09:mat==8?.33:mat==10?.66:.035;float optical=thick/max(.25,ct);vec2 d=fx[8]>0?vec2(dot(n,rightV),dot(n,upV))*.029*optical:vec2(0);vec3 behind=vec3(texture(opaqueColor,base+d*1.13).r,texture(opaqueColor,base+d).g,texture(opaqueColor,base+d*.87).b);
+vec3 c=behind*exp(-(1.-col)*optical*2.9);float alpha=(mat==7||mat==43)?.16:mat==8?.62:mat==10?.78:.28;
+if(mat==7||mat==43){float bloom=fbm(vec2(wpos.z*4.+wpos.x,wpos.y*.9));c=mix(c,sky(reflect(-v,n)),.22+.40*pow(1.-ct,2.));c=mix(c,vec3(.58,.71,.59),.10+.21*bloom);alpha=.18+.10*bloom;
+  if(mat==43&&fx[16]>0){vec2 puv=vec2((wpos.z-paneBounds.z)/(paneBounds.w-paneBounds.z),(wpos.y-paneBounds.x)/(paneBounds.y-paneBounds.x)),muv=vec2(puv.x,1.-puv.y),du=vec2(1./256.,0.),dv=vec2(0.,1./256.);vec4 mask=texture(wipeMap,muv);float cleared=mask.a,drop=mask.g;float curve=abs(texture(wipeMap,muv+du).g+texture(wipeMap,muv-du).g+texture(wipeMap,muv+dv).g+texture(wipeMap,muv-dv).g-4.*drop);float beads=smoothstep(.58,.86,fbm(puv*vec2(44.,33.)+vec2(0.,clockT*.035)))*smoothstep(.11,.97,puv.y);float fog=(.78+.18*beads)*(1.-cleared);vec2 refract=(vec2(noise(puv*80.+clockT*.04),noise(puv*67.-clockT*.05))-.5)*(.016+.026*beads+.038*curve);vec3 wetBehind=(texture(opaqueColor,base+d+refract).rgb+texture(opaqueColor,base+d+refract*.55).rgb+texture(opaqueColor,base+d-refract*.38).rgb)/3.;c=mix(c,wetBehind*.78+vec3(.27,.36,.31),fog*.70);c+=vec3(.78,.96,.91)*curve*pow(max(0.,dot(reflect(-lightV,n),v)),28.);alpha=mix(alpha,.58,fog);}
+}else c=mix(c,col,mat==10?.48:.24);float rim=pow(1.-ct,2.4);c+=rim*vec3(.42,.5,.52)+pow(abs(dot(reflect(-lightV,n),v)),52.)*.52;
 if(mat==9){
   vec3 reflected=reflect(-v,n);
   float pearl=pow(max(0.,dot(reflected,normalize(vec3(-.48,.8,.35)))),42.);
@@ -3324,7 +3475,8 @@ void main(){
         farShadowTarget,
         caustTarget,
         caustVAO,
-        caustIndices = 0;
+        caustIndices = 0,
+        mistMap;
       function depthTex(w, h) {
         let t = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, t);
@@ -3516,6 +3668,9 @@ void main(){
         f('shadowSpan', 54);
         f('shadowDepth', 120);
         f('caveMode', S.inCave ? 1 : 0);
+        f('tideLevel', enabled(20) ? tide.level : 0);
+        f('tideWet', enabled(20) ? tide.wet : 0);
+        if (u.paneBounds) gl.uniform4f(u.paneBounds,glassFloor+.14,glassFloor+2.16,-78.83,-76.87);
         if (u.size) gl.uniform2f(u.size, canvas.width, canvas.height);
         const factor = 1 / Math.tan(((innerHeight > innerWidth ? 86 : 65) * Math.PI) / 360);
         if (u.lens) gl.uniform2f(u.lens, (factor * canvas.height) / canvas.width, factor);
@@ -3528,8 +3683,10 @@ void main(){
         if (u.obstacles) gl.uniform4fv(u.obstacles, obsArray);
         if (u.bottlePos) {
           gl.uniform4fv(u.bottlePos, bottlePositions);
-          gl.uniform3fv(u.bottleColor, bottleColors);
         }
+        if (u.bottleHome) gl.uniform4fv(u.bottleHome, bottleHomes);
+        if (u.bottleSwing) gl.uniform4fv(u.bottleSwing, bottleSwing);
+        if (u.bottleColor) gl.uniform3fv(u.bottleColor, bottleColors);
         if(u.crabPose) gl.uniform4f(u.crabPose,crab.x,sandHeight(crab.x,crab.z),crab.z,crab.yaw);
         f('shellSpread',crab.spread);
         tex(pr,'shellMap',shellAtlas,12);
@@ -3544,6 +3701,8 @@ void main(){
         tex(pr, 'opaqueColor', targets.opaque.colors[0], 4);
         tex(pr, 'opaqueDepth', targets.opaque.depth, 5);
         tex(pr, 'causticMap', caustTarget.colors[0], 6);
+        if(pr===glassProg && mist.dirty){ packMist(); gl.bindTexture(gl.TEXTURE_2D,mistMap); gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,256,256,gl.RGBA,gl.UNSIGNED_BYTE,mist.pixels); mist.dirty=false; }
+        tex(pr, 'wipeMap', mistMap, 15);
       }
       function visible(g, shadowPass = false) {
         let dx = g.x - S.x,
@@ -3801,6 +3960,8 @@ void main(){
                   s[1].toLowerCase() === String(value).toLowerCase()
               );
         if (shellView) closeShell();
+        if (mist.active) closeMist();
+        studyReturn = null;
         if (i < 0 || i > 7 || !Number.isInteger(i)) throw RangeError('Station must be 1–8 or its name');
         let s = stations[i];
         S.station = i;
@@ -3840,6 +4001,8 @@ void main(){
       }
       function move(mx, mz, dt, fast = false, world = false) {
         if (shellView) return;
+        if (studyReturn && hypot(mx,mz)<.001) { updateLantern(); return; }
+        if (studyReturn) closeStudy();
         let length = hypot(mx, mz);
         if (length > 1) {
           mx /= length;
@@ -3925,6 +4088,8 @@ void main(){
         if (!S.carrying && hypot(S.x - lantern[0], S.z - lantern[2]) < 3.5 && abs(S.y - lantern[1]) < 3.2)
           return 'Lantern';
         if (hypot(S.x - bench[0], S.z - bench[1]) < 7.4) return 'Bubbles';
+        if (S.station === 4 && flags[16]) return 'Condensation pane';
+        if (S.station === 5 && flags[17]) return 'Moss ledge';
         if (S.station === 7) {
           let dial = hypot(S.x + 93, S.z + 1),
             easel = hypot(S.x + 87.2, S.z + 0.4);
@@ -3964,6 +4129,8 @@ void main(){
             (S.inCave ? caveFloor(caveCoord(lantern[0], lantern[2])[0]) : terrain(lantern[0], lantern[2])) +
             0.56;
         } else if (action === 'Bubbles') blow();
+        else if (action === 'Condensation pane') openMist();
+        else if (action === 'Moss ledge') focusMoss();
         else if (action === 'Easel') S.easel = !S.easel;
         else if (action === 'Sundial') {
           $('dial').hidden = !$('dial').hidden;
@@ -4024,8 +4191,181 @@ void main(){
           g.disconnect();
         };
       }
+      function gustAt(x, z) {
+        return 0.48 * sin(S.time * .73 + x * .18 + z * .11) + 0.23 * sin(S.time * 1.71 - z * .23 + x * .07);
+      }
+      const pendulumVelocity = new Float32Array(14 * 2);
+      function advanceField(dt) {
+        tide.phase += dt;
+        const under = tide.level > -.12 + .10 * sin(tide.phase * .61);
+        tide.wet = under ? Math.min(1, tide.wet + dt * .9) : Math.max(0, tide.wet - dt * .105);
+        if (!bottlePositions) return;
+        for (let i = 0; i < bottles.length; i++) {
+          const origin = bottleOrigins[i];
+          const anchor = bottleAnchors[i];
+          let sx = 0;
+          let sy = 0;
+          let sz = 0;
+          if (needed(19)) {
+            const length = Math.max(.42, anchor[1] - (origin[1] + .64));
+            const force = gustAt(anchor[0], anchor[2]) * (3.1 + .72 * (i % 4));
+            const omega = 9.81 / length;
+            let ax = Math.asin(clamp(bottleSwing[i * 4] / length, -.45, .45));
+            let az = Math.asin(clamp(bottleSwing[i * 4 + 2] / length, -.45, .45));
+            let vx = pendulumVelocity[i * 2];
+            let vz = pendulumVelocity[i * 2 + 1];
+            vx += (force - omega * ax - vx * 1.05) * dt;
+            vz += (force * .62 - omega * az - vz * 1.05) * dt;
+            ax += vx * dt;
+            az += vz * dt;
+            sx = Math.sin(ax) * length;
+            sy = (Math.cos(ax) * Math.cos(az) - 1) * length;
+            sz = Math.sin(az) * length;
+            pendulumVelocity[i * 2] = vx;
+            pendulumVelocity[i * 2 + 1] = vz;
+          } else {
+            pendulumVelocity[i * 2] *= Math.max(0, 1 - dt * 8);
+            pendulumVelocity[i * 2 + 1] *= Math.max(0, 1 - dt * 8);
+            sx = bottleSwing[i * 4] * Math.max(0, 1 - dt * 8);
+            sz = bottleSwing[i * 4 + 2] * Math.max(0, 1 - dt * 8);
+            sy = bottleSwing[i * 4 + 1] * Math.max(0, 1 - dt * 8);
+          }
+          bottleSwing[i * 4] = sx;
+          bottleSwing[i * 4 + 1] = sy;
+          bottleSwing[i * 4 + 2] = sz;
+          bottleSwing[i * 4 + 3] = anchor[1];
+          bottlePositions.set([origin[0] + sx, origin[1] + sy, origin[2] + sz, origin[3]], i * 4);
+        }
+      }
+      function setTide(value) {
+        tide.level = clamp(Number(value) || 0, -1, 1) * .78;
+        $('tide').value = tide.level / .78;
+        $('tideReadout').textContent=(tide.level<-.26?'low':tide.level>.26?'high':'mid')+' · '+tide.level.toFixed(2)+' m';
+        return tide.level;
+      }
+      function rememberStudy() {
+        if (!studyReturn) studyReturn={x:S.x,y:S.y,z:S.z,yaw:S.yaw,pitch:S.pitch,free:S.free,station:S.station,inCave:S.inCave,easel:S.easel,dialHidden:$('dial').hidden};
+      }
+      function closeStudy() {
+        if (mist.active) { mist.active=false; $('mistTools').hidden=true; }
+        if (studyReturn) { const prior=studyReturn; Object.assign(S,prior); $('dial').hidden=prior.dialHidden; }
+        studyReturn=null; updateUI(); return state();
+      }
+      function focusMoss() {
+        rememberStudy(); S.free=true; S.x=-38.9; S.y=terrain(-38.9,-79.8)+2.35; S.z=-79.8;
+        lookAt(-41.45,terrain(-41.45,-79.0)+1.12,-79.0); notice('Moss ledge close study'); return state();
+      }
+      function focusTide() {
+        rememberStudy(); S.free=true; S.x=-67; S.y=8.6; S.z=71.5;
+        lookAt(-60,-.2,79); $('dial').hidden=false; release(); notice('Intertidal shelf study'); return state();
+      }
+      function focusBottles() {
+        rememberStudy(); S.free=true; S.x=29.0; S.y=25.25; S.z=-79.2;
+        lookAt(34,26.4,-77); notice('Bottle tree study'); return state();
+      }
+      function redrawMist() {
+        if(!mist.clear || !mist.dropsMap || !mist.pixels) return;
+        mist.dirty=true;
+      }
+      function packMist() {
+        const clear = mist.clear.getContext('2d').getImageData(0, 0, 256, 256).data;
+        const drops = mist.dropsMap.getContext('2d').getImageData(0, 0, 256, 256).data;
+        for (let i = 0; i < mist.pixels.length; i += 4) {
+          mist.pixels[i] = drops[i];
+          mist.pixels[i + 1] = drops[i + 1];
+          mist.pixels[i + 2] = drops[i + 2];
+          mist.pixels[i + 3] = clear[i + 3];
+        }
+      }
+      function wipeMist(x, y, radius=44) {
+        if(!mist.clear) return 0;
+        const ctx=mist.clear.getContext('2d');
+        ctx.strokeStyle='rgba(255,255,255,.94)'; ctx.lineCap='round'; ctx.lineWidth=radius/960*256;
+        ctx.beginPath(); ctx.arc(x/960*256,y/600*256,radius/960*128,0,Math.PI*2); ctx.stroke();
+        const wx=x/960*256, wy=y/600*256, wr=radius/960*128;
+        mist.drops=mist.drops.filter(d=>hypot(d.x-wx,d.y-wy)>wr+d.r);
+        mist.strokes++; redrawMist(); return mist.strokes;
+      }
+      function wipePaneScreen(clientX, clientY, radius=44) {
+        const nx=clientX/innerWidth*2-1, ny=1-clientY/innerHeight*2;
+        const lens=1/Math.tan(((innerHeight>innerWidth?86:65)*Math.PI)/360);
+        const ray=unit(add(camBasis.forward,add(scale(camBasis.right,nx/(lens*canvas.height/canvas.width)),scale(camBasis.up,ny/lens))));
+        const t=(28.5-camBasis.eye[0])/ray[0]; if(t<=0)return 0;
+        const p=add(camBasis.eye,scale(ray,t)), u=(p[2]+78.83)/1.96,v=(p[1]-(glassFloor+.14))/2.02;
+        return u>=0&&u<=1&&v>=0&&v<=1 ? wipeMist(u*960,(1-v)*600,radius) : 0;
+      }
+      function openMist() {
+        if(!flags[16]) return false;
+        rememberStudy();
+        S.free=true;S.x=27.44;S.y=21.74;S.z=-78.08;lookAt(34,26.4,-77);
+        mist.active=true; $('mistTools').hidden=false; const c=$('mistPane');
+        if(!mist.clear){
+          mist.clear=document.createElement('canvas'); mist.dropsMap=document.createElement('canvas');
+          for(const map of [mist.clear,mist.dropsMap]){map.width=256;map.height=256;}
+          mist.pixels=new Uint8Array(256*256*4);
+        }
+        if(!mist.drops.length){
+          mist.drops.push({x:104,y:32,r:4.2,v:12,age:0},{x:108,y:37,r:3.7,v:14,age:0});
+          for(let i=0;i<22;i++)mist.drops.push({x:24+(i*37)%210,y:14+(i*31)%220,r:2.2+(i%5)*.75,v:7+(i%4)*4,age:0});
+        }
+        redrawMist(); return true;
+      }
+      function closeMist(){return closeStudy();}
+      function advanceCondensation(dt) {
+        if (!mist.dropsMap || !mist.clear) return;
+        const dropCtx = mist.dropsMap.getContext('2d');
+        const trailCtx = mist.clear.getContext('2d');
+        dropCtx.clearRect(0, 0, 256, 256);
+        for (let i = mist.drops.length - 1; i >= 0; i--) {
+          const d = mist.drops[i];
+          const oldY = d.y;
+          d.age += dt;
+          if (d.r > 3.2 || d.age > 1.2) d.y += d.v * dt;
+          if (d.y > d.r + 256) {
+            mist.drops[i] = {
+              x: 18 + (i * 47 + floor(S.time * 13) % 23) % 220,
+              y: 10 + (i * 19) % 34,
+              r: 2.3 + (i % 5) * .72,
+              v: 7 + (i % 4) * 4,
+              age: 0
+            };
+          } else if (d.y !== oldY) {
+            trailCtx.strokeStyle = 'rgba(255,255,255,.18)';
+            trailCtx.lineWidth = max(.65, d.r * .18);
+            trailCtx.beginPath();
+            trailCtx.moveTo(d.x, oldY);
+            trailCtx.lineTo(d.x, d.y);
+            trailCtx.stroke();
+          }
+        }
+        for (let i = 0; i < mist.drops.length; i++) {
+          for (let j = i + 1; j < mist.drops.length; j++) {
+            const a = mist.drops[i];
+            const b = mist.drops[j];
+            if (hypot(a.x - b.x, a.y - b.y) < (a.r + b.r) * .62) {
+              a.r = sqrt(a.r * a.r + b.r * b.r);
+              a.v = max(a.v, b.v);
+              a.age = max(a.age, b.age);
+              mist.drops.splice(j--, 1);
+            }
+          }
+        }
+        for (const d of mist.drops) {
+          const g = dropCtx.createRadialGradient(d.x - d.r * .32, d.y - d.r * .36, d.r * .08, d.x, d.y, d.r);
+          g.addColorStop(0, 'rgba(255,255,255,.95)');
+          g.addColorStop(.46, 'rgba(80,255,205,.62)');
+          g.addColorStop(1, 'rgba(15,100,90,0)');
+          dropCtx.fillStyle = g;
+          dropCtx.beginPath();
+          dropCtx.ellipse(d.x, d.y, d.r * .78, d.r, 0, 0, TAU);
+          dropCtx.fill();
+        }
+        redrawMist();
+      }
       function tick(dt) {
         S.time += dt;
+        advanceField(dt);
+        if (mist.active && flags[16]) advanceCondensation(dt);
         advanceShorelife(dt);
         if (S.started && !S.panel && !S.photo)
           setLook(S.yaw + padLook[0] * dt * 2.15, S.pitch - padLook[1] * dt * 1.75);
@@ -4329,7 +4669,7 @@ void main(){
       }
       function toggle(id, on) {
         id = Number(String(id).replace(/^T/i, ''));
-        if (id < 1 || id > effects.length || !Number.isInteger(id)) throw RangeError('Technique must be T1–T16');
+        if (id < 1 || id > effects.length || !Number.isInteger(id)) throw RangeError('Technique must be T1–T20');
         flags[id - 1] = on === undefined ? !flags[id - 1] : !!on;
         updateUI();
         return flags[id - 1];
@@ -4373,10 +4713,10 @@ void main(){
         [5, 7, 9, 13, 14, 15, 16],
         [5, 7, 6],
         [3, 2, 4, 10],
-        [8, 9, 10, 3, 11],
-        [12, 5, 7, 2, 8],
+        [8, 9, 10, 3, 11, 17, 19],
+        [12, 5, 7, 2, 8, 18],
         [1, 4, 9, 5, 7, 2, 15],
-        [11, 6, 3, 2]
+        [11, 6, 3, 2, 20]
       ];
       function updateSign() {
         let label = $('signLabel');
@@ -4428,6 +4768,12 @@ void main(){
         $('caption').textContent =
           s[7] + (!floatOK ? ' Float targets unavailable; affected effects use stand-ins.' : '');
         $('target').value = S.compare;
+        const studies=$('studies');
+        studies.hidden=!S.started || S.panel || S.photo;
+        for(const b of studies.querySelectorAll('button[data-study]')){
+          const kind=b.dataset.study;
+          b.hidden=kind==='exit' ? !studyReturn : !((kind==='pane'||kind==='bottles')&&S.station===4 || kind==='moss'&&S.station===5 || kind==='tide'&&S.station===7);
+        }
         [...$('route').children].forEach((b, i) => b.setAttribute('aria-current', i === S.station));
         [...$('effects').children].forEach((b, i) => {
           b.setAttribute('aria-pressed', flags[i]);
@@ -4481,6 +4827,9 @@ void main(){
           panel: S.panel,
           started: S.started,
           fluidParticles: drops.length,
+          condensation: {active:mist.active,strokes:mist.strokes,drops:mist.drops.length},
+          tide: {level:tide.level,wet:tide.wet},
+          pendulum: {offset:[bottleSwing[0],bottleSwing[1],bottleSwing[2]],gust:gustAt(34,-77)},
           staticSplats: staticStats.splats,
           staticTriangles: staticStats.tris
         };
@@ -4725,6 +5074,21 @@ void main(){
           setSun(+e.target.value);
           render();
         };
+        $('tide').oninput = (e) => { setTide(+e.target.value); render(); };
+        for (const button of $('studies').querySelectorAll('button[data-study]')) button.onclick=()=>{
+          const kind=button.dataset.study;
+          if(kind==='exit') closeStudy();
+          else if(kind==='pane') openMist();
+          else if(kind==='bottles') focusBottles();
+          else if(kind==='moss') focusMoss();
+          else if(kind==='tide') focusTide();
+          render();
+        };
+        $('mistCaption').onclick = () => { closeMist(); render(); };
+        for (const type of ['pointerdown','pointermove']) $('mistPane').addEventListener(type, (e) => {
+          if (!mist.active || (type==='pointermove' && !e.buttons)) return;
+          wipePaneScreen(e.clientX,e.clientY,52); e.preventDefault();
+        });
         $('settings').onclick = (e) => {
           if (e.target.tagName === 'BUTTON') e.target.blur();
         };
@@ -4769,10 +5133,13 @@ void main(){
         }
         if (k === 'Tab') panel();
         else if (k === 'Escape') {
-          if (shellView) closeShell();
+          const leavingStudy=!!studyReturn;
+          if (mist.active) closeMist();
+          else if (studyReturn) closeStudy();
+          else if (shellView) closeShell();
           else if (S.photo) photo(false);
           else if (S.panel) panel(false);
-          $('dial').hidden = true;
+          if (!leavingStudy) $('dial').hidden = true;
         } else if (k === 'KeyH') showControls();
         else if (k === 'KeyP') photo();
         else if (S.photo && k === 'Enter') savePhoto();
@@ -4894,7 +5261,7 @@ void main(){
         }
       };
       window.oncontextmenu = (e) => e.preventDefault();
-      let bottlePositions, bottleColors;
+      let bottlePositions, bottleHomes, bottleColors;
       const staticStats = { splats: 0, tris: 0 };
       const crab = {x:-26.4,z:59.9,phase:0,yaw:Math.PI/2,tuck:0,spread:0,stride:0};
       let shellView=null, shellAtlas, shellNormals, reliefAtlas, footSide=1, washedTracks=0, tracksDirty=true;
@@ -5129,6 +5496,7 @@ void main(){
       }
       function initialize() {
         initUI();
+        mistMap=texture(256,256);
         $('shellSpacing').oninput = e => { crab.spread = Number(e.target.value); frameShell(); render(); };
         $('shellClose').onclick = () => { closeShell(); render(); };
         buildGround();
@@ -5136,11 +5504,15 @@ void main(){
         woods();
         greenhouse();
         bottlePositions = new Float32Array(bottles.flatMap((b) => b.slice(0, 4)));
+        bottleHomes = new Float32Array(bottlePositions);
         bottleColors = new Float32Array(bottles.flatMap((b) => b.slice(4)));
+        bottles.forEach((b) => bottleOrigins.push(b.slice(0, 4)));
         cave();
         fieldObjects();
         buildWater();
         shoreDetails();
+        waterfallMoss();
+        intertidalShelf();
         buildTidePoolLife();
         for (let g of groups.values()) uploadGroup(g);
         gotoStation(1);
@@ -5213,6 +5585,10 @@ void main(){
             render();
             return v;
           },
+          tide: (v) => { let r=setTide(v);render();return r; },
+          focus: (what) => { if(what==='moss') focusMoss(); else if(what==='tide') focusTide(); else if(what==='pane') openMist(); render(); return state(); },
+          wipe: (x,y,r) => { let n=wipeMist(x,y,r);render();return n; },
+          closePane: () => { let r=closeMist();render();return r; },
           blow,
           split: (on) => {
             latched = !!on;

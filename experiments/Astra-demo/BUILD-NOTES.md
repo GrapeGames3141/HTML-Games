@@ -16,7 +16,7 @@ The game also opens directly from `Astra-demo.html`. It generates its scenery an
 
 ## Reading a comparison
 
-Hold **V** during the walk to compare the current station's main effect. Comma and period select any of the sixteen techniques or all effects. The Effects panel provides the same selection and a latching split. Both halves render the same camera, sun and simulation state. The left forces the selected effect on and the right uses its stand-in. Other switches retain their settings. **Measure cost** synchronizes readback and compares whole-frame render times in both measurement orders. It measures the current viewpoint and excludes simulation stepping. Small deltas can be dominated by timing noise.
+Hold **V** during the walk to compare the current station's main effect. Comma and period select any of the twenty techniques or all effects. The Effects panel provides the same selection and a latching split. Both halves render the same camera, sun and simulation state. The left forces the selected effect on and the right uses its stand-in. Other switches retain their settings. **Measure cost** synchronizes readback and compares whole-frame render times in both measurement orders. It measures the current viewpoint and excludes simulation stepping. Small deltas can be dominated by timing noise. Glasshouse offers **Pane study** and **Bottle tree**, Waterfall offers **Moss ledge**, and Overlook offers **Tide shelf**. Each study exposes **Return to station**.
 
 The [comparison atlas](evidence/atlas.html) opens the original PNGs and slides between co-registered frames. Each station has all-on and all-off plates, plus a separate plate for each technique listed at that station. An object outside the field of view can produce little change in a particular plate. For example, the stream view faces inland while the ocean blend is downstream at the mouth. The tide-pool plates include a pebble impact. The glasshouse plates include moving bubbles frozen at one instant.
 
@@ -37,11 +37,11 @@ The [comparison atlas](evidence/atlas.html) opens the original PNGs and slides b
 | T11 · Kuwahara paint | Four neighbourhoods compete on colour variance. The filter mixes the selected mean with the original pixel and reaches full strength at the easel. |
 | T12 · Particle fluid | A spatial hash finds neighbouring particles for pressure and viscosity. Gravity, pool impacts and drag differentiate the falling water and mud. Velocity-stretched splats accumulate thickness in two material channels. A screen-space filter refracts and shades the result. |
 
-The opaque pass writes colour, depth and normals. Colour and depth are copied before refractive drawing. Quality scales scene resolution, near and far shadows, ripple grids (64–128), FFT grids (32–128), shaft samples and fluid particles (500–1,800). At seed 412 the static scene contains 206,450 splats and 448,881 triangles before view culling.
+The opaque pass writes colour, depth and normals. Colour and depth are copied before refractive drawing. Quality scales scene resolution, near and far shadows, ripple grids (64–128), FFT grids (32–128), shaft samples and fluid particles (500–1,800). At seed 412 the static scene contains 207,581 splats and 473,417 triangles before view culling.
 
 ## Screenshot-guided polish
 
-The [matched before-and-after sheet](evidence/polish-review.jpg) compares crops from the original Astra checkpoint `1829b73` with the polished build. The camera, simulation step, viewport and low-quality setting match within each pair.
+The [matched before-and-after sheet](evidence/polish-review.jpg) compares crops from the original Astra checkpoint `1829b73` with the polished build. The camera, simulation step, viewport and low-quality setting match within each pair. The [field studies sheet](evidence/field-studies.jpg) records the final pane, bottle tree, moss ledge, and tide shelf views.
 
 - The sheltered tide pools now keep their own ripple surface. A softer caustic response preserves the shell and anemone colours. The stream has a pebbled bed, marginal reeds and clearer shallows.
 - Foliage uses four locally generated leaf sprays and denser inner crowns. The light and shadow passes share the leaf silhouettes. Fern leaflets attach to a central stem. Driftwood follows the beach slope, with shell fragments and wrack along the strand.
@@ -109,3 +109,16 @@ Headless Edge on SwiftShader rendered all eight stations at low, medium and high
 The verifier exercised keyboard walking, mouse drag-look, emulated touch gestures in both control zones, simulated gamepad buttons, the effects panel, held split, bubbles, lantern pickup and placement, the sundial, free camera and a verified photo-mode PNG download. The final default-seed start card was entered with a browser mouse event. The comparison gallery decoded all 54 PNGs. Pixel differences were checked in the world area of all eight main-effect comparisons.
 
 The timing pass produced the expected synchronous-readback warning. One scripted audio activation also produced a browser autoplay warning. Sound starts or resumes on user interaction. The full raw results are retained alongside the plates.
+
+## Field-material extension
+
+The sixteen-technique Astra High baseline is commit `72da5df`. This four-feature extension was implemented with Terra under the user-supplied desktop workflow and is subject to primary-agent visual review.
+
+| Technique | In-world use | Rendering contribution |
+| --- | --- | --- |
+| T17 · Wipeable condensation | Use the Glasshouse clearing prompt to study the marked east pane. Drag across its physical surface, then return with the on-screen control or Escape. | A per-pane world-space mask carries wipe trails. Procedural beads refract the rendered scene, then merge and descend as the mask updates. |
+| T18 · Layered waterfall moss | Use the Waterfall prompt for the close ledge view. | Three tapered splat shells follow each mapped ellipsoid cap, producing overlapping living tips at grazing angles. |
+| T19 · Gust-coupled pendulums | Watch the coloured hanging bottles from the Glasshouse station. | One analytic gust field bends grass and drives length-specific damped pendulums. The same dynamic bottle positions colour the receiver footprints. |
+| T20 · Intertidal shelf | Operate the overlook sundial, then use its Tide slider. | A continuous height-meshed rock shelf has a sea-connected hollow and an enclosed retained pool. Tide moves only sea water, while a barnacle band and patchy wet specular respond to recent immersion. |
+
+Run `node verify.mjs --field` after generating the field plates. It checks the pane wipe, moss and gust toggles, pendulum motion, low/high tide, the twenty-effect array and WebGL errors.

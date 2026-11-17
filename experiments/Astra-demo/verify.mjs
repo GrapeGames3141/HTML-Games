@@ -185,7 +185,7 @@ try {
   if (process.argv.includes('--shorelife')) {
     await open('?test&seed=412&q=high');
     const start = await station(2);
-    assert.equal(start.flags.length,16);
+    assert.equal(start.flags.length,20);
     assert.equal(start.action,'Inspect shell');
     assert.equal(await js('DEMO.interact()'),'Inspect shell');
     await js('DEMO.step(.25)');
@@ -238,7 +238,7 @@ try {
     const washed=await js('DEMO.state().tracks');
     assert(washed.washed>marks.washed && washed.human>=marks.human);
     await station(2);
-    for(const id of [13,14,15,16,17]){
+    for(const id of [13,14,15,16,21]){
       await js('DEMO.compare('+id+');DEMO.split(true);DEMO.step(.025);DEMO.split(false)');
       assert.equal(await js('DEMO.inspect().glError'),0);
     }
@@ -303,6 +303,36 @@ try {
     await js('DEMO.goto(6);DEMO.toggle(12,false);DEMO.step(.25);DEMO.toggle(12,true);DEMO.step(.25)');
     assert.equal(await js('DEMO.inspect().glError'), 0);
     console.log('Quality switching and waterfall effect toggle passed');
+  } else if (process.argv.includes('--field')) {
+    await open('?test&seed=412&q=high');
+    await js('DEMO.all(true)');
+    assert.equal((await js('DEMO.state()')).flags.length,20);
+    await station(5);
+    assert.equal(await js('DEMO.state().action'),'Bubbles');
+    await js('document.querySelector("button[data-study=pane]").click()'); await js('DEMO.step(.7)');
+    let pane=await js('DEMO.state()'); assert(pane.condensation.active && pane.condensation.drops>0);
+    await screenshot('field-pane-fogged');
+    const panePoint=await js('(()=>{let r=document.getElementById("mistPane").getBoundingClientRect();return {x:r.left+r.width*.38,y:r.top+r.height*.44,x2:r.left+r.width*.64,y2:r.top+r.height*.57}})()');
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',x:panePoint.x,y:panePoint.y,button:'left',buttons:1,clickCount:1});
+    for(let k=1;k<=8;k++)await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:panePoint.x+(panePoint.x2-panePoint.x)*k/8,y:panePoint.y+(panePoint.y2-panePoint.y)*k/8,button:'left',buttons:1});
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:panePoint.x2,y:panePoint.y2,button:'left',buttons:0,clickCount:1}); await js('DEMO.step(.35)');
+    assert((await js('DEMO.state()')).condensation.strokes>=2);
+    await screenshot('field-pane-wiped');
+    await js('DEMO.toggle(17,false)'); await screenshot('field-pane-off'); await js('DEMO.toggle(17,true);document.querySelector("button[data-study=exit]").click()');
+    assert.equal((await js('DEMO.state()')).station,5);
+    await station(6); await js('document.querySelector("button[data-study=moss]").click();DEMO.step(.35)');
+    await js('DEMO.toggle(18,false)'); await screenshot('field-moss-off'); await js('DEMO.toggle(18,true)'); await screenshot('field-moss');
+    await station(5); await js('document.querySelector("button[data-study=bottles]").click();DEMO.step(3.4)'); let before=await js('DEMO.state().pendulum.offset'); await js('DEMO.step(3.4)');
+    let after=await js('DEMO.state().pendulum.offset'); assert(Math.hypot(after[0]-before[0],after[2]-before[2])>.001);
+    await js('DEMO.toggle(19,false)'); await screenshot('field-gust-off'); await js('DEMO.toggle(19,true)'); await screenshot('field-gust');
+    await station(8); await js('document.querySelector("button[data-study=tide]").click()');
+    assert(await js('(()=>{let r=document.getElementById("tide").getBoundingClientRect();return !document.getElementById("dial").hidden&&r.width>40&&r.height>8})()'));
+    await js('(()=>{let t=document.getElementById("tide");t.value="-1";t.dispatchEvent(new Event("input",{bubbles:true}))})()'); await js('DEMO.step(1)'); await screenshot('field-tide-low');
+    await js('(()=>{let t=document.getElementById("tide");t.value="1";t.dispatchEvent(new Event("input",{bubbles:true}))})()'); await js('DEMO.step(1)'); assert((await js('DEMO.state()')).tide.level>.7); await screenshot('field-tide-high');
+    await js('DEMO.toggle(20,false)'); await screenshot('field-tide-off'); await js('DEMO.toggle(20,true)');
+    assert.equal(await js('DEMO.inspect().glError'),0);
+    assert.deepEqual(errors,[]);
+    console.log('Field technique checks passed');
   } else if (process.argv.includes('--atlas')) {
     await call('Page.navigate', { url: new URL('evidence/atlas.html', url).href });
     for (let i = 0; i < 40 && !(await js('!!document.getElementById("effect")?.options.length')); i++)
@@ -312,7 +342,7 @@ try {
       for(let i=0;i<s.length;i++){s.selectedIndex=i;s.dispatchEvent(new Event('change'));for(let opt of e.options){e.value=opt.value;e.dispatchEvent(new Event('change'));for(let id of ['on','off']){let image=document.getElementById(id);await image.decode();if(!image.naturalWidth)throw Error(image.src);urls.add(image.src)}}}
       for(let a of document.querySelectorAll('footer a[href$=".png"],footer a[href$=".jpg"]')){let img=new Image();img.src=a.href;await img.decode();urls.add(img.src)}
       return urls.size})()`);
-    assert.equal(count, 67);
+    assert.equal(count, 75);
     console.log('Atlas decoded all', count, 'unique images');
   } else {
     await open('?test&seed=412&q=low');
@@ -466,7 +496,7 @@ try {
       await js('DEMO.quality("low");DEMO.goto(5)');
       console.log('Quality sweep passed; timing frame pairs');
       result.cost = await js('DEMO.cost()');
-      assert.equal(result.cost.length, 16);
+      assert.equal(result.cost.length, 20);
       await size(390, 780, true);
       await open('?test&touch&nofloat&seed=412');
       let fall = await js('DEMO.state()');
