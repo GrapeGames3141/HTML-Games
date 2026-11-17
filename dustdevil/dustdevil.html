@@ -54,7 +54,6 @@ td{padding:3px 18px 3px 0}
     <kbd>Right click / K</kbd><span>Rockets: area damage, kills armor</span>
     <kbd>Space / Shift</kbd><span>Boost / brake (hang over a target)</span>
     <kbd>F</kbd><span>Flares: decoy SAMs</span>
-    <kbd>E (hold)</kbd><span>Lower the winch; release to reel in</span>
     <kbd>Esc / P</kbd><span>Pause</span>
   </div>
 </div></div>
@@ -404,8 +403,7 @@ const KEY={}, MS={x:innerWidth/2,y:innerHeight*.45,b0:false,b2:false};
 function resetPlayer(){
   const L=LV;
   Object.assign(P,{s:0,ox:0,oy:0,vx:0,vy:0,spd:0,armor:100,rockets:38,heat:0,overheat:false,flares:8,pos:[0,0,0],vel:[0,0,0],F:[0,0,1],U:[0,1,0],R:[1,0,0],
-    roll:0,pitch:0,yaw:0,rotor:0,gunCd:0,rkCd:0,flCd:0,pod:1,dead:false,crashed:false,deadT:0,bump:0,hurtT:0,hurtDir:null,aboard:0,prevSpd:0,
-    winch:{L:0,p:null,v:[0,0,0],load:null}});
+    roll:0,pitch:0,yaw:0,rotor:0,gunCd:0,rkCd:0,flCd:0,pod:1,dead:false,crashed:false,deadT:0,bump:0,hurtT:0,hurtDir:null,aboard:0,prevSpd:0});
   const g=groundY(railPos(0).x,railPos(0).z);P.padOy=g+1.95*HS-railY(0);P.oy=P.padOy;
   stats={src:{},shots:0,hits:0,rk:0,rkHits:0,kills:0,dmg:0,t:0};
 }
@@ -580,9 +578,9 @@ const KINDS={
     parts:()=>({body:PT([0,1,0],[.4,1,.3],100,0)}),
     init(e){e.state='wait';e.hp=100;},
     update(e,dt){if(e.state==='wait'&&rnd()<dt*6)fxSmoke(add(e.pos,[2,.3,1]),[rr(-.4,.4),2.5,rr(-.4,.4)],3,.8,3.2,[.95,.42,.12],.4);
-      if(e.state==='hooked'&&P.winch.p){e.pos=sub(P.winch.p,[0,2.0,0]);}},
+      survivorPickup(e,dt);},
     draw(e,M){if(e.state==='aboard'||e.state==='dead')return;drawMesh(MESH.survivor,M,WHITE,0);
-      drawMesh(MESH.arm,M4.chain(M,M4.T(.42,1.42,0),M4.rZ(e.state==='hooked'?2.9:2.4+Math.sin(G.t*7+e.t)*.6)),WHITE,0);}},
+      drawMesh(MESH.arm,M4.chain(M,M4.T(.42,1.42,0),M4.rZ(e.state==='run'?2.9+Math.sin(G.t*12)*.3:2.4+Math.sin(G.t*7+e.t)*.6)),WHITE,0);}},
   ring:{rad:8,nohit:true,label:'RESUPPLY',
     parts:()=>({r:PT([0,0,0],[6,6,1],1,0)}),
     update(e,dt){if(e.taken)return;if(dist(e.pos,P.pos)<8.5&&!P.dead){e.taken=true;e.remove=true;P.armor=Math.min(100,P.armor+30);P.rockets=Math.min(38,P.rockets+14);P.flares=Math.min(8,P.flares+3);
@@ -671,9 +669,9 @@ const LEVELS=[
     {id:'gs',text:'Down 4 gunships',kind:'destroy',tag:'gunship',count:4}]},
 
  {code:'OPERATION LONG ROPE',name:'Combat rescue',seed:37,pal:PAL.dusk,speed:42,corridor:66,clear:20,clearLat:34,bigRocks:5,
-  blurb:'Fly into the Saqr bowl at dusk and winch out a downed crew.',
+  blurb:'Fly into the Saqr bowl at dusk and pull out a downed crew.',
   brief:['Sandman 2-2 went down in the Saqr bowl. Both crew are alive and popping orange smoke, with enemy armor closing in.',
-    'Fight your way in. At the bowl you will hold a hover. Hold E to lower the winch, swing the hook onto a survivor, then release E to reel them up. Don\'t drag them through the dirt.',
+    'Fight your way in. At the bowl the run stops. Drop low near each survivor and they will sprint to you. Climb away and they take cover again. Clear the defenders first or they will shoot the crew in the open.',
     'Then egress through the low canyon to FOB Anvil. Gunships will chase you out.'],
   ctrl:[[0,-80],[0,0],[40,400],[-30,800],[-60,1200],[0,1550],[30,1850],[0,2150],[-70,2500],[-40,2850],[40,3200],[60,3600],[60,3750]],
   roads:[{lat:-30,s0:300,s1:1700}],
@@ -694,11 +692,11 @@ const LEVELS=[
   events:[{s:2,say:['OVERWATCH','Viper 1-1, Sandman 2-2 is down in the Saqr bowl. Get in there and bring them home.']},
     {s:1000,say:['OVERWATCH','SAM site ahead. The radar is on your right.']},
     {s:1640,say:['SANDMAN','Viper, Sandman! We see you. Orange smoke, two of us!']},
-    {s:1760,say:['OVERWATCH','Settle into a hover over the crew. Hold E to lower the winch, release E to reel in.']},
+    {s:1760,say:['OVERWATCH','Settle in low near the crew and they will run to you. Keep those guns off them!']},
     {s:1840,gunships:2,from:'behind',say:['OVERWATCH','Both aboard. Gunships coming up behind you. Go, go!']},
     {s:2900,gunships:2,from:'ahead',say:['OVERWATCH','More gunships ahead!']},
     {s:3380,say:['OVERWATCH','FOB Anvil, medics standing by.']}],
-  objectives:[{id:'res',text:'Winch up both survivors',primary:true,kind:'rescue',count:2,failText:'We lost a survivor.'},
+  objectives:[{id:'res',text:'Pick up both survivors',primary:true,kind:'rescue',count:2,failText:'We lost a survivor.'},
     {id:'lz',text:'Clear the LZ defenders',kind:'destroy',tag:'lz',count:4},
     {id:'sam',text:'Destroy the SAM site',kind:'destroy',tag:'sam',count:1,pass:true},
     {id:'gs',text:'Down 4 gunships',kind:'destroy',tag:'gunship',count:4}]},
@@ -786,20 +784,16 @@ function hurtPlayer(d,src){if(G.god||P.dead||(G.ending&&G.ending.ok))return;P.ar
   if(src){const v=sub(src,P.pos);P.hurtDir={a:Math.atan2(dot(v,cam.R),dot(v,cam.F)),t:1};}
   if(P.armor<=0){P.armor=0;P.dead=true;P.vel=add(P.vel,[0,4,0]);fxExplosion(P.pos,1.4);sfx('boom',null,1.5);endMission(false,'Viper 1-1 is down.');}}
 
-/* ---------- winch */
-function updateWinch(dt){
-  const W=P.winch;const anchor=heliPt([0,-1.4,0]);
-  if(!W.p)W.p=anchor.slice();
-  const held=G.state==='play'&&KEY.KeyE&&!P.dead&&G.t>2.4;
-  if(held)W.L=Math.min(46,W.onGround?Math.min(W.L+10*dt,dist(anchor,W.p)+.3):W.L+10*dt);else W.L=Math.max(0,W.L-(W.load?5.5:14)*dt);
-  if(W.L<.6&&!W.load){W.p=anchor;W.v=P.vel.slice();return;}
-  W.v[1]-=9.8*dt;W.v=mul(W.v,1-.35*dt);W.p=madd(W.p,W.v,dt);
-  const d=sub(W.p,anchor),dl=len(d);if(dl>W.L){const n=mul(d,1/dl);W.p=madd(anchor,n,W.L);const vr=dot(sub(W.v,P.vel),n);if(vr>0)W.v=madd(W.v,n,-vr);}
-  const g=groundY(W.p[0],W.p[2])+(W.load?2.1:.3);
-  if(W.p[1]<g){const sp=len(W.v);if(W.load&&sp>7.5){W.load.hp-=(sp-6)*7;fxDust(W.p,8,4);sfx('hit');if(W.load.hp<=0){W.load.state='dead';W.load=null;say('OVERWATCH','Survivor lost!');}else say('SANDMAN','Easy! Easy!',1);}
-    W.p[1]=g;if(W.v[1]<0)W.v[1]=0;W.v[0]*=.85;W.v[2]*=.85;W.onGround=true;}else W.onGround=false;
-  if(!W.load){for(const e of ents)if(e.kind==='survivor'&&e.state==='wait'&&dist(W.p,add(e.pos,[0,1.3,0]))<4.5){W.load=e;e.state='hooked';say('SANDMAN','I\'m on! Pull me up!',1);sfx('pickup');break;}}
-  else if(W.L<1.2){W.load.state='aboard';W.load=null;P.aboard++;G.score+=500;say('OVERWATCH',P.aboard>=2?'Both survivors aboard!':'One aboard. Go get the other.');sfx('pickup');}
+/* ---------- survivor pickup: set down low near the crew and they run to the aircraft */
+function survivorPickup(e,dt){
+  const hz=G.hover;const agl=P.pos[1]-groundY(P.pos[0],P.pos[2]);
+  const dx=P.pos[0]-e.pos[0],dz=P.pos[2]-e.pos[2],d=Math.hypot(dx,dz);
+  const low=hz&&hz.on&&!hz.done&&!P.dead&&agl<9;
+  if(e.state==='wait'&&low&&d<38){e.state='run';say('SANDMAN','Coming to you!',1);}
+  if(e.state==='run'){if(!low){e.state='wait';return;}
+    if(d<7){e.bt=(e.bt||0)+dt;if(e.bt<1.5)return;}else e.bt=0;
+    if(d<7){e.state='aboard';P.aboard++;G.score+=500;sfx('pickup');say('OVERWATCH',P.aboard>=2?'Both survivors aboard!':'One aboard. Go get the other.');return;}
+    const sp=5.5*dt;e.pos[0]+=dx/d*sp;e.pos[2]+=dz/d*sp;e.pos[1]=groundY(e.pos[0],e.pos[2]);setYaw(e,Math.atan2(dx,dz));}
 }
 
 /* ============================================================ PROJECTILES & FX */
@@ -812,7 +806,7 @@ function segBox(la,lb,c,h){let t0=0,t1=1;for(let i=0;i<3;i++){const d=lb[i]-la[i
   else{let ta=(-h[i]-o)/d,tb=(h[i]-o)/d;if(ta>tb){const t=ta;ta=tb;tb=t;}if(ta>t0)t0=ta;if(tb<t1)t1=tb;if(t0>t1)return -1;}}return t0;}
 function boxDist(l,c,h){const dx=Math.max(Math.abs(l[0]-c[0])-h[0],0),dy=Math.max(Math.abs(l[1]-c[1])-h[1],0),dz=Math.max(Math.abs(l[2]-c[2])-h[2],0);return Math.hypot(dx,dy,dz);}
 function explode(p,r,dmg,src,vis=1){if(vis)fxExplosion(p,vis);
-  for(const e of ents){if(e.kind==='survivor'){if((e.state==='wait'||e.state==='hooked')&&dist(e.pos,p)<r*.7){e.hp-=dmg*(1-dist(e.pos,p)/(r*.7));if(e.hp<=0){e.state='dead';if(P.winch.load===e)P.winch.load=null;say('OVERWATCH','Survivor down!');}}continue;}
+  for(const e of ents){if(e.kind==='survivor'){if((e.state==='wait'||e.state==='run')&&dist(e.pos,p)<r*.7){e.hp-=dmg*(1-dist(e.pos,p)/(r*.7));if(e.hp<=0){e.state='dead';say('OVERWATCH','Survivor down!');}}continue;}
     if(!hittable(e)||dist(e.pos,p)>r+e.rad)continue;const l=toLocal(e,p);
     for(const pn in e.parts){const pt=e.parts[pn];if(pt.dead||pt.nohit)continue;const d=boxDist(l,pt.c,pt.h);if(d<r)hurtPart(e,pn,dmg*(1-d/r*.8),'blast');}}
   if(src!==0&&!P.dead){const d=dist(p,P.pos);if(d<r)hurtPlayer(dmg*.45*(1-d/r),p);}
@@ -893,7 +887,7 @@ function endMission(ok,reason){if(G.ending)return;G.ending={ok,reason:reason||''
 const DT=1/60;
 function sim(dt){
   G.t+=dt;stats.t+=dt;
-  updatePlayer(dt);updateWinch(dt);runEvents();
+  updatePlayer(dt);runEvents();
   for(const e of ents){e.K.update&&e.K.update(e,dt);entityFx(e,dt);for(const k in e.parts)if(e.parts[k].flash>0)e.parts[k].flash-=dt;
     if(e.falling){e.falling.vy+=12*dt;e.pos[1]-=e.falling.vy*dt;if(e.pos[1]<=groundY(e.pos[0],e.pos[2])){e.pos[1]=groundY(e.pos[0],e.pos[2]);e.falling=null;kill(e,1.2);}}}
   for(let i=ents.length-1;i>=0;i--)if(ents[i].remove)ents.splice(i,1);
@@ -955,8 +949,6 @@ function render(dt){
   if(!(P.dead&&P.crashed)){const M=M4.basis(P.pos,P.R,P.U,P.F);const tint=P.dead?BURNT:WHITE;drawMesh(MESH.heli,M,tint,P.hurtT>.2?.35:0);
     drawMesh(MESH.rotor,M4.chain(M,M4.T(0,1.98*HS,0),M4.rY(P.rotor)),tint,0);drawMesh(MESH.trotor,M4.chain(M,M4.T(.14*HS,1.95*HS,-8.25*HS),M4.rX(P.rotor*2.3)),tint,0);
     const agl=P.pos[1]-groundY(P.pos[0],P.pos[2]);ribDisc(ribA,P.pos,6,.38*clamp(1-agl/70,0,1));}
-  // winch
-  const Wn=P.winch;if(Wn.L>.6||Wn.load){const an=heliPt([0,-1.4,0]);ribSeg(ribA,an,Wn.p,.07,[.1,.09,.08],.95);drawMesh(MESH.cube,M4.chain(M4.T(...Wn.p),M4.S(2.2)),[.9,.75,.2],0);ribDisc(ribA,Wn.p,1.6,.35);}
   // projectiles
   for(const b of projs){const v=norm(b.v);
     if(b.kind==='bullet')ribSeg(ribX,madd(b.p,v,-9),b.p,.13,[1,.85,.45],.9);
@@ -993,7 +985,7 @@ function drawHUD(){
   if(P.armor<25&&!P.dead&&Math.sin(G.t*8)>0){hx.strokeStyle='rgba(255,60,40,.5)';hx.lineWidth=6;hx.strokeRect(3,3,W-6,H-6);hx.lineWidth=1.5;}
   // markers
   for(const e of ents){let mark=null;
-    if(e.kind==='survivor'&&(e.state==='wait'||e.state==='hooked'))mark=['SURVIVOR','#ff9a3a'];
+    if(e.kind==='survivor'&&(e.state==='wait'||e.state==='run'))mark=['SURVIVOR','#ff9a3a'];
     else if(e.kind==='ring')mark=['RESUPPLY','#7aff9a'];
     else for(const o of G.obj)if(o.state==='open'&&o.tag&&e.tags.includes(o.tag)&&!(o.kind==='destroy'&&!e.alive)&&!(o.kind==='stop'&&(e.immobile||!e.alive))&&!(e.kind==='sam'&&e.disarmed)&&!(o.kind==='collapse'&&e.collapsed)){mark=[e.K.label,o.primary?AMB:'#d9c890'];break;}
     if(!mark)continue;const d=dist(e.pos,P.pos);if(d>1300)continue;
@@ -1040,9 +1032,9 @@ function drawHUD(){
   else if(G.lockWarn>0&&Math.sin(G.t*10)>0)txt('SAM LOCK',W/2,H*.3,AMB,'center',20,'bold');
   if(agl<6&&G.t>3&&!P.dead&&!(G.ending&&G.ending.ok))txt('LOW',W/2,H*.62,AMB,'center',16,'bold');
   if(P.hurtDir){const a=P.hurtDir.a;hx.strokeStyle=`rgba(255,80,50,${P.hurtDir.t})`;hx.lineWidth=5;hx.beginPath();hx.arc(W/2,H/2,Math.min(W,H)*.3,a-Math.PI/2-.25,a-Math.PI/2+.25);hx.stroke();hx.lineWidth=1.5;}
-  // hover / winch
-  if(G.hover&&G.hover.on&&!G.hover.done){txt('HOVER: LZ',W/2,H*.2,'#ff9a3a','center',16,'bold');txt(`Hold E to lower the winch · ${P.aboard}/2 aboard`,W/2,H*.2+20,'#ffcf9a','center',13);}
-  if(P.winch.L>.6||P.winch.load){txt(`WINCH ${P.winch.L.toFixed(0)}m${P.winch.load?' · SURVIVOR ON HOOK: release E':''}`,W/2,H-90,'#ffcf9a','center',13,'bold');}
+  // hover LZ
+  if(G.hover&&G.hover.on&&!G.hover.done){txt('HOVER: LZ',W/2,H*.2,'#ff9a3a','center',16,'bold');txt(`Drop low near the crew · ${P.aboard}/2 aboard`,W/2,H*.2+20,'#ffcf9a','center',13);
+    const bd=ents.find(e=>e.kind==='survivor'&&e.state==='run'&&e.bt>0);if(bd){txt('BOARDING — HOLD LOW',W/2,H*.2+40,'#ffcf9a','center',13,'bold');bar(W/2-60,H*.2+48,120,10,bd.bt/1.5,'#ff9a3a');}}
   if(G.t<3&&!G.ending)txt('LIFTING OFF',W/2,H*.4,HC,'center',18,'bold');
   // radio
   const r=G.radio.cur;if(r){const n=Math.floor(G.radio.t*55);const s=r.text.slice(0,n);const bw=Math.min(620,W-40);const bx=W/2-bw/2,by=H-150;
