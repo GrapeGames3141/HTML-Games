@@ -20,7 +20,7 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Spearfish | `spearfish\spearfish.html` | none yet |
 | First Light | `firstlight\firstlight.html` | none yet |
 
-`experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks.
+`experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks. `experiments\demo\demo.html` is the rendering-technique demo (a walk from a beach to a cave, test API `window.DEMO`); its plan and build notes are in `experiments\demo\plan.md`.
 
 Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source file to the mapped release name, then verify both byte length and SHA-256. Each game's source file is named after its folder, `<game>\<game>.html`; keep that name and do not add an `index.html`. The root `index.html` is the intentional arcade lobby, not a game source.
 
@@ -29,6 +29,7 @@ Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish o
 Technique guides live as Markdown in this root folder. Read the matching guide instead of reverse-engineering another game, and add new findings to it when you learn something reusable.
 
 - `SPLAT-GUIDE.md`: Gaussian-splat renderer, splat generation, water, particles, performance budgets, and the headless test setup (Playwright + SwiftShader, `?test` hooks).
+- `techniques-ideas.md`: twelve light, shadow, water and transparency techniques. All twelve are built in `experiments\demo\demo.html`; working notes are in the "Multi-pass techniques" section of `SPLAT-GUIDE.md`.
 
 ## New games
 

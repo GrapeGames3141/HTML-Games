@@ -106,6 +106,22 @@ Test headless with logs and screenshots. Don't drive the user's screen.
 - Write test plans as lists of `{ js, wait, shot }` steps. Collect console output and `pageerror`s, and look at every screenshot. Balance tests can run whole fights in-page (`for (…) { BS.step(1); … }`) and print a summary every 30 s.
 - Long runs take longer than two minutes in SwiftShader. Run them in the background and poll the log.
 
+## Multi-pass techniques (from `experiments/demo/demo.html`)
+
+The technique demo renders to off-screen buffers and runs several simulations. These are the parts worth reusing; `experiments/demo/plan.md` has the full account.
+
+- **One uniform block for per-frame data.** Camera, sun, toggles and light lists live in a single `std140` block made only of `mat4` and `vec4` fields, generated from one JS list so the GLSL text and the byte offsets cannot drift apart. Every program includes the same block and it is uploaded once per frame.
+- **Fixed texture units for shared samplers.** Give shadow maps, the world texture and simulation textures a fixed unit each and set every sampler uniform at link time. Two sampler types pointing at the same unit (the default is 0 for all) is a draw-time error.
+- **Feedback loops.** A draw fails with "Feedback loop formed" if the current program has an active sampler bound to a texture attached to the target. Shadow-pass programs must not include the lighting code, and a ping-pong chain must never bind the texture it is writing, even through a branch that is never taken.
+- **Splats into an off-screen buffer.** There is no multisampling there, so alpha-to-coverage is out. A hard cut on the lobed `r2` gives clean daub edges; lighting per splat in the vertex shader (including the shadow lookup) makes each daub fully lit or fully shaded, which reads as paint.
+- **World texture.** Bake terrain height, water level and flow into one `RGBA16F` texture with texel centres on the grid vertices. Water depth, shore fades, the ripple mask and caustics all read it, and the player walks on the same grid.
+- **Ripple simulation.** One window that follows the player, snapped to whole texels, covers every pool, stream and shoreline. A drop narrower than about 1.5 texels disappears, so clamp the radius. Scale the wave constant by `1 / texel^2` or changing the grid size changes the wave speed.
+- **Caustics.** Subtract the flat-water landing point from the refracted one before drawing the light grid. The pattern then stays under the surface that made it, so the bed can look it up at its own xz.
+- **Refraction and transparency.** Copy the opaque colour and depth to a second target with `blitFramebuffer`, then draw water and glass into the copy while sampling the original. A texture cannot be both sampled and attached, even as a depth buffer with writes off.
+- **Caves under a height field.** Make the cave a separate inward-facing tube drawn with back-face culling, and cut the doorway by discarding terrain inside a capsule along the first few metres of the tube. Narrow the tube to the doorway size at each end or the terrain shows around the opening.
+- **Timing a pass.** `gl.finish()` returns at once in some browsers. A one-pixel `readPixels` from a tiny framebuffer before and after a pass does block, and gives usable per-pass times.
+- **Headless float checks.** `readPixels(..., gl.FLOAT, ...)` on a simulation target is the quickest way to see whether a simulation is actually moving. Add a URL flag that pretends float targets are missing so the fallback path gets tested.
+
 ## Repo rules (summary)
 
 - Every new game gets its own folder with a meaningful file name, never `index.html`.
