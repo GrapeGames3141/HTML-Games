@@ -5,6 +5,10 @@
 
 Nothing in this document authorizes implementation. These are directions to revisit, not promises about technology, schedule, or exact simulation. Gaussian splats are an interesting rendering option for the procedural-world concept; the other games can use whichever visual approach best serves their play.
 
+## Focused game notes
+
+This root note keeps the cross-project overview. When an idea belongs to an existing game, its local note carries the detailed planning: [Ashgrove](ashgrove/brainstorming.md), [Broadside](broadside/brainstorming.md), and [Splatcraft](splatcraft/brainstorming.md). Merlin and the helicopter remain here until they have an assigned project.
+
 ## 1. Procedural splat world
 
 A Minecraft-like world without visible blocks: explore, gather materials, excavate caves, and build shelters in smooth, natural-looking terrain. The visual language could be painterly and tactile—rounded cliffs, layered soil, dense moss, rough rock, and caves with uneven openings—rather than assuming splats automatically make procedural content photorealistic.
