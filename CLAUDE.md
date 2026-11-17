@@ -4,20 +4,21 @@ Start every session by reading this file, the root `AGENTS.md`, and the target g
 
 ## Repository layout
 
-The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `sitter`, and `splat` are root-owned folders. Local commits are useful history, not an off-machine backup.
+The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `splat`, `dustdevil`, and `merlin` are root-owned game folders. Development prototypes live under `experiments/`; never auto-list them in the arcade or include them in the Pages build unless the user explicitly promotes one. Local commits are useful history, not an off-machine backup.
 
 | Source game | Source file | Drive release copy |
 | --- | --- | --- |
 | Prism Swarm | `prism-swarm\prism-swarm.html` | `aliens.html` |
-| Sitter | `sitter\sitter.html` | `human.html` |
 | Appalachian Eagle | `appalachian-eagle\appalachian-eagle.html` | `eagle.html` |
-| Splat | `splat\splat.html` | `bughunt.html` |
+| Bug Splatter | `splat\splat.html` | `bughunt.html` |
 | Ashgrove | `ashgrove\ashgrove.html` | `horror.html` |
 | Splatcraft | `splatcraft\splatcraft.html` | none yet |
 | Broadside | `broadside\broadside.html` | none yet |
 | Dust Devil | `dustdevil\dustdevil.html` | none yet |
 | Castle Defense | `castle-defense\castle-defense.html` | none yet |
 | Merlin's Tower Defense | `merlin\merlin.html` | none yet |
+
+`experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks.
 
 Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source file to the mapped release name, then verify both byte length and SHA-256. Each game's source file is named after its folder, `<game>\<game>.html`; keep that name and do not add an `index.html`. The root `index.html` is the intentional arcade lobby, not a game source.
 
@@ -31,7 +32,7 @@ Technique guides live as Markdown in this root folder. Read the matching guide i
 
 - Every new game gets its own folder: `E:\html games\<game>\`, with a short, meaningful folder name.
 - Name the main file meaningfully, never `index.html`. The default is the folder name: `<game>\<game>.html`.
-- Add the new game to the table above (and to the root `README.md`) in the first commit.
+- Add the new game to the table above (and to the root `README.md`) in the first commit. For an arcade-ready game, also update the lobby and `tools/build-pages.py` `GAMES` registry, then run the build. Experiments follow the separate exclusion rule above.
 - New games are root-owned. Never initialize a child repository for one.
 - Commit as you go: check in at each working milestone (first playable scaffold, each feature that works, each fix) rather than one large commit at the end, and push `main` to origin after each check-in.
 

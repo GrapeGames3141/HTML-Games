@@ -1,0 +1,32 @@
+[
+  {
+    "label": "current-desktop",
+    "errors": [],
+    "fullPage": false
+  },
+  {
+    "label": "current-fullpage",
+    "errors": [],
+    "fullPage": true
+  },
+  {
+    "label": "current-mobile",
+    "errors": [],
+    "fullPage": false
+  },
+  {
+    "label": "proposal-desktop",
+    "errors": [],
+    "fullPage": false
+  },
+  {
+    "label": "proposal-fullpage",
+    "errors": [],
+    "fullPage": true
+  },
+  {
+    "label": "proposal-mobile",
+    "errors": [],
+    "fullPage": false
+  }
+]

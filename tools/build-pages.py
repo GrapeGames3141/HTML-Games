@@ -6,9 +6,9 @@ import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "work/pages"
-GAMES = ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "sitter", "castle-defense", "broadside", "splatcraft")
+GAMES = ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "castle-defense", "broadside", "splatcraft", "dustdevil", "merlin")
 CANONICAL = {game: game + "/" + game + ".html" for game in GAMES}
-LEGACY_GAMES = ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "sitter", "castle-defense")
+LEGACY_GAMES = ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "castle-defense")
 LEGACY_ALIASES = [game + "/index.html" for game in LEGACY_GAMES]
 FILES = ["index.html", "arcade.css", "arcade.js", ".nojekyll"] + list(CANONICAL.values())
 
@@ -66,7 +66,9 @@ def build():
             target = (page.parent / unquote(parts.path)).resolve()
             if not target.is_relative_to(OUT.resolve()) or not target.exists():
                 raise SystemExit("Broken local link in " + rel + ": " + url)
-    print("Packaged eight games and arcade with six legacy aliases; all local HTML links resolve.")
+    if any("experiments" in rel.split("/") for rel in allowed):
+        raise SystemExit("Experiments must not be included in the Pages package.")
+    print(f"Packaged {len(GAMES)} games and arcade with {len(LEGACY_ALIASES)} legacy aliases; all local HTML links resolve.")
 
 if __name__ == "__main__":
     build()

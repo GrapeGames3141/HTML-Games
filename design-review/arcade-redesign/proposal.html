@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#151a17">
+  <title>GrapeGames Arcade — proposed direction</title>
+  <link rel="stylesheet" href="proposal.css">
+  <style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}</style>
+  <script src="proposal.js" defer></script>
+</head>
+<body>
+  <header class="site-header shell"><a class="brand" href="#top"><span class="brand-mark">G<span>✳</span></span><span>GRAPE<span>GAMES</span><small>THE ARCADE</small></span></a><nav><a href="#games">Games</a><button type="button" id="random-game">Surprise me <b>↗</b></button></nav></header>
+  <main id="top">
+    <section class="hero shell">
+      <img class="hero-image" src="assets/hero-montage-v1.webp" width="1600" height="533" alt="A montage of Broadside, High Country, and Prism Swarm gameplay">
+      <div class="hero-copy"><p class="eyebrow"><i></i> GRAPEGAMES ARCADE · 09 PLAYABLE WORLDS</p><h1>Your next game<br><em>starts here.</em></h1><p>Big, strange little worlds. Pick a shelf, hit play, and be somewhere else in seconds.</p><div class="hero-actions"><a class="button primary" href="#games">Browse the arcade <span>↓</span></a><button class="button quiet" type="button" id="hero-random">Play something random <span>↗</span></button></div></div>
+      <p class="hero-note">BROWSER GAMES · NO DOWNLOADS</p>
+    </section>
+    <section class="library shell" id="games">
+      <div class="heading"><div><p class="eyebrow"><i></i> PICK A WORLD</p><h2>The game shelf<span>.</span></h2></div><p>Nine games. Nine very different ways to lose an afternoon.</p></div>
+      <div class="tools"><div class="filters" role="group" aria-label="Filter games"><button class="filter active" data-filter="all" aria-pressed="true">All <span>09</span></button><button class="filter" data-filter="action" aria-pressed="false">Action</button><button class="filter" data-filter="explore" aria-pressed="false">Explore</button><button class="filter" data-filter="creative" aria-pressed="false">Creative</button><button class="filter" data-filter="strategy" aria-pressed="false">Strategy</button></div><label class="search"><span aria-hidden="true">⌕</span><span class="sr-only">Search games</span><input id="search" type="search" placeholder="Search the arcade" autocomplete="off"></label></div>
+      <p class="result" id="result-count" aria-live="polite">SHOWING ALL 09 GAMES</p>
+      <div class="game-grid" id="game-grid">
+        <article class="game-card" data-id="prism" data-category="action" data-search="prism swarm action first person sci fi arena survival shooter"><a href="https://grapegames3141.github.io/HTML-Games/prism-swarm/prism-swarm.html" data-game="prism"><img src="assets/prism.webp" width="800" height="560" loading="lazy" alt="Prism Swarm gameplay"><div class="fade"></div><div class="card-copy"><p>01 · ACTION</p><h3>Prism Swarm</h3><span>Enter the arena <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="eagle" data-category="explore" data-search="high country appalachian eagle explore mountain flight nature"><a href="https://grapegames3141.github.io/HTML-Games/appalachian-eagle/appalachian-eagle.html" data-game="eagle"><img src="assets/eagle.webp" width="800" height="560" loading="lazy" alt="High Country eagle flight over forested mountains"><div class="fade"></div><div class="card-copy"><p>02 · EXPLORE</p><h3>High Country</h3><span>Take flight <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="splat" data-category="action" data-search="bug splatter splat meadow action bug hunt"><a href="https://grapegames3141.github.io/HTML-Games/splat/splat.html" data-game="splat"><img src="assets/splat.webp" width="800" height="560" loading="lazy" alt="Bug Splatter gameplay in a grassy field"><div class="fade"></div><div class="card-copy"><p>03 · ACTION</p><h3>Bug Splatter</h3><span>Start the hunt <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="ashgrove" data-category="action" data-search="ashgrove spooky action survival cemetery"><a href="https://grapegames3141.github.io/HTML-Games/ashgrove/ashgrove.html" data-game="ashgrove"><img src="assets/ashgrove.webp" width="800" height="560" loading="lazy" alt="Ashgrove moonlit cemetery gameplay"><div class="fade"></div><div class="card-copy"><p>04 · ACTION / SPOOKY</p><h3>Ashgrove</h3><span>Enter at night <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="castle" data-category="strategy" data-search="castle defense bastion four roads strategy lane defense"><a href="https://grapegames3141.github.io/HTML-Games/castle-defense/castle-defense.html" data-game="castle"><img src="assets/castle.webp" width="800" height="560" loading="lazy" alt="Castle Defense castle and four bridges"><div class="fade"></div><div class="card-copy"><p>05 · STRATEGY</p><h3>Castle Defense</h3><span>Hold the roads <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="broadside" data-category="strategy" data-search="broadside galleon cannon sailing naval duel strategy"><a href="https://grapegames3141.github.io/HTML-Games/broadside/broadside.html" data-game="broadside"><img src="assets/broadside.webp" width="800" height="560" loading="lazy" alt="Broadside galleon on the ocean"><div class="fade"></div><div class="card-copy"><p>06 · STRATEGY</p><h3>Broadside</h3><span>Run out the guns <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="splatcraft" data-category="creative" data-search="splatcraft creative build explore world"><a href="https://grapegames3141.github.io/HTML-Games/splatcraft/splatcraft.html" data-game="splatcraft"><img src="assets/splatcraft.webp" width="800" height="560" loading="lazy" alt="Splatcraft rocky green landscape"><div class="fade"></div><div class="card-copy"><p>07 · CREATIVE</p><h3>Splatcraft</h3><span>Build a world <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="dustdevil" data-category="action" data-search="dust devil action attack helicopter desert rail shooter"><a href="https://grapegames3141.github.io/HTML-Games/dustdevil/dustdevil.html" data-game="dustdevil"><img src="assets/dustdevil.webp" width="800" height="560" loading="lazy" alt="Dust Devil attack helicopter over the desert"><div class="fade"></div><div class="card-copy"><p>08 · ACTION</p><h3>Dust Devil</h3><span>Fly the strike <b>↗</b></span></div></a></article>
+        <article class="game-card" data-id="merlin" data-category="strategy" data-search="merlin tower defense strategy spells castle water fire lightning"><a href="https://grapegames3141.github.io/HTML-Games/merlin/merlin.html" data-game="merlin"><img src="assets/merlin.webp" width="800" height="560" loading="lazy" alt="Merlin defending a castle tower"><div class="fade"></div><div class="card-copy"><p>09 · STRATEGY</p><h3>Merlin's Tower Defense</h3><span>Cast a spell <b>↗</b></span></div></a></article>
+      </div>
+      <div class="empty" hidden id="empty-state"><p>Nothing on this shelf yet.</p><button id="clear-search" class="button primary">Clear filters</button></div>
+    </section>
+  </main>
+  <footer class="shell"><span>GRAPEGAMES <b>✳</b> ARCADE</span><span>MADE FOR THE JOY OF PLAY.</span></footer>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sitter — procedural portrait</title>
+<title>Humanoid Model Experiment</title>
 <style>
   html,body{margin:0;height:100%;background:#0b0a09;overflow:hidden;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#d9d2c8}
   canvas{display:block;width:100vw;height:100vh;cursor:grab;image-rendering:auto}
@@ -28,7 +28,7 @@
 <canvas id="c"></canvas>
 <div id="load">sculpting…</div>
 <div id="panel">
-  <h1>Sitter</h1>
+  <h1>Humanoid Model Experiment</h1>
   <label>Animation</label>
   <div id="anims" class="pills"></div>
   <label>Camera</label>
@@ -867,7 +867,7 @@ function waitForProgram(){
       loadEl.textContent = name + ' shader failed to compile — see console'; return;
     }
   }
-  console.log(`[sitter] shaders ready in ${Math.round(performance.now()-compileStart)} ms`);
+  console.log(`[humanoid-model] shaders ready in ${Math.round(performance.now()-compileStart)} ms`);
   start();
 }
 loadEl.textContent = 'compiling shaders…';
@@ -898,7 +898,7 @@ function ensureGBuffer(){
   });
   gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
   const st = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-  if (st !== gl.FRAMEBUFFER_COMPLETE) console.error('[sitter] G-buffer incomplete', st);
+  if (st !== gl.FRAMEBUFFER_COMPLETE) console.error('[humanoid-model] G-buffer incomplete', st);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 

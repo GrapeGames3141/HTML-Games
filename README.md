@@ -13,15 +13,18 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Castle Defense | `castle-defense/castle-defense.html` | `http://127.0.0.1:8000/castle-defense/castle-defense.html` |
 | Merlin's Tower Defense | `merlin/merlin.html` | `http://127.0.0.1:8000/merlin/merlin.html` |
 | Prism Swarm | `prism-swarm/prism-swarm.html` | `http://127.0.0.1:8000/prism-swarm/prism-swarm.html` |
-| Sitter | `sitter/sitter.html` | `http://127.0.0.1:8000/sitter/sitter.html` |
-| Splat | `splat/splat.html` | `http://127.0.0.1:8000/splat/splat.html` |
+| Bug Splatter | `splat/splat.html` | `http://127.0.0.1:8000/splat/splat.html` |
 | Splatcraft | `splatcraft/splatcraft.html` | `http://127.0.0.1:8000/splatcraft/splatcraft.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
 
+## Experiments
+
+Development prototypes live under [`experiments/`](experiments/), outside the arcade catalog and Pages package. The [Humanoid Model Experiment](experiments/humanoid-model-experiment/README.md) is intentionally not an arcade game; promote an experiment only with an explicit user request.
+
 ## Arcade website
 
-The root `index.html` is the GrapeGames Arcade: eight playable games, search, category filters, a random-game button and a last-played marker. The lobby uses plain HTML, CSS and JavaScript; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
+The root `index.html` is the GrapeGames Arcade: nine playable games, search, category filters, a random-game button and a last-played marker. The lobby uses plain HTML, CSS and JavaScript; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
 
 Castle Defense / Bastion of the Four Roads was copied unchanged from `GrapeGames3141/castle-defense`, commit `37444662367c43e09db5d56691162bccb66ef9fc`. Its existing Tailwind CDN reference is retained.
 
@@ -31,7 +34,7 @@ The `Publish arcade to GitHub Pages` workflow publishes on pushes to `main` and 
 
 Expected project URL: <https://grapegames3141.github.io/HTML-Games/>.
 
-Validate and package locally with `node --check arcade.js` and `python tools/build-pages.py`. The generated `work/pages/` directory contains only playable site files, excluding source snapshots, research references and local tools. It includes generated compatibility aliases for the prior six `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
+Validate and package locally with `node --check arcade.js` and `python tools/build-pages.py`. The generated `work/pages/` directory contains only playable site files, excluding source snapshots, research references, local tools, and `experiments/`. It includes generated compatibility aliases for the prior five `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
 
 Use this prompt for Claude Code:
 
