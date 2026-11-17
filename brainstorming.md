@@ -1,7 +1,7 @@
 # Game Brainstorming
 
 **Status:** planning notes only
-**Updated:** 2026-11-16
+**Updated:** 2026-11-17
 
 Nothing in this document authorizes implementation. These are directions to revisit, not promises about technology, schedule, or exact simulation. Gaussian splats are an interesting rendering option for the procedural-world concept; the other games can use whichever visual approach best serves their play.
 
@@ -102,3 +102,7 @@ The core loop is to spot a fish, move into range, aim a short-range speargun, an
 Kelp gives cover and broken sightlines, while the reef gives open water and colour, so the two zones play differently inside the same dive. Silt, moving plants, reactive schools, and disturbed targets create feedback for both motion and missed shots.
 
 The smallest version is one swimmable area with the kelp forest and the coral reef, a fixed boat, a few fish types, and a clear return with results. Record shots, hits, misses, fish killed by species, and dive duration. Later options: better spearguns, fins, a torch, new sites, and wreck exploration.
+
+## 10. Slingshot
+
+A kid plinking bottles, cans and pans in a back lot. Holding the button stretches the bands for more range; hold too long and the band snaps, slaps the hand, and the kid yells "Ouch!". The far targets need a stretch close to the snapping point. It doubles as a rendering experiment: Gaussian-splat terrain, ordinary mesh targets, and textures painted from Gaussians so the meshes fit the painted world. Detailed planning is in [slingshot/brainstorm.md](slingshot/brainstorm.md).
