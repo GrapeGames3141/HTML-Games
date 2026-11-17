@@ -1,6 +1,6 @@
 # Technique demo: a walk from the beach to the cave
 
-**Status:** first version built on 2026-11-17 as `demo.html`. All eight stations and all twelve techniques are in; see "What was built" for where the build differs from this plan and what is still rough.
+**Status:** built on 2026-11-17 as `demo.html`, with a second pass the same day (waterfall, cave light, split view, sound, ambient life, gamepad). All eight stations and all twelve techniques are in; see "What was built" for where the build differs from this plan and what is still rough.
 **Updated:** 2026-11-17
 **Folder:** `experiments/demo/` (entry point `experiments/demo/demo.html`, local URL `http://127.0.0.1:8000/experiments/demo/demo.html`)
 
@@ -149,12 +149,14 @@ First person, walking only, with wading in shallow water. No jumping or swimming
 | E | Use: pick up or set down the lantern, blow bubbles at the bench, open the sundial slider |
 | Tab | Effects panel (releases the mouse so the switches can be clicked) |
 | 1 to 9, 0, -, = | Toggle T1 to T12 |
-| Hold V | Split view: effects on the left, everything off on the right |
+| Hold V | Split view: the chosen effect on the left, off on the right |
+| , and . | Choose what split view compares: this station's main effect (the default), any one technique, or everything |
 | [ and ] | Time of day, anywhere. The mouse wheel does the same at the sundial. |
 | F | Free camera. WASD flies along the view, Space is up, C is down, Shift is fast. |
 | P | Photo mode (hides the interface). Enter saves a PNG. |
 | Q | Cycle quality: low, medium, high |
 | M | Measure cost |
+| N | Sound on or off |
 | H | Show the controls card |
 
 ### Mobile (touch)
@@ -165,15 +167,32 @@ First person, walking only, with wading in shallow water. No jumping or swimming
 | Rest of the screen | Drag to look |
 | THROW button | Throw a pebble where the view is pointing |
 | USE button | Only shown near something usable. Its label says what it will do: LANTERN, SET DOWN, BUBBLES, SUNDIAL. |
-| SPLIT button | Hold for split view |
-| Menu button (top right) | Effects panel: one switch per technique with its cost, plus Split view (latching), Measure cost, Free camera, Photo mode, Quality and Controls |
+| SPLIT button | Hold for split view. The panel sets what it compares. |
+| Menu button (top right) | Effects panel: one switch per technique with its cost, plus the split-view choice, Split view (latching), Measure cost, Free camera, Photo mode, Quality, Sound and Controls |
 | Up and down arrows | Shown in free camera only: rise and sink |
 | Sundial slider | Appears on screen when standing at the sundial |
 | Photo mode | Save picture and Exit photo mode buttons replace the interface |
 
 Touch details: buttons sit inside the safe-area insets, pinch zoom and the long-press menu are disabled, phones start at low quality with a 1.5x pixel-ratio cap, and a hint asks for landscape when the phone is upright (portrait still works, with a wider field of view).
 
-There is no gamepad support yet.
+### Gamepad (standard mapping)
+
+Works alongside either set. The controls card shows this table once a pad is connected.
+
+| Input | Action |
+| --- | --- |
+| Left stick / right stick | Walk / look |
+| Left stick click or RB | Walk faster |
+| A | Use (also starts the walk from the controls card) |
+| X or right trigger | Throw a pebble |
+| Hold LB | Split view |
+| D-pad left and right | Pick a technique; its name and state show in the status line |
+| Y | Switch the picked technique |
+| D-pad up and down | Time of day |
+| B | Free camera (left trigger sinks, right trigger rises) |
+| Start / Back | Effects panel / photo mode |
+
+The sundial slider is touch and mouse only; a pad uses the D-pad for time of day.
 
 ## How it fits together technically
 
@@ -217,25 +236,35 @@ After each step, write what was learned into `SPLAT-GUIDE.md` or a new guide.
 
 ## What was built (2026-11-17)
 
-`demo.html` is one self-contained WebGL2 page, about 136 KB, with roughly 122,000 static splats. The walk is a closed loop and was walked end to end by script: beach, tide pools, stream, forest, glasshouse, waterfall, through the cave, out at the overlook, and down the trail to the beach.
+`demo.html` is one self-contained WebGL2 page, about 153 KB, with roughly 122,000 static splats. The walk is a closed loop and was walked end to end by script: beach, tide pools, stream, forest, glasshouse, waterfall, through the cave, out at the overlook, and down the trail to the beach.
 
 Where the build differs from the plan above:
 
-- **T1 works on the cave floor plan, not in screen space.** The cascades run over a top-down 96 m square of the cave (256 or 512 texels), with walls and stalagmites as occluders and the lantern, mushrooms, crystals, daylight at the two mouths and the roof shaft as emitters. Walls re-emit a share of the light that reaches them, so bounce builds up over a few frames. This removes the off-screen-light risk listed under Risks: a lantern behind the player still lights the room. The cost is that light has no height, so a lantern on the floor and one held high light the walls the same.
+- **T1 works on the cave floor plan, not in screen space.** Cascades run over a top-down 96 m square of the cave (256 or 512 texels), with walls and stalagmites as occluders and the mushrooms, crystals, daylight at the two mouths and the roof shaft as emitters. The lantern is handled in two parts. Its direct light is ordinary 3D point lighting, so height, distance and surface angle all count, and a march over the same floor plan decides which walls block it. Its bounce goes through the cascades: each wall texel the lantern can see re-emits a share of what it receives, and walls also re-emit cascade light from the frame before. A lantern behind the player still lights the room, which was the risk with the screen-space version. With T1 off the lantern shines through rock around bends, which is what the stand-in is there to show.
 - **No normal buffer.** The scene renders to colour and depth only, because nothing ended up reading normals.
-- **T12 is particles simulated in JavaScript** (1,200 to 5,000 by quality) with pairwise pressure and viscosity, drawn as a smoothed depth surface. It reads as heavy spray breaking on two ledges more than as a sheet of water, and the mud was not built. The sprite stand-in is what T12 off shows.
+- **T12 is particles simulated in JavaScript** (1,200 to 5,000 by quality) with pairwise pressure and viscosity. They are drawn as soft blobs, stretched along their velocity, added into a thickness buffer that is blurred and then shaded: thin water bends what is behind it and thick water goes white. This reads as a sheet of falling water. An earlier version drew a smoothed depth surface and looked like loose bubbles. About one particle in eight is mud seeping from the cliff foot beside the falls: the same simulation with heavy drag and more viscosity, shaded brown.
 - **T8 uses two passes** (one for the colour sum, one for how much background survives), so it does not need `OES_draw_buffers_indexed`. With T8 off the panes are blended unsorted and write depth, which is the classic failure it fixes.
-- **T3 is two shadow maps**: one 88 m wide that follows the player and one for the whole island that is redrawn only when the sun moves. Bottles cast tinted light through a colour layer on the near map; this is subtle and was not checked closely.
+- **T3 is two shadow maps**: one 88 m wide that follows the player and one for the whole island that is redrawn only when the sun moves. Bottles cast tinted light through a colour layer on the near map; green and amber patches show on the grass under the bottle tree where it is not already in shade.
 - **T6 is one 56 m tile** plus a rotated detail copy for normals, with no height read-back since nothing floats. The stream-mouth blend is the swell fading out with depth, not a separate blend.
-- **Split view** compares everything on with everything off, not one technique at a time.
+- **Split view compares one technique at a time.** By default it is the main effect of the station you are standing at; the panel or the `,` and `.` keys pick any single technique or everything. The compared technique runs on the left even if its switch is off.
 - **Cost readout** times each pass by forcing the GPU to finish before and after it. T4, T9 and T10 live inside other shaders, so Measure cost gets them by drawing whole frames with each one on and off.
-- **Signposts** are blank boards with one dot per station number; the caption is on screen, not on the board.
+- **Signposts** carry the station name and its technique numbers, drawn from a text atlas made on a 2D canvas at start-up. The longer caption is on screen.
 
-Not built: sound, ambient life, mud at the pool edge, gamepad input, collision with the greenhouse walls.
+Added beyond the plan:
 
-Known rough edges: the upper cave mouth shows a thin see-through sliver beside the tunnel; the greenhouse panes read as milky more than dusty; the bubble colours and beetles are small unless you walk right up to them.
+- **Sound**, all generated in the page: surf, stream, waterfall, wind and a cave rumble are filtered noise whose volume follows where you stand, plus footsteps, wading, pebble splashes and echoing drips in the cave. It starts with the first click or tap. It has only been checked for running without errors and for sensible volumes by position, not listened to.
+- **Ambient life**, animated entirely in the splat vertex shader: fish in the tide pools, the waterfall pool and the sea shallows, gulls circling the shore, butterflies in the clearing.
+- **Gamepad** support (see Controls). Tested with a simulated pad only.
+- **Greenhouse walls stop the player**; the open end is the door.
+- **Automatic quality.** If the frame rate stays under 26 for three seconds, quality steps down one level, and on low the render scale drops once more. It stops as soon as a quality is picked by hand or passed in the URL.
 
-Tested only in headless Chrome on SwiftShader (software rendering): every station at low, medium and high quality, the no-float fallback, the touch layout at phone size in both orientations, and the keyboard and mouse path, all with no shader, WebGL or page errors. Frame rate on a real GPU and on a real phone has not been measured.
+Not built: a gamepad way to use the sundial slider.
+
+Known rough edges: forest beams are soft and show best looking toward the sun; sign text blurs beyond about 15 m; the automatic quality step-down has not been exercised in a test.
+
+Fixed after the first run on a real phone (inside the Claude app's file preview): that frame forbids the gamepad API, and the per-frame gamepad poll threw every frame and filled the screen with error text. The poll is now guarded and turns gamepad support off on the first refusal, and the on-screen error list shows each distinct error once, six at most. That run also showed the page rendering at 60 fps on low quality on that phone.
+
+Tested only in headless Chrome on SwiftShader (software rendering): every station at low, medium and high quality, the no-float fallback, the touch layout at phone size in both orientations, keyboard and mouse, and a simulated gamepad, all with no shader, WebGL or page errors. Frame rate on a real GPU and on a real phone has not been measured.
 
 ## Open questions
 
@@ -243,8 +272,8 @@ Decisions taken for the first version, all easy to change:
 
 - The sun stays at late morning until the sundial (or the `[` and `]` keys) moves it.
 - The lantern lights the scene anywhere once picked up. T1 itself still runs only in and near the cave.
-- No ambient life.
-- No sound.
+- Ambient life is in: fish, gulls and butterflies, all shader-animated so they cost nothing on the CPU.
+- Sound is in, generated in the page, with a switch in the panel and on the N key.
 
 Original questions, kept for reference:
 
