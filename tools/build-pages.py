@@ -1,72 +1,174 @@
-"""Package only the arcade and playable game entry points for GitHub Pages."""
+"""Build the project-relative Pages site from top-level game folders."""
+from html import escape
 from html.parser import HTMLParser
+import json
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+import re
 import shutil
+from urllib.parse import quote, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "work/pages"
-GAMES = ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "sitter", "castle-defense", "broadside", "splatcraft")
-CANONICAL = {game: game + "/" + game + ".html" for game in GAMES}
-LEGACY_GAMES = ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "sitter", "castle-defense")
-LEGACY_ALIASES = [game + "/index.html" for game in LEGACY_GAMES]
-FILES = ["index.html", "arcade.css", "arcade.js", ".nojekyll"] + list(CANONICAL.values())
+EXCLUDED = {"work", "tools", "tests", "assets", "node_modules", "vendor", "build", "dist", "coverage", "references", "snapshots"}
+SKIP_DIRS = EXCLUDED | {".git", "__pycache__", "source", "sources", "research"}
+EXTENSIONS = {".html", ".htm", ".js", ".mjs", ".css", ".json", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".ico", ".mp3", ".ogg", ".wav", ".mp4", ".webm", ".woff", ".woff2", ".ttf", ".otf", ".wasm", ".glb", ".gltf", ".bin"}
+CURATED = {"prism-swarm": "prism", "appalachian-eagle": "eagle", "splat": "splat", "ashgrove": "ashgrove", "sitter": "sitter", "castle-defense": "castle", "broadside": "broadside", "splatcraft": "splatcraft", "dustdevil": "dustdevil"}
 
-class Links(HTMLParser):
+class PageParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.urls = []
+        self.in_title = False
+        self.title = ""
     def handle_starttag(self, tag, attrs):
-        self.urls += [value for key, value in attrs if key in ("href", "src") and value]
+        if tag == "title": self.in_title = True
+        self.urls.extend(value for key, value in attrs if key in ("href", "src") and value)
+    def handle_endtag(self, tag):
+        if tag == "title": self.in_title = False
+    def handle_data(self, data):
+        if self.in_title: self.title += data
 
-def build():
-    # This path is generated and ignored, never a source or deployment destination.
-    assert OUT.resolve() == (ROOT / "work/pages").resolve()
-    OUT.mkdir(parents=True, exist_ok=True)
-    for rel in FILES:
-        source = ROOT / rel
-        if not source.is_file():
-            raise SystemExit("Missing required playable file: " + rel)
-        dest = OUT / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, dest)
-    for game in LEGACY_GAMES:
-        alias = OUT / game / "index.html"
-        alias.parent.mkdir(parents=True, exist_ok=True)
-        canonical_name = Path(CANONICAL[game]).name
-        alias.write_text(
-            "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"0; url="
-            + canonical_name
-            + "\"><title>Moved</title><p>This game moved to <a href=\""
-            + canonical_name
-            + "\">"
-            + canonical_name
-            + "</a>.</p>\n",
-            encoding="utf-8",
-        )
-    assets = ROOT / "assets/arcade"
-    if assets.exists():
-        shutil.copytree(assets, OUT / "assets/arcade", dirs_exist_ok=True)
-    allowed = set(FILES) | set(LEGACY_ALIASES)
-    if assets.exists():
-        allowed.update(p.relative_to(ROOT).as_posix() for p in assets.rglob("*") if p.is_file())
-    unexpected = [p.relative_to(OUT).as_posix() for p in OUT.rglob("*") if p.is_file() and p.relative_to(OUT).as_posix() not in allowed]
-    if unexpected:
-        raise SystemExit("Unexpected files in generated site; use a fresh output directory: " + ", ".join(unexpected))
-    for rel in ["index.html"] + list(CANONICAL.values()) + LEGACY_ALIASES:
-        page = OUT / rel
-        links = Links()
-        links.feed(page.read_text(encoding="utf-8"))
-        for url in links.urls:
+def entry_name(folder):
+    config = folder / "game.json"
+    entry = folder.name + ".html"
+    if config.is_file() and not config.is_symlink():
+        data = json.loads(config.read_text(encoding="utf-8-sig"))
+        if not isinstance(data, dict): raise ValueError(f"Expected a JSON object in {config}")
+        entry = data.get("entry", entry)
+    if not isinstance(entry, str) or Path(entry).name != entry or "\\" in entry or entry.lower() == "index.html" or not entry.lower().endswith(".html"):
+        raise ValueError(f"Invalid game entry in {config}")
+    return entry
+
+def discover(root):
+    games = []
+    for folder in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+        if not folder.is_dir() or folder.is_symlink() or folder.name.startswith(".") or folder.name.lower() in EXCLUDED: continue
+        entry = folder / entry_name(folder)
+        if entry.is_file() and not entry.is_symlink(): games.append(folder)
+    return games
+
+def metadata(folder):
+    parser = PageParser()
+    parser.feed((folder / entry_name(folder)).read_text(encoding="utf-8-sig"))
+    values = {}
+    config = folder / "game.json"
+    if config.exists():
+        if config.is_symlink(): raise ValueError(f"Symlinked metadata is not supported: {config}")
+        values = json.loads(config.read_text(encoding="utf-8-sig"))
+        if not isinstance(values, dict): raise ValueError(f"Expected a JSON object in {config}")
+    def field(name, default):
+        value = values.get(name, default)
+        if not isinstance(value, str) or not value.strip(): raise ValueError(f"{config}: {name} must be a nonempty string")
+        return value.strip()
+    return {"title": field("title", parser.title.strip() or folder.name.replace("-", " ").replace("_", " ").title()),
+            "description": field("description", "A browser game ready to play."),
+            "category": field("category", "Arcade"), "controls": field("controls", "Use the on-screen controls to play"),
+            "requirements": field("requirements", "Browser game")}
+
+def category_slug(value):
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    if not slug: raise ValueError("Game category must contain a letter or number")
+    return slug
+
+def new_card(folder, data, number):
+    e = lambda value: escape(str(value), quote=True)
+    category = category_slug(data["category"])
+    title, desc, controls, req = (e(data[k]) for k in ("title", "description", "controls", "requirements"))
+    game_id = "game:" + folder.name
+    search = " ".join([folder.name, *data.values()]).lower()
+    href = quote(folder.name, safe="") + "/" + quote(entry_name(folder), safe="")
+    return (f'<article class="game-card" data-id="{e(game_id)}" data-category="{e(category)}" data-search="{e(search)}">'
+            f'<a class="card-link play-link" data-game="{e(game_id)}" href="{href}">'
+            f'<div class="card-art art-generated"><span class="art-index">{number:02} / {e(data["category"].upper())}</span>'
+            '<span class="generated-symbol" aria-hidden="true">✳</span><span class="art-caption">READY TO PLAY ↗</span></div>'
+            f'<div class="card-top"><span class="category">{e(data["category"].upper())}</span><span class="arrow" aria-hidden="true">↗</span></div>'
+            f'<h3>{title}</h3><p>{desc}</p></a><p class="details">{controls}<br><span>{req}</span></p></article>')
+
+def runtime_files(folder):
+    for path in sorted(folder.rglob("*")):
+        rel = path.relative_to(folder)
+        if any(part.startswith(".") or part.lower() in SKIP_DIRS for part in rel.parts): continue
+        if path.is_symlink() or not path.is_file(): continue
+        if path.suffix.lower() in EXTENSIONS and path.name.lower() != "game.json": yield path
+
+def build(root=ROOT):
+    root = Path(root).resolve()
+    out = root / "work" / "pages"
+    if out.is_symlink() or (root / "work").is_symlink() or out.resolve() != root / "work" / "pages":
+        raise ValueError("Refusing to replace an output outside the generated work/pages directory")
+    games = discover(root)
+    if not games: raise ValueError("No game folders with a named HTML entry found")
+    source = (root / "index.html").read_text(encoding="utf-8-sig")
+    articles = re.findall(r'<article class="game-card".*?</article>', source, flags=re.S)
+    # A hand-authored card is recognized by its actual link, not a hardcoded ID.
+    by_path = {(g.name, entry_name(g)): g for g in games}
+    curated_cards = {}
+    for article in articles:
+        parser = PageParser()
+        parser.feed(article)
+        for url in parser.urls:
             parts = urlsplit(url)
-            if parts.scheme or parts.netloc or not parts.path:
-                continue
-            if parts.path.startswith("/"):
-                raise SystemExit("Project-site link must be relative: " + url)
+            path_parts = unquote(parts.path).split("/")
+            if not parts.scheme and not parts.netloc and len(path_parts) == 2 and tuple(path_parts) in by_path:
+                game = by_path[tuple(path_parts)]
+                if game.name in curated_cards: raise ValueError(f"Duplicate lobby card for {game.name}")
+                curated_cards[game.name] = article
+                break
+    ordered = [next(g for g in games if g.name == name) for name in curated_cards]
+    ordered += [g for g in games if g.name not in curated_cards]
+    categories = {"action": "Action", "explore": "Explore", "creative": "Creative", "strategy": "Strategy"}
+    cards = []
+    for game in ordered:
+        if game.name in curated_cards:
+            cards.append(curated_cards[game.name])
+        else:
+            data = metadata(game)
+            slug = category_slug(data["category"])
+            if slug in categories and categories[slug].lower() != data["category"].lower():
+                raise ValueError(f"Conflicting category names for {slug}")
+            categories[slug] = data["category"]
+            cards.append(new_card(game, data, len(cards) + 1))
+    used = {re.search(r'data-category="([^"]+)"', c).group(1) for c in cards}
+    filters = [f'<button class="filter active" type="button" data-filter="all" aria-pressed="true">All games <span>{len(cards):02}</span></button>']
+    filters += [f'<button class="filter" type="button" data-filter="{escape(slug, quote=True)}" aria-pressed="false">{escape(label)}</button>' for slug, label in categories.items() if slug in used]
+    source = re.sub(r'(<div class="filters" role="group" aria-label="Filter games by category">).*?(</div><label class="search">)', lambda m: m.group(1) + ''.join(filters) + m.group(2), source, count=1, flags=re.S)
+    source = re.sub(r'(<div class="game-grid" id="game-grid">).*?(</div><div id="empty-state")', lambda m: m.group(1) + '\n' + '\n'.join(cards) + '\n    ' + m.group(2), source, count=1, flags=re.S)
+    source = re.sub(r'SHOWING ALL \d+ GAMES', f'SHOWING ALL {len(cards):02} {"GAME" if len(cards) == 1 else "GAMES"}', source)
+    source = re.sub(r'\b(?:Six|Eight|Nine|Ten) different ways to get lost for a little while\.', 'Find a new way to get lost for a little while.', source)
+    source = re.sub(r'FEATURED GAME <span class="feature-number">01 / \d+</span>', f'FEATURED GAME <span class="feature-number">01 / {len(cards):02}</span>', source)
+    source = re.sub(r'content="Explore (?:six|eight|nine|ten) free browser games from GrapeGames\."', f'content="Explore {len(cards)} free browser games from GrapeGames."', source)
+    if out.exists(): shutil.rmtree(out)
+    out.mkdir(parents=True)
+    (out / "index.html").write_text(source, encoding="utf-8")
+    for name in ("arcade.css", "arcade.js", ".nojekyll"):
+        shutil.copyfile(root / name, out / name)
+    for game in games:
+        for item in runtime_files(game):
+            dest = out / item.relative_to(root)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(item, dest)
+    # Shared assets are optional and follow the same safe runtime allowlist.
+    assets = root / "assets"
+    if assets.is_dir() and not assets.is_symlink():
+        for item in runtime_files(assets):
+            dest = out / item.relative_to(root)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(item, dest)
+    for game in games:
+        if game.name in ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "sitter", "castle-defense"):
+            target = quote(entry_name(game), safe="")
+            (out / game.name / "index.html").write_text(f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url={target}"><title>Moved</title><p>This game moved to <a href="{target}">{escape(entry_name(game))}</a>.</p>', encoding="utf-8")
+    for rel in [Path("index.html")] + [Path(game.name) / entry_name(game) for game in games]:
+        page = out / rel
+        parser = PageParser()
+        parser.feed(page.read_text(encoding="utf-8-sig"))
+        for url in parser.urls:
+            parts = urlsplit(url)
+            if parts.scheme or parts.netloc or not parts.path: continue
+            if parts.path.startswith("/"): raise ValueError(f"Project-site link must be relative in {rel}: {url}")
             target = (page.parent / unquote(parts.path)).resolve()
-            if not target.is_relative_to(OUT.resolve()) or not target.exists():
-                raise SystemExit("Broken local link in " + rel + ": " + url)
-    print("Packaged eight games and arcade with six legacy aliases; all local HTML links resolve.")
+            if not target.is_relative_to(out.resolve()) or not target.exists(): raise ValueError(f"Broken local link in {rel}: {url}")
+    print(f"Packaged {len(games)} games and arcade; all local HTML links resolve.")
+    return out
 
 if __name__ == "__main__":
     build()

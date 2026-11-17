@@ -25,6 +25,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Check lobby JavaScript
         run: node --check arcade.js
+      - name: Test Pages packaging
+        run: python3 -m unittest discover -s tools -p 'test_build_pages.py'
       - name: Prepare playable site
         run: python3 tools/build-pages.py
       - name: Configure Pages
