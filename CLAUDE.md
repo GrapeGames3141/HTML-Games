@@ -20,7 +20,6 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Spearfish | `spearfish\spearfish.html` | none yet |
 | First Light | `firstlight\firstlight.html` | none yet |
 | Ridiculous Wars | `ridiculous-wars\ridiculous-wars.html` | none yet |
-| 3D Print Arena | `print-arena\print-arena.html` (launcher; game source is the 3DPrintBattles repository) | none yet |
 
 `experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks. `experiments\demo\demo.html` is the rendering-technique demo (a walk from a beach to a cave, test API `window.DEMO`); its plan and build notes are in `experiments\demo\plan.md`.
 
