@@ -89,6 +89,20 @@ def runtime_files(folder):
         if path.is_symlink() or not path.is_file(): continue
         if path.suffix.lower() in EXTENSIONS and path.name.lower() != "game.json": yield path
 
+def inject_quick_hide(html, runtime, game=""):
+    if "arcade-quick-hide-injected" in html:
+        raise ValueError("Quick hide is already present in a source page")
+    if re.search(r"</script", runtime, flags=re.I):
+        raise ValueError("Quick hide runtime must not contain a closing script tag")
+    name = json.dumps(game, ensure_ascii=True).replace("<", "\\u003c")
+    injection = f'<meta charset="utf-8"><script id="arcade-quick-hide-injected">window.__arcadeQuickHideGame={name};\n{runtime}\n</script>'
+    head = re.search(r"<head(?:\s[^>]*)?>", html, flags=re.I)
+    if head:
+        return html[:head.end()] + "\n" + injection + html[head.end():]
+    doctype = re.match(r"\s*<!doctype[^>]*>", html, flags=re.I)
+    offset = doctype.end() if doctype else 0
+    return html[:offset] + "\n<head>" + injection + "</head>\n" + html[offset:]
+
 def build(root=ROOT):
     root = Path(root).resolve()
     out = root / "work" / "pages"
@@ -96,6 +110,7 @@ def build(root=ROOT):
         raise ValueError("Refusing to replace an output outside the generated work/pages directory")
     games = discover(root)
     if not games: raise ValueError("No game folders with a named HTML entry found")
+    runtime = (root / "assets/arcade/quick-hide.js").read_text(encoding="utf-8-sig")
     source = (root / "index.html").read_text(encoding="utf-8-sig")
     articles = re.findall(r'<article class="game-card".*?</article>', source, flags=re.S)
     # A hand-authored card is recognized by its actual link, not a hardcoded ID.
@@ -138,7 +153,7 @@ def build(root=ROOT):
     source = re.sub(r'content="Explore (?:six|eight|nine|ten) free browser games from GrapeGames\."', f'content="Explore {len(cards)} free browser games from GrapeGames."', source)
     if out.exists(): shutil.rmtree(out)
     out.mkdir(parents=True)
-    (out / "index.html").write_text(source, encoding="utf-8")
+    (out / "index.html").write_text(inject_quick_hide(source, runtime), encoding="utf-8")
     for name in ("arcade.css", "arcade.js", ".nojekyll"):
         shutil.copyfile(root / name, out / name)
     for game in games:
@@ -153,6 +168,10 @@ def build(root=ROOT):
             dest = out / item.relative_to(root)
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(item, dest)
+    for game in games:
+        page = out / game.name / entry_name(game)
+        html = page.read_text(encoding="utf-8-sig")
+        page.write_text(inject_quick_hide(html, runtime, game.name), encoding="utf-8")
     for game in games:
         if game.name in ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "castle-defense"):
             target = quote(entry_name(game), safe="")

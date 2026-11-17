@@ -24,7 +24,9 @@ jobs:
       - name: Check out the games
         uses: actions/checkout@v4
       - name: Check lobby JavaScript
-        run: node --check arcade.js
+        run: |
+          node --check arcade.js
+          node --check assets/arcade/quick-hide.js
       - name: Test Pages packaging
         run: python3 -m unittest discover -s tools -p 'test_build_pages.py'
       - name: Prepare playable site
