@@ -26,7 +26,7 @@ Development prototypes live under [`experiments/`](experiments/), outside the ar
 
 The root `index.html` is the GrapeGames Arcade: a screenshot-led hero and card shelf for playable games, with search, category filters, two random-game controls, and a last-played marker. Approved production art lives in `assets/arcade/`; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
 
-Castle Defense / Bastion of the Four Roads was copied unchanged from `GrapeGames3141/castle-defense`, commit `37444662367c43e09db5d56691162bccb66ef9fc`. Its existing Tailwind CDN reference is retained.
+Castle Defense / Bastion of the Four Roads is based on `GrapeGames3141/castle-defense`, commit `2480ed22ce1cdec2e023daae1a6b2cf7b19d3d67`. The arcade retains its phone landscape HUD adjustment and the upstream Tailwind CDN reference.
 
 ### GitHub Pages
 
