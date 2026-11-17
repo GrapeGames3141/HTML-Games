@@ -8,13 +8,29 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 
 | Source game | Source file | Drive release copy |
 | --- | --- | --- |
-| Prism Swarm | `prism-swarm\index.html` | `aliens.html` |
-| Sitter | `sitter\index.html` | `human.html` |
-| Appalachian Eagle | `appalachian-eagle\index.html` | `eagle.html` |
-| Splat | `splat\index.html` | `bughunt.html` |
-| Ashgrove | `ashgrove\index.html` | `horror.html` |
+| Prism Swarm | `prism-swarm\prism-swarm.html` | `aliens.html` |
+| Sitter | `sitter\sitter.html` | `human.html` |
+| Appalachian Eagle | `appalachian-eagle\appalachian-eagle.html` | `eagle.html` |
+| Splat | `splat\splat.html` | `bughunt.html` |
+| Ashgrove | `ashgrove\ashgrove.html` | `horror.html` |
+| Splatcraft | `splatcraft\splatcraft.html` | none yet |
+| Broadside | `broadside\broadside.html` | none yet |
 
-Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source `index.html` to the mapped release name, then verify both byte length and SHA-256. Preserve the source name `index.html` in every game directory.
+Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source file to the mapped release name, then verify both byte length and SHA-256. Each game's source file is named after its folder, `<game>\<game>.html`; keep that name and do not add an `index.html`.
+
+## Guides
+
+Technique guides live as Markdown in this root folder. Read the matching guide instead of reverse-engineering another game, and add new findings to it when you learn something reusable.
+
+- `SPLAT-GUIDE.md`: Gaussian-splat renderer, splat generation, water, particles, performance budgets, and the headless test setup (Playwright + SwiftShader, `?test` hooks).
+
+## New games
+
+- Every new game gets its own folder: `E:\html games\<game>\`, with a short, meaningful folder name.
+- Name the main file meaningfully, never `index.html`. The default is the folder name: `<game>\<game>.html`.
+- Add the new game to the table above (and to the root `README.md`) in the first commit.
+- New games are root-owned. Never initialize a child repository for one.
+- Commit as you go: check in at each working milestone (first playable scaffold, each feature that works, each fix) rather than one large commit at the end, and push `main` to origin after each check-in.
 
 ## Iteration workflow
 
@@ -37,10 +53,10 @@ Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish o
 
    ```powershell
    python -m http.server 8000 --bind 127.0.0.1 --directory 'E:\html games'
-   # Then open http://127.0.0.1:8000/splat/ for E:\html games\splat\index.html.
+   # Then open http://127.0.0.1:8000/splat/splat.html for E:\html games\splat\splat.html.
    ```
 
-   For every Appalachian Eagle `index.html` edit, also run:
+   For every Appalachian Eagle `appalachian-eagle.html` edit, also run:
 
    ```powershell
    node 'E:\html games\appalachian-eagle\tools\update-size.cjs'
@@ -51,25 +67,25 @@ Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish o
    For a root-owned game:
 
    ```powershell
-   git -C 'E:\html games' add -- '<game>\index.html'
+   git -C 'E:\html games' add -- '<game>\<game>.html'
    git -C 'E:\html games' diff --cached --check
-   git -C 'E:\html games' commit --only -m 'Improve <game> <feature>' -- '<game>\index.html'
+   git -C 'E:\html games' commit --only -m 'Improve <game> <feature>' -- '<game>\<game>.html'
    ```
 
    On this machine, if `appalachian-eagle` or `prism-swarm` has a retained child repository (confirmed by step 1), commit it first, then capture the actual source file in the root repository:
 
    ```powershell
-   git -C 'E:\html games\<game>' add -- 'index.html'
+   git -C 'E:\html games\<game>' add -- '<game>.html'
    git -C 'E:\html games\<game>' diff --cached --check
-   git -C 'E:\html games\<game>' commit --only -m 'Improve <feature>' -- 'index.html'
-   git -C 'E:\html games' add -- '<game>\index.html'
+   git -C 'E:\html games\<game>' commit --only -m 'Improve <feature>' -- '<game>.html'
+   git -C 'E:\html games' add -- '<game>\<game>.html'
    git -C 'E:\html games' diff --cached --check
-   git -C 'E:\html games' commit --only -m 'Update <game> source' -- '<game>\index.html'
+   git -C 'E:\html games' commit --only -m 'Update <game> source' -- '<game>\<game>.html'
    ```
 
    Replace `<game>` and paths with the actual target. Never use `git submodule` commands or stage a Git link. In a fresh clone, skip the child-commit block and use the root-owned command block for every game. Check `git diff --cached --name-only` before every commit so only intended paths are included.
 
-5. Report the changed files, validation performed, local child and root commit hashes where applicable, and remaining modified or staged files. Do not push or sync to Drive unless asked. When the user explicitly requests a push, push only the validated root branch:
+5. Push after each check-in so work is backed up off this machine as it progresses; on longer tasks, commit and push at each working milestone rather than once at the end. Push only the validated root branch. Do not sync to Drive unless asked. Report the changed files, validation performed, local child and root commit hashes where applicable, and remaining modified or staged files.
 
    ```powershell
    git -C 'E:\html games' push origin main

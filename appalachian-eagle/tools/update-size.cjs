@@ -1,10 +1,10 @@
 const fs=require('fs'),path=require('path');
-const file=path.resolve(__dirname,'..','index.html'),check=process.argv.includes('--check'),text=fs.readFileSync(file,'utf8');
-if(text.includes('\r'))throw Error('index.html must use LF line endings for its byte stamp');
+const file=path.resolve(__dirname,'..','appalachian-eagle.html'),check=process.argv.includes('--check'),text=fs.readFileSync(file,'utf8');
+if(text.includes('\r'))throw Error('appalachian-eagle.html must use LF line endings for its byte stamp');
 const mark=/const FILE_BYTES='(\d{6})';/,found=text.match(mark);
 if(!found)throw Error('FILE_BYTES stamp not found');
 const bytes=Buffer.byteLength(text,'utf8'),size=String(bytes).padStart(6,'0');
-if(size.length!==6||bytes>73*1024)throw Error('index.html exceeds the 73 KB source budget');
+if(size.length!==6||bytes>73*1024)throw Error('appalachian-eagle.html exceeds the 73 KB source budget');
 const next=text.replace(mark,`const FILE_BYTES='${size}';`);
 if(check&&Number(found[1])!==bytes)throw Error(`stale stamp: ${found[1]} != ${bytes}`);
 if(!check&&next!==text)fs.writeFileSync(file,next,'utf8');
