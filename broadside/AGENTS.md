@@ -19,7 +19,8 @@ Sections are marked by `/* ===` banners, in this order:
 - Flooding: `FLOOD_K`, `CAP`, `FOUNDER_W`, the pump rate and carpenter plug rate in `Ship.flood`, and the lower-port leak area.
 - Enemy difficulty: `spawnEnemy` (aim error, reload, spread, rising with each win) and the `aiGunnery` fire range.
 - Sailing: `VMAX`, the wind polar in `Ship.update`, and the no-go angle in `helm`.
-- Manoeuvring (only while the rudder is undamaged): in `helm`, the range goal drifts every 22–40 s, there's an occasional ±16° bias to bear up or away, and a gentle ±9° weave on a 28–40 s period.
+- Navigation: `Ship.plan` picks the course twice a second. It scores every sailable heading (10° steps) by projecting both ships ahead over `PLAN_T` seconds (own turn arc, then a straight run at that heading's `windFactor` speed; the opponent holding her course). Cost terms, in the inner loop: range error against `rangeGoal`, guns not bearing (opponent more than 14° off the beam), a gunless side facing the enemy, closing inside 75 m, and straying beyond about 450 m from the origin (the islands start near 1 km). Both ships run it, so check changes with a no-gunfire run: they should close from the 380 m spawn in about 90 s, then hold 110–160 m with a broadside bearing over half the time, and stay inside roughly 950 m of the origin.
+- Manoeuvring (only while the rudder is undamaged): in `helm`, the range goal drifts every 22–40 s (0.7–1.15 × `range`), there's an occasional ±10° bias to bear up or away, and a gentle ±6° weave on a 28–40 s period. These are added on top of the planned course.
 
 ## Testing
 
