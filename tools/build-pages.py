@@ -150,7 +150,7 @@ def build(root=ROOT):
     source = re.sub(r'(GRAPEGAMES ARCADE · )\d+ PLAYABLE WORLDS', lambda m: f'{m.group(1)}{len(cards):02} PLAYABLE WORLDS', source)
     source = re.sub(r'\b(?:Six|Eight|Nine|Ten) different ways to get lost for a little while\.', 'Find a new way to get lost for a little while.', source)
     source = re.sub(r'FEATURED GAME <span class="feature-number">01 / \d+</span>', f'FEATURED GAME <span class="feature-number">01 / {len(cards):02}</span>', source)
-    source = re.sub(r'content="Explore (?:six|eight|nine|ten) free browser games from GrapeGames\."', f'content="Explore {len(cards)} free browser games from GrapeGames."', source)
+    source = re.sub(r'content="Explore (?:\d+|six|eight|nine|ten|eleven) free browser games from GrapeGames\."', f'content="Explore {len(cards)} free browser games from GrapeGames."', source)
     if out.exists(): shutil.rmtree(out)
     out.mkdir(parents=True)
     (out / "index.html").write_text(inject_quick_hide(source, runtime), encoding="utf-8")

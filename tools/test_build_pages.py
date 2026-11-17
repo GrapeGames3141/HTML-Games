@@ -45,6 +45,7 @@ class PagesTests(unittest.TestCase):
         self.assertIn('data-filter="puzzle"', lobby)
         self.assertIn('SHOWING ALL 10 GAMES', lobby)
         self.assertIn('10 PLAYABLE WORLDS', lobby)
+        self.assertIn('content="Explore 10 free browser games from GrapeGames."', lobby)
         self.assertNotIn('Not an arcade game', lobby)
         self.assertTrue((out / 'future fields/nested/game.js').exists())
         self.assertTrue((out / 'future fields/nested/art.png').exists())
