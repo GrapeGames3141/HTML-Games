@@ -37,6 +37,24 @@ td{padding:3px 18px 3px 0}
 #dMedal{font-size:22px;letter-spacing:4px;margin:10px 0}
 .ok{color:#9dff9a}.bad{color:#ff8a70}
 @media (max-width:700px){.cols{flex-direction:column}h1{font-size:36px}}
+/* touch devices only: body.touch is set from JS when the primary pointer is coarse */
+body.touch .panel{padding:16px 18px;width:calc(100% - 20px);max-height:calc(100% - 20px)}
+body.touch .mis{flex-wrap:wrap;gap:4px 12px}
+body.touch .mis b{min-width:0;flex:1}
+body.touch .mis span{flex:1 0 100%;order:3}
+body.touch button{padding:12px 18px}
+@media (max-height:500px){body.touch #bMap{width:150px;height:212px}body.touch h1{font-size:30px;letter-spacing:6px}body.touch .sub{margin-bottom:10px}}
+#tc{position:absolute;inset:0;display:none;touch-action:none}
+#tc button{position:absolute;margin:0;padding:0;border-radius:50%;background:rgba(20,30,16,.45);border:1px solid rgba(157,255,138,.55);color:#9dff8a;font:700 11px Consolas,monospace;letter-spacing:1px;touch-action:none;-webkit-tap-highlight-color:transparent}
+#tc button.on,#tc button:active{background:rgba(157,255,138,.35);color:#fff}
+#tc #tcPause{left:50%;top:30px;width:36px;height:26px;margin-left:-18px;border-radius:4px}
+#tcBtns{position:absolute;right:14px;bottom:18px;width:160px;height:160px}
+#tc #tcRkt{right:0;bottom:0;width:86px;height:86px;font-size:14px;border-color:#ffc85a;color:#ffc85a}
+#tcFlr{right:96px;bottom:6px;width:60px;height:60px}
+#tcBoost{right:6px;bottom:96px;width:60px;height:60px}
+#tcBrake{right:80px;bottom:80px;width:60px;height:60px}
+#tcStick{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(157,255,138,.4);display:none}
+#tcStick i{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;border-radius:50%;background:rgba(157,255,138,.35)}
 </style>
 </head>
 <body>
@@ -399,6 +417,7 @@ let ents=[],projs=[],decoys=[],fx=[],stats={};
 const P={};
 const cam={pos:[0,50,-50],tgt:[0,0,0],F:[0,0,1],R:[-1,0,0],U:[0,1,0],fov:1.1,shake:0};
 const KEY={}, MS={x:innerWidth/2,y:innerHeight*.45,b0:false,b2:false};
+const TOUCH=matchMedia('(pointer:coarse)').matches, TC={x:0,y:0};   // phone or tablet: on-screen stick (TC) and buttons
 
 function resetPlayer(){
   const L=LV;
@@ -711,7 +730,7 @@ function updatePlayer(dt){
     orientHeli(dt,railPos(P.s));return;}
   let ix=0,iy=0,boost=false,brake=false;
   const landing=G.ending&&G.ending.ok,ctl=!demo&&G.t>2.4&&!landing;
-  if(ctl){ix=(KEY.KeyD||KEY.ArrowRight?1:0)-(KEY.KeyA||KEY.ArrowLeft?1:0);iy=(KEY.KeyW||KEY.ArrowUp?1:0)-(KEY.KeyS||KEY.ArrowDown?1:0);boost=!!KEY.Space;brake=!!(KEY.ShiftLeft||KEY.ShiftRight);}
+  if(ctl){ix=(KEY.KeyD||KEY.ArrowRight?1:0)-(KEY.KeyA||KEY.ArrowLeft?1:0);iy=(KEY.KeyW||KEY.ArrowUp?1:0)-(KEY.KeyS||KEY.ArrowDown?1:0);boost=!!KEY.Space;brake=!!(KEY.ShiftLeft||KEY.ShiftRight);if(TOUCH){ix=clamp(ix+TC.x,-1,1);iy=clamp(iy+TC.y,-1,1);}}
   if(demo){G.demoT+=dt;ix=Math.sin(G.demoT*.35)*.55;iy=Math.sin(G.demoT*.23)*.5;}
   P.vx+=(ix*42-P.vx)*Math.min(1,dt*2.6);P.vy+=(iy*26-P.vy)*Math.min(1,dt*2.6);
   if(landing){P.vx=-P.ox*1.2;const tgtOy=groundY(P.pos[0],P.pos[2])+1.95*HS-railY(P.s);P.vy=clamp((tgtOy-P.oy)*.9,-12,6);}
@@ -1009,35 +1028,45 @@ function drawHUD(){
   // gun pipper: where the nose points
   const nose=toScreen(madd(P.pos,P.F,200));if(nose){hx.strokeStyle=HCd;hx.beginPath();hx.moveTo(nose[0]-10,nose[1]);hx.lineTo(nose[0]-4,nose[1]);hx.moveTo(nose[0]+4,nose[1]);hx.lineTo(nose[0]+10,nose[1]);hx.moveTo(nose[0],nose[1]+4);hx.lineTo(nose[0],nose[1]+9);hx.stroke();}
   // left panel
-  const x0=18;let y=26;txt('ARMOR',x0,y,HC,'left',12);bar(x0+58,y-11,150,12,P.armor/100,P.armor<30?RED:HC);txt(Math.round(P.armor),x0+214,y,HC,'left',12);
+  const TY=TOUCH?34:0,NAR=TOUCH&&W<560;   // phones: panels drop below the progress bar; portrait stacks them
+  const x0=18;let y=26+TY;txt('ARMOR',x0,y,HC,'left',12);bar(x0+58,y-11,150,12,P.armor/100,P.armor<30?RED:HC);txt(Math.round(P.armor),x0+214,y,HC,'left',12);
   y+=20;txt('GUN',x0,y,HC,'left',12);bar(x0+58,y-11,150,12,P.heat,P.overheat?RED:P.heat>.7?AMB:HC);if(P.overheat)txt('HOT',x0+214,y,RED,'left',12,'bold');
   y+=20;txt('RKT',x0,y,HC,'left',12);txt(String(P.rockets).padStart(2,'0'),x0+58,y,P.rockets<6?AMB:HC,'left',14,'bold');
   txt('FLR',x0+110,y,HC,'left',12);txt(String(P.flares),x0+150,y,P.flares<2?AMB:HC,'left',14,'bold');
   y+=20;txt('SCORE '+G.score,x0,y,HC,'left',12);
   // objectives
-  let oy=26;txt(LV.code,W-18,oy,AMB,'right',12,'bold');oy+=6;
+  let oy=NAR?y+14:26+TY;txt(LV.code,W-18,oy,AMB,'right',12,'bold');oy+=6;
   for(const o of G.obj){oy+=18;const mk=o.state==='done'?'■':o.state==='failed'?'×':'□';const col=o.state==='done'?'#9dff8a':o.state==='failed'?RED:o.primary?AMB:'#d9c890';
     const prog=o.count&&o.state==='open'&&o.kind!=='collapse'?` ${o.n||0}/${o.count}`:'';txt(`${mk} ${o.text}${prog}`,W-18,oy,col,'right',12);}
   // progress bar
-  const pw=Math.min(420,W*.4),px0=W/2-pw/2,py=22;hx.strokeStyle=HCd;hx.beginPath();hx.moveTo(px0,py);hx.lineTo(px0+pw,py);hx.stroke();
+  const pw=NAR?W-150:Math.min(420,W*.4),px0=W/2-pw/2,py=22;hx.strokeStyle=HCd;hx.beginPath();hx.moveTo(px0,py);hx.lineTo(px0+pw,py);hx.stroke();
   txt('INGRESS',px0-6,py+4,HC,'right',10);txt('EGRESS',px0+pw+6,py+4,'#7aff9a','left',10);
   for(const o of G.obj){const tg=o.tag?G.all.filter(e=>e.tags.includes(o.tag)&&e.railS!=null):[];for(const e of tg){const fx_=px0+pw*clamp(e.railS/rail.len,0,1);hx.fillStyle=o.state==='done'?'#9dff8a':o.state==='failed'?RED:o.primary?AMB:'#b0a070';hx.fillRect(fx_-1.5,py-4,3,8);}}
   if(G.hover){const hx_=px0+pw*G.hover.s/rail.len;hx.strokeStyle='#ff9a3a';hx.strokeRect(hx_-4,py-4,8,8);}
   const pp=px0+pw*clamp(P.s/rail.len,0,1);hx.fillStyle=HC;hx.beginPath();hx.moveTo(pp,py-2);hx.lineTo(pp-5,py-10);hx.lineTo(pp+5,py-10);hx.closePath();hx.fill();
   // speed / alt
-  const agl=Math.max(0,P.pos[1]-groundY(P.pos[0],P.pos[2]));txt(`${Math.round(P.spd*1.94)} KT`,W/2-140,H-60,HC,'right',14);txt(`${Math.round(agl*3.28)} FT`,W/2+140,H-60,HC,'left',14);
-  if(KEY.ShiftLeft||KEY.ShiftRight)txt('BRAKE',W/2-140,H-42,AMB,'right',11);if(KEY.Space)txt('BOOST',W/2-140,H-42,AMB,'right',11);
+  const agl=Math.max(0,P.pos[1]-groundY(P.pos[0],P.pos[2]));const sdx=TOUCH?30:140,sdy=TOUCH?48:H-60;txt(`${Math.round(P.spd*1.94)} KT`,W/2-sdx,sdy,HC,'right',14);txt(`${Math.round(agl*3.28)} FT`,W/2+sdx,sdy,HC,'left',14);
+  if(TOUCH)$('tcBrake').classList.toggle('on',!!KEY.ShiftLeft);
+  else{if(KEY.ShiftLeft||KEY.ShiftRight)txt('BRAKE',W/2-140,H-42,AMB,'right',11);if(KEY.Space)txt('BOOST',W/2-140,H-42,AMB,'right',11);}
   // warnings
   if(G.missileWarn>0&&Math.sin(G.t*14)>-.3)txt('MISSILE',W/2,H*.3,RED,'center',26,'bold');
   else if(G.lockWarn>0&&Math.sin(G.t*10)>0)txt('SAM LOCK',W/2,H*.3,AMB,'center',20,'bold');
   if(agl<6&&G.t>3&&!P.dead&&!(G.ending&&G.ending.ok))txt('LOW',W/2,H*.62,AMB,'center',16,'bold');
   if(P.hurtDir){const a=P.hurtDir.a;hx.strokeStyle=`rgba(255,80,50,${P.hurtDir.t})`;hx.lineWidth=5;hx.beginPath();hx.arc(W/2,H/2,Math.min(W,H)*.3,a-Math.PI/2-.25,a-Math.PI/2+.25);hx.stroke();hx.lineWidth=1.5;}
   // hover LZ
-  if(G.hover&&G.hover.on&&!G.hover.done){txt('HOVER: LZ',W/2,H*.2,'#ff9a3a','center',16,'bold');txt(`Drop low near the crew · ${P.aboard}/2 aboard`,W/2,H*.2+20,'#ffcf9a','center',13);
-    const bd=ents.find(e=>e.kind==='survivor'&&e.state==='run'&&e.bt>0);if(bd){txt('BOARDING — HOLD LOW',W/2,H*.2+40,'#ffcf9a','center',13,'bold');bar(W/2-60,H*.2+48,120,10,bd.bt/1.5,'#ff9a3a');}}
+  const hy=TOUCH?(NAR?H*.47:H*.36):H*.2;
+  if(G.hover&&G.hover.on&&!G.hover.done){txt('HOVER: LZ',W/2,hy,'#ff9a3a','center',16,'bold');txt(`Drop low near the crew · ${P.aboard}/2 aboard`,W/2,hy+20,'#ffcf9a','center',13);
+    const bd=ents.find(e=>e.kind==='survivor'&&e.state==='run'&&e.bt>0);if(bd){txt('BOARDING — HOLD LOW',W/2,hy+40,'#ffcf9a','center',13,'bold');bar(W/2-60,hy+48,120,10,bd.bt/1.5,'#ff9a3a');}}
   if(G.t<3&&!G.ending)txt('LIFTING OFF',W/2,H*.4,HC,'center',18,'bold');
   // radio
-  const r=G.radio.cur;if(r){const n=Math.floor(G.radio.t*55);const s=r.text.slice(0,n);const bw=Math.min(620,W-40);const bx=W/2-bw/2,by=H-150;
+  const r=G.radio.cur;
+  if(r&&TOUCH){   // phones: word-wrapped box, bottom centre in landscape, under the panels in portrait
+    const n=Math.floor(G.radio.t*55),bw=NAR?W-40:Math.min(620,W-340),mc=Math.max(12,Math.floor((bw-20)/7.2)),ls=[''];
+    for(const w of r.text.split(' ')){const l=ls[ls.length-1];if(l&&l.length+1+w.length>mc)ls.push(w);else ls[ls.length-1]=l?l+' '+w:w;}
+    const bh=28+16*ls.length,bx=W/2-bw/2,by=NAR?H*.33:H-12-bh;
+    hx.fillStyle='rgba(10,14,8,.6)';hx.fillRect(bx,by,bw,bh);hx.strokeStyle=HCd;hx.strokeRect(bx,by,bw,bh);txt(r.who,bx+10,by+16,AMB,'left',11,'bold');
+    let left=n;ls.forEach((l,i)=>{if(left>0)txt(l.slice(0,left),bx+10,by+34+16*i,'#e8ffd8','left',13);left-=l.length+1;});}
+  else if(r){const n=Math.floor(G.radio.t*55);const s=r.text.slice(0,n);const bw=Math.min(620,W-40);const bx=W/2-bw/2,by=H-150;
     hx.fillStyle='rgba(10,14,8,.6)';hx.fillRect(bx,by,bw,44);hx.strokeStyle=HCd;hx.strokeRect(bx,by,bw,44);txt(r.who,bx+10,by+16,AMB,'left',11,'bold');txt(s,bx+10,by+34,'#e8ffd8','left',13);}
   if(G.ending&&!G.ending.ok&&G.ending.t>.5)txt('MISSION FAILED',W/2,H*.42,RED,'center',30,'bold');
   if(G.ending&&G.ending.ok&&G.ending.t>.5)txt('MISSION COMPLETE',W/2,H*.42,'#9dff8a','center',30,'bold');
@@ -1069,7 +1098,7 @@ function sfx(k,pos,vol=1){const c=AU.c;if(!c||TEST)return;let v=vol;if(pos){cons
 
 /* ============================================================ SCREENS & FLOW */
 const $=id=>document.getElementById(id);
-function show(id){for(const s of ['menu','brief','pause','debrief'])$(s).classList.toggle('on',s===id);document.body.style.cursor=id?'default':'none';}
+function show(id){for(const s of ['menu','brief','pause','debrief'])$(s).classList.toggle('on',s===id);document.body.style.cursor=id?'default':'none';if(TOUCH&&$('tc'))$('tc').style.display=id?'none':'block';}
 function loadSave(){try{return JSON.parse(localStorage.getItem('dustdevil.save')||'{}');}catch(e){return {};}}
 function storeSave(s){try{localStorage.setItem('dustdevil.save',JSON.stringify(s));}catch(e){}}
 function buildMenu(){const sv=loadSave();const un=sv.unlocked||1;const box=$('missions');box.innerHTML='';
@@ -1090,7 +1119,7 @@ function drawMap(){const c=$('bMap'),x=c.getContext('2d');const w=c.width,h=c.he
   x.font='10px Consolas';x.fillStyle='#9dff8a';x.fillText('INGRESS',X(rail.xs[0])+6,Y(rail.zs[0]));x.fillText('EGRESS',X(rail.xs[rail.n-1])+6,Y(rail.zs[rail.n-1])+4);
   if(LV.hover){const p=railPos(LV.hover.s);x.strokeStyle='#ff8a30';x.strokeRect(X(p.x)-5,Y(p.z)-5,10,10);}
   x.fillStyle='#cbb58a';x.fillText('N ↑',w-26,14);}
-function beginPlay(){G.state='play';G.t=0;resetPlayer();updatePlayer(DT);snapCamera();show(null);auInit();}
+function beginPlay(){if(TOUCH){MS.x=innerWidth/2;MS.y=innerHeight*.45;MS.b0=MS.b2=false;TC.x=TC.y=0;KEY.ShiftLeft=false;}G.state='play';G.t=0;resetPlayer();updatePlayer(DT);snapCamera();show(null);auInit();}
 function showDebrief(){if(G.state!=='play')return;G.state='debrief';const ok=G.ending.ok;const L=LV;
   const sec=G.obj.filter(o=>!o.primary),secDone=sec.filter(o=>o.state==='done').length;
   const acc=stats.shots?stats.hits/stats.shots:0;const bonus=ok?Math.round(P.armor*10+acc*1000):0;const total=G.score+bonus;
@@ -1110,11 +1139,42 @@ function pause(){if(G.state==='play'&&!G.ending){G.state='pause';show('pause');}
 
 addEventListener('keydown',e=>{KEY[e.code]=true;if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.code==='Escape'||e.code==='KeyP')pause();auInit();});
 addEventListener('keyup',e=>{KEY[e.code]=false;});
-addEventListener('mousemove',e=>{MS.x=e.clientX;MS.y=e.clientY;});
-addEventListener('mousedown',e=>{if(e.button===0)MS.b0=true;if(e.button===2)MS.b2=true;auInit();});
+addEventListener('mousemove',e=>{if(TOUCH)return;MS.x=e.clientX;MS.y=e.clientY;});
+addEventListener('mousedown',e=>{auInit();if(TOUCH)return;if(e.button===0)MS.b0=true;if(e.button===2)MS.b2=true;});
 addEventListener('mouseup',e=>{if(e.button===0)MS.b0=false;if(e.button===2)MS.b2=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('blur',()=>{for(const k in KEY)KEY[k]=false;MS.b0=MS.b2=false;if(G.state==='play'&&!TEST)pause();});
+
+/* ---- touch controls (phones and tablets; desktop never runs this) ----
+   Left side: floating stick steers. Right side: drag moves the reticle and holds the gun trigger.
+   Buttons: rockets, flares, boost (hold) and brake (tap to latch). */
+if(TOUCH){
+  document.body.classList.add('touch');
+  const tc=document.createElement('div');tc.id='tc';
+  tc.innerHTML='<div id="tcStick"><i></i></div><button id="tcPause">II</button><div id="tcBtns"><button id="tcBrake">BRAKE</button><button id="tcBoost" data-k="Space">BOOST</button><button id="tcFlr" data-k="KeyF">FLARE</button><button id="tcRkt" data-k="KeyK">RKT</button></div>';
+  document.body.insertBefore(tc,$('menu'));
+  document.querySelector('.controls').innerHTML='<kbd>Left thumb</kbd><span>Drag to steer inside the flight corridor (up climbs)</span><kbd>Right thumb</kbd><span>Drag to move the reticle; the gun fires while you touch (watch the heat)</span><kbd>RKT</kbd><span>Rockets: area damage, kills armor</span><kbd>BOOST / BRAKE</kbd><span>Hold to boost; tap brake to hang over a target, tap again to release</span><kbd>FLARE</kbd><span>Decoy SAMs</span><kbd>II</kbd><span>Pause</span>';
+  document.querySelector('#pause .sub').textContent='Mission on hold';
+  tc.querySelectorAll('[data-k]').forEach(b=>{const k=b.dataset.k;
+    b.addEventListener('pointerdown',e=>{e.preventDefault();KEY[k]=true;auInit();});
+    for(const t of ['pointerup','pointercancel','pointerleave'])b.addEventListener(t,()=>{KEY[k]=false;});});
+  $('tcBrake').addEventListener('pointerdown',e=>{e.preventDefault();KEY.ShiftLeft=!KEY.ShiftLeft;});
+  $('tcPause').addEventListener('pointerdown',e=>{e.preventDefault();pause();});
+  const stick=$('tcStick'),knob=stick.firstElementChild,R=54;let sid=null,aid=null,sx=0,sy=0,ax=0,ay=0;
+  const setStick=(dx,dy)=>{const m=Math.hypot(dx,dy),k=m>R?R/m:1;dx*=k;dy*=k;knob.style.transform=`translate(${dx}px,${dy}px)`;TC.x=dx/R;TC.y=-dy/R;};
+  tc.addEventListener('touchstart',e=>{if(e.target.tagName==='BUTTON')return;e.preventDefault();auInit();
+    for(const t of e.changedTouches){
+      if(t.clientX<innerWidth*.4&&sid===null){sid=t.identifier;sx=t.clientX;sy=t.clientY;stick.style.left=sx+'px';stick.style.top=sy+'px';stick.style.display='block';setStick(0,0);}
+      else if(aid===null){aid=t.identifier;ax=t.clientX;ay=t.clientY;MS.b0=true;}}},{passive:false});
+  tc.addEventListener('touchmove',e=>{e.preventDefault();
+    for(const t of e.changedTouches){
+      if(t.identifier===sid)setStick(t.clientX-sx,t.clientY-sy);
+      else if(t.identifier===aid){MS.x=clamp(MS.x+(t.clientX-ax)*1.6,0,innerWidth);MS.y=clamp(MS.y+(t.clientY-ay)*1.6,0,innerHeight);ax=t.clientX;ay=t.clientY;}}},{passive:false});
+  const end=e=>{for(const t of e.changedTouches){
+    if(t.identifier===sid){sid=null;stick.style.display='none';setStick(0,0);}
+    else if(t.identifier===aid){aid=null;MS.b0=false;}}};
+  tc.addEventListener('touchend',end);tc.addEventListener('touchcancel',end);
+}
 
 let last=performance.now(),acc=0;
 function frame(now){requestAnimationFrame(frame);const dt=Math.min(.1,(now-last)/1000);last=now;
