@@ -149,6 +149,7 @@
     <footer>
       <h2>Other views</h2>
       <div class="links">
+        <a href="life-slices.png">Separated shell slices</a><a href="life-sand-level.png">Crab at sand level</a>
         <a href="polish-review.jpg">Before and after polish</a><a href="start-card.png">Start card</a><a href="tide-pool-split.png">Live split view</a
         ><a href="sunset-overlook.png">Sunset</a><a href="touch-portrait.png">Touch portrait</a
         ><a href="touch-landscape.png">Touch landscape</a>
@@ -157,13 +158,13 @@
     </footer>
     <script>
       const stations = [
-        ['The strand', 'beach', [6, 9, 3]],
-        ['Tide pools', 'tide-pools', [5, 7, 9]],
+        ['The strand', 'beach', [6, 9, 3, 16]],
+        ['Tide pools', 'tide-pools', [5, 7, 9, 13, 14, 15]],
         ['The stream', 'stream', [5, 7, 6]],
         ['Dappled forest', 'forest', [3, 2, 4, 10]],
         ['Glasshouse clearing', 'glasshouse', [8, 9, 10, 3, 11]],
         ['Waterfall pool', 'waterfall', [12, 5, 7, 2, 8]],
-        ['The glow cave', 'cave', [1, 4, 9, 5, 7, 2]],
+        ['The glow cave', 'cave', [1, 4, 9, 5, 7, 2, 15]],
         ['Cliff overlook', 'overlook', [11, 6, 3, 2]]
       ];
       const names = [
@@ -179,18 +180,24 @@
         'Spectral refraction',
         'Thin-film interference',
         'Kuwahara paint',
-        'Particle fluid'
+        'Particle fluid',
+        'Shape-stacked shell',
+        'Parallax rock relief',
+        'Thickness translucency',
+        'Persistent sand tracks'
       ];
       const el = (id) => document.getElementById(id),
         s = el('station'),
         e = el('effect');
       for (const [i, st] of stations.entries()) s.add(new Option(i + 1 + ' · ' + st[0], i));
+      const closeups = {13:'life-shell',14:'life-barnacles',15:'life-kelp',16:'life-tracks'};
       function display() {
         const i = Number(s.value),
           id = Number(e.value),
           stem = i + 1 + '-' + stations[i][1];
-        el('on').src = el('leftLink').href = stem + '-on.png';
-        el('off').src = el('rightLink').href = stem + (id ? '-t' + id : '') + '-off.png';
+        const feature = i===6 && id===15 ? 'life-cap' : closeups[id];
+        el('on').src = el('leftLink').href = feature ? feature+'.png' : stem+'-on.png';
+        el('off').src = el('rightLink').href = feature ? feature+'-off.png' : stem+(id ? '-t'+id : '')+'-off.png';
         history.replaceState(null, '', '#' + (i + 1) + '/' + id);
       }
       function choose(id = 0) {

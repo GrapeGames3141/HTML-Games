@@ -182,7 +182,69 @@ try {
   await connect();
   for (let m of ['Page.enable', 'Runtime.enable', 'Log.enable']) await call(m);
   await size(960, 600);
-  if (process.argv.includes('--surf')) {
+  if (process.argv.includes('--shorelife')) {
+    await open('?test&seed=412&q=high');
+    const start = await station(2);
+    assert.equal(start.flags.length,16);
+    assert.equal(start.action,'Inspect shell');
+    assert.equal(await js('DEMO.interact()'),'Inspect shell');
+    await js('DEMO.step(.25)');
+    await screenshot('life-shell');
+    await js('DEMO.toggle(13,false)');await screenshot('life-shell-off');
+    await js('DEMO.toggle(13,true)');
+    await js('const slider=document.getElementById("shellSpacing");slider.value=".85";slider.dispatchEvent(new Event("input"))');
+    assert((await js('DEMO.state()')).crab.spread>.8);
+    await screenshot('life-slices');
+    await js('document.getElementById("shellClose").click()');
+    const restored=await js('DEMO.state()');
+    assert(!restored.crab.inspecting && restored.crab.spread===0);
+    assert(Math.hypot(restored.x-start.x,restored.z-start.z)<.001);
+    await js('let c=DEMO.state().crab;DEMO.cam([c.x+.85,c.y+.14,c.z+.63],0,0);DEMO.lookAt(c.x,c.y+.22,c.z)');
+    await screenshot('life-sand-level');
+    await js('DEMO.tp(c.x+.2,c.z);DEMO.step(1)');
+    const retreat=await js('DEMO.state().crab');
+    assert(retreat.tuck>.95 && Math.sin(retreat.yaw)<-.75);
+    const cameras=[
+      [14,'barnacles',[-26.7,1.31,60.7],[-25.4,1.04,62.3]],
+      [15,'kelp',[-23.9,1.16,64.7],[-25.5,.77,65.3]]
+    ];
+    for(const [id,name,eye,target] of cameras){
+      await js('DEMO.cam('+JSON.stringify(eye)+',0,0);DEMO.lookAt(...'+JSON.stringify(target)+')');
+      await js('DEMO.toggle('+id+',false)');
+      await screenshot('life-'+name+'-off');
+      await js('DEMO.toggle('+id+',true)');
+      await screenshot('life-'+name);
+    }
+    const cavePoint=(l,o,h)=>{
+      const length=Math.hypot(-48,67),ax=-48/length,az=67/length;
+      const lateral=o+2.3*Math.sin(l*.095),t=Math.max(0,Math.min(1,(l-1)/(length-3)));
+      return [-43+ax*l+az*lateral,14.1+t*t*(3-2*t)*19.2+h,-74+az*l-ax*lateral];
+    };
+    await js('DEMO.cam('+JSON.stringify(cavePoint(7.0,1.63,.73))+',0,0);DEMO.lookAt(...'+JSON.stringify(cavePoint(5.6,1.68,.72))+')');
+    assert(await js('DEMO.state().inCave'));
+    await js('DEMO.toggle(15,false)');await screenshot('life-cap-off');
+    await js('DEMO.toggle(15,true)');await screenshot('life-cap');
+    await station(1);
+    await js('DEMO.tp(-66,70);DEMO.walk(1,0,3.3)');
+    let marks=await js('DEMO.state().tracks');
+    assert(marks.human>2 && marks.crab>0);
+    await js('DEMO.cam([-61,2.7,68.4],0,0);DEMO.lookAt(-64,.8,70)');
+    await screenshot('life-tracks');
+    await js('DEMO.toggle(16,false)');await screenshot('life-tracks-off');
+    await js('DEMO.toggle(16,true)');
+    const shore=72+5*Math.sin(-66*.048)+3*Math.sin(-66*.084+.9);
+    await station(1);
+    await js('DEMO.tp(-66,'+(shore-1.45)+');DEMO.walk(1,0,2.3);DEMO.step(5)');
+    const washed=await js('DEMO.state().tracks');
+    assert(washed.washed>marks.washed && washed.human>=marks.human);
+    await station(2);
+    for(const id of [13,14,15,16,17]){
+      await js('DEMO.compare('+id+');DEMO.split(true);DEMO.step(.025);DEMO.split(false)');
+      assert.equal(await js('DEMO.inspect().glError'),0);
+    }
+    assert.deepEqual(errors,[]);
+    console.log('Shorelife checks passed', {beforeWash:marks, afterWash:washed});
+  } else if (process.argv.includes('--surf')) {
     await open('?test&seed=412&q=high');
     await js('DEMO.all(true)');
     for (const [id, name] of [[1, 'beach'], [2, 'pools']]) {
@@ -250,7 +312,7 @@ try {
       for(let i=0;i<s.length;i++){s.selectedIndex=i;s.dispatchEvent(new Event('change'));for(let opt of e.options){e.value=opt.value;e.dispatchEvent(new Event('change'));for(let id of ['on','off']){let image=document.getElementById(id);await image.decode();if(!image.naturalWidth)throw Error(image.src);urls.add(image.src)}}}
       for(let a of document.querySelectorAll('footer a[href$=".png"],footer a[href$=".jpg"]')){let img=new Image();img.src=a.href;await img.decode();urls.add(img.src)}
       return urls.size})()`);
-    assert.equal(count, 55);
+    assert.equal(count, 67);
     console.log('Atlas decoded all', count, 'unique images');
   } else {
     await open('?test&seed=412&q=low');
@@ -404,7 +466,7 @@ try {
       await js('DEMO.quality("low");DEMO.goto(5)');
       console.log('Quality sweep passed; timing frame pairs');
       result.cost = await js('DEMO.cost()');
-      assert.equal(result.cost.length, 12);
+      assert.equal(result.cost.length, 16);
       await size(390, 780, true);
       await open('?test&touch&nofloat&seed=412');
       let fall = await js('DEMO.state()');

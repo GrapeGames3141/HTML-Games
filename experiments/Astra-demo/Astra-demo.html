@@ -396,6 +396,8 @@
         border-radius: 3px;
         text-align: center;
       }
+      #shellTools { position:absolute; z-index:5; top:72px; left:50%; transform:translateX(-50%); padding:8px 12px; pointer-events:auto; white-space:nowrap; }
+      #shellTools input { width: min(23vw,130px); vertical-align:middle; }
       #dial {
         position: absolute;
         left: 50%;
@@ -578,7 +580,7 @@
         <div class="eyebrow">Coastal field study &nbsp; / &nbsp; 01</div>
         <h1>Littoral</h1>
         <p>
-          A walk from the sunlit shore to a luminous cave. Explore eight field stations and compare twelve
+          A walk from the sunlit shore to a luminous cave. Explore eight field stations and compare sixteen
           rendering techniques in place.
         </p>
         <div class="rule"></div>
@@ -607,6 +609,10 @@
         <div id="settings" class="settings"></div>
         <p id="costNote" class="guide"></p>
       </aside>
+      <div class="glass" id="shellTools" hidden>
+        <label>Shell layers <input id="shellSpacing" type="range" min="0" max="1" step=".01" value="0" /></label>
+        <button id="shellClose">Return to walk</button>
+      </div>
       <div id="dial" class="glass" hidden>
         <label>Sun angle &nbsp;<input id="sun" type="range" min="0" max="1" step=".01" value=".23" /></label>
       </div>
@@ -682,9 +688,14 @@
         'Spectral refraction',
         'Thin-film interference',
         'Kuwahara paint',
-        'Particle fluid'
+        'Particle fluid',
+        'Shape-stacked shell',
+        'Parallax rock relief',
+        'Thickness translucency',
+        'Persistent sand tracks'
       ];
-      const flags = Array(12).fill(true);
+      const allTechniques = effects.length + 1;
+      const flags = Array(effects.length).fill(true);
       const stations = [
         [
           'Beach',
@@ -704,7 +715,7 @@
           -24,
           67,
           5,
-          'Throw a pebble into a rock pool and follow its ring of light.'
+          'Inspect the hermit crab on the sand, then follow its tracks to the pool.'
         ],
         [
           'Stream',
@@ -930,11 +941,11 @@
         if (!groups.has(key)) groups.set(key, { kind, layer, x: ix * 40 + 20, z: iz * 40 + 20, data: [] });
         return groups.get(key).data;
       }
-      function tri(a, b, c, color, mat = 0, normals = null, colors = null) {
+      function tri(a, b, c, color, mat = 0, normals = null, colors = null, materials = null) {
         const n = unit(cross(sub(b, a), sub(c, a))),
           arr = group('mesh', a);
         [a, b, c].forEach((p, i) =>
-          arr.push(...p, ...(normals ? normals[i] : n), ...(colors ? colors[i] : color), mat)
+          arr.push(...p, ...(normals ? normals[i] : n), ...(colors ? colors[i] : color), materials ? materials[i] : mat)
         );
       }
       function quad(a, b, c, d, col, mat = 0) {
@@ -1744,7 +1755,7 @@
                 blend(rgb('236479'), col, 0.45 + 0.12 * cos(phase)),
                 1.21 - 0.105 * band + 0.105 * cos(3 * a + phase)
               );
-            return { pos, normal, tint };
+            return { pos, normal, tint, thickness: .08+.85*(1-width)+.20*width*(i%2) };
           })
         );
         for (let band = 1; band < rings.length; band++)
@@ -1763,7 +1774,8 @@
                 col,
                 11,
                 face.map((k) => k.normal),
-                face.map((k) => k.tint)
+                face.map((k) => k.tint),
+                face.map((k) => 64 + k.thickness)
               );
           }
         for (let i = 0; i < 6; i++) {
@@ -2166,13 +2178,13 @@
       }
       const floatEffects = [1, 5, 6, 7, 8, 12];
       let drawFlags = flags.slice(),
-        measurements = Array(12).fill(null),
+        measurements = Array(effects.length).fill(null),
         frameMs = 0;
       const enabled = (id) => drawFlags[id - 1] && (!floatEffects.includes(id) || floatOK);
       function needed(id) {
         return (
           (flags[id - 1] ||
-            (S.split && (S.compare === 13 || id === (S.compare || stations[S.station][6])))) &&
+            (S.split && (S.compare === allTechniques || id === (S.compare || stations[S.station][6])))) &&
           (!floatEffects.includes(id) || floatOK)
         );
       }
@@ -2719,7 +2731,7 @@
 uniform vec3 eye,rightV,upV,forwardV,lightV,lightX,lightY,shadowAt,lamp;
 uniform vec2 lens,size; uniform float clockT,day,shadowSpan,shadowDepth,caveMode,highDetail;
 bool portalVisible(vec3 p){if(caveMode>.5)return true;vec2 dir=vec2(-.58238,.81291),base=vec2(-43.,-74.);float a=dot(eye.xz-base,dir),b=dot(p.xz-base,dir);for(int i=0;i<2;i++){float l=i==0?0.:82.42,t=(l-a)/(b-a+.00001);if(t<0.||t>1.)continue;vec3 hit=mix(eye,p,t);float lateral=dot(hit.xz-base,vec2(dir.y,-dir.x))-2.3*sin(l*.095),h=hit.y-(i==0?14.1:33.3);if(h>-.38&&(lateral*lateral/21.16)+pow(max(0.,h)/4.35,2.)<1.12)return true;}return false;}
-uniform int fx[12];uniform vec4 fallImpact[3];uniform vec3 waterSim;uniform sampler2D oceanMap,rippleMap,shadowMap,farShadowMap,bounceMap,opaqueColor,opaqueDepth,causticMap;
+uniform int fx[16];uniform vec4 fallImpact[3];uniform vec3 waterSim;uniform sampler2D oceanMap,rippleMap,shadowMap,farShadowMap,bounceMap,opaqueColor,opaqueDepth,causticMap;
 vec4 project(vec3 p){vec3 v=p-eye;float z=dot(v,forwardV);return vec4(dot(v,rightV)*lens.x,dot(v,upV)*lens.y,z*1.00023-.120014,z);}
 vec3 shadowPos(vec3 p){vec3 v=p-shadowAt;return vec3(dot(v,lightX)/shadowSpan,dot(v,lightY)/shadowSpan,-dot(v,lightV)/shadowDepth);}
 float shadow(vec3 p){vec3 s=shadowPos(p)*.5+.5;if(any(lessThan(s,vec3(.008)))||any(greaterThan(s,vec3(.992)))){vec3 v=p-vec3(0,14,0);s=.5+.5*vec3(dot(v,lightX)/192.,dot(v,lightY)/192.,-dot(v,lightV)/280.);if(any(lessThan(s,vec3(0)))||any(greaterThan(s,vec3(1))))return 1.;return step(s.z-.0011,texture(farShadowMap,s.xy).r);}float lit=0.;vec2 du=1./vec2(textureSize(shadowMap,0));for(int i=0;i<4;i++){vec2 off=vec2(float(i%2)-.5,float(i/2)-.5);lit+=step(s.z-.0017,texture(shadowMap,s.xy+off*du*1.45).r);}return .25*lit;}
@@ -2853,17 +2865,37 @@ vec3 film(float ct,float thickness){vec3 phase=4.*3.14159*1.32*thickness*sqrt(.4
       }
       const canopySheet = makeLeafSheet();
       const gAttrs = `layout(location=0)in vec3 pos;layout(location=1)in vec3 normal;layout(location=2)in vec3 color;layout(location=3)in float material;layout(location=4)in vec3 axisU;layout(location=5)in vec3 axisV;
-uniform bool splat;out vec2 uv;out vec3 wpos,norm,col;flat out int mat;flat out float seedV;flat out float wetLevel;
-vec3 geometry(){wetLevel=material-40.;mat=material>=40.?32:int(material+.2);vec3 p=pos;vec2 c=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID%4<2)?-1.:1.);uv=splat?c:vec2(0);seedV=fract(dot(pos,vec3(.421,.765,.517)));if(splat)p+=axisU*c.x+axisV*c.y;
+uniform bool splat;out vec2 uv;out vec3 wpos,norm,col;flat out int mat;flat out float seedV;flat out float wetLevel;out float tissue;uniform vec4 crabPose;uniform float shellSpread;
+vec3 geometry(){wetLevel=material-40.;tissue=material>=72.?material-72.:material>=64.?material-64.:0.;
+mat=material>=72.?37:material>=64.?11:material>=40.?32:int(material+.2);vec3 p=pos;vec2 c=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID%4<2)?-1.:1.);uv=splat?c:vec2(0);seedV=fract(dot(pos,vec3(.421,.765,.517)));if(splat)p+=axisU*c.x+axisV*c.y;
 if(mat==4||mat==5||mat==28||mat==29||mat==34)p.x+=sin(clockT*1.2+pos.z*.65+pos.x*.27)*(.045+.06*float(mat==5))*(.5+.5*c.y);
 if(mat==23)p+=vec3(sin(clockT*.27+pos.z)*2.,.22*sin(clockT*2.+pos.x)+c.x*.07*sin(clockT*4.),cos(clockT*.27+pos.z)*1.4);
 if(mat==24)p+=vec3(.68*sin(clockT*.65+pos.x),.04*sin(clockT+pos.y),.23*cos(clockT*.8+pos.x));
-if(mat==25)p+=vec3(.65*sin(clockT*.85+pos.z),.24*sin(clockT*1.6+pos.x),.53*cos(clockT+pos.z));if(mat==12)p.y+=wave(p.xz,color.g).x*mix(.15,1.,color.g)*smoothstep(-.05,.8,color.r);if(mat==30)p.y+=.15*wave(p.xz,0.).x;wpos=p;norm=normal;col=color;return p;}
+if(mat==25)p+=vec3(.65*sin(clockT*.85+pos.z),.24*sin(clockT*1.6+pos.x),.53*cos(clockT+pos.z));if(mat==12)p.y+=wave(p.xz,color.g).x*mix(.15,1.,color.g)*smoothstep(-.05,.8,color.r);if(mat==30)p.y+=.15*wave(p.xz,0.).x;norm=normal;
+if(mat==36){
+  mat2 turn=mat2(cos(crabPose.w),-sin(crabPose.w),sin(crabPose.w),cos(crabPose.w));
+  p*=.88;p.y+=.054;p.z-=.033;p.xz=turn*p.xz;p+=crabPose.xyz;p.y+=color.z*.015*shellSpread;
+  norm.xz=turn*norm.xz;
+}
+if(mat==37){float sway=sin(clockT*1.3+pos.z*1.7)*(.017+.035*(1.-tissue));p.x+=sway;}
+wpos=p;col=color;return p;}
 `;
       const gVert = sceneUniforms + gAttrs + `void main(){gl_Position=project(geometry());}`;
-      const gIn = `in vec2 uv;in vec3 wpos,norm,col;flat in int mat;flat in float seedV;flat in float wetLevel;uniform bool splat;uniform sampler2D canopy;float leafLight=1.;
+      const gIn = `in vec2 uv;in vec3 wpos,norm,col;flat in int mat;flat in float seedV;flat in float wetLevel;uniform bool splat;in float tissue;uniform sampler2D canopy,shellMap;float leafLight=1.;
 void cut(){
+  if(mat==36 && texture(shellMap,col.xy).a<.5)discard;
   if(!splat)return;
+  if(mat==38 || mat==39){
+    float heel=length((uv-vec2(0.,-.53))/vec2(.64,.43));
+    float ball=length((uv-vec2(.03,.36))/vec2(.85,.50));
+    float arch=length((uv-vec2(-.24,-.02))/vec2(.44,.56));
+    float toes=2.;
+    for(int k=0;k<4;k++){float fk=float(k);toes=min(toes,length((uv-vec2(-.49+.29*fk,.85-.044*fk))/vec2(.19-.017*fk,.16)));}
+    float shape=mat==39?min(min(heel,ball),min(arch,toes)):min(length((uv-vec2(-.29,-.1))/vec2(.30,.78)),length((uv-vec2(.36,.32))/vec2(.24,.53)));
+    if(shape>1.)discard;
+    leafLight=.80+.32*smoothstep(.58,.97,shape)+.055*uv.x;
+    return;
+  }
   if(mat==28){
     float tile=floor(seedV*3.999);
     vec2 st=(vec2(mod(tile,2.),floor(tile*.5))+.5+.486*uv)*.5;
@@ -2888,6 +2920,23 @@ void cut(){
         sceneUniforms +
           gIn +
           `
+uniform sampler2D reliefMap,shellNormalMap;uniform vec4 crabPose;
+vec4 barnacles(vec3 p,vec3 normal,vec3 view){
+  vec2 uv=(p.xz+vec2(.48,.72)*p.y)*1.72;
+  vec2 dx=dFdx(uv),dy=dFdy(uv);
+  if(fx[13]>0){
+    vec3 tangent=view-normal*dot(view,normal);
+    vec2 travel=(tangent.xz+vec2(.48,.72)*tangent.y)*.068/max(.24,abs(dot(view,normal)));
+    float steps=highDetail>.5?22.:12.,depth=0.,lastGap=0.;
+    vec2 delta=travel/steps;
+    for(int i=0;i<23;i++){
+      float gap=1.-textureGrad(reliefMap,uv,dx,dy).r-depth;
+      if(gap<=0.){uv+=delta*clamp(-gap/max(.0001,lastGap-gap),0.,1.);break;}
+      lastGap=gap;uv-=delta;depth+=1./steps;
+    }
+  }
+  return textureGrad(reliefMap,uv,dx,dy);
+}
 uniform vec4 obstacles[8],bottlePos[14];uniform vec3 bottleColor[14];uniform float caveDraw;layout(location=0)out vec4 frag;layout(location=1)out vec4 normalOut;
 float softShadow(vec3 p,vec3 ray,float farD){float visibility=1.,t=.16;for(int j=0;j<15;j++){vec3 q=p+ray*t;float d=8.;for(int i=0;i<8;i++){vec4 ob=obstacles[i];vec3 diff=q-ob.xyz;diff.y*=.33;d=min(d,length(diff)-ob.w);}if(d<.015)return .17;visibility=min(visibility,6.*d/t);t+=clamp(d,.09,2.6);if(t>farD)break;}return clamp(visibility,.17,1.);}
 void main(){cut();if(caveDraw>.5&&!portalVisible(wpos))discard;vec3 n=normalize(norm),v=normalize(eye-wpos);if(mat!=1&&dot(n,v)<0.)n=-n;float dist=length(wpos-eye);vec3 pigment=col;float grit=noise(wpos.xz*3.4+wpos.y)*.08+noise(wpos.xy*15.+wpos.z)*.038-.056;
@@ -2943,6 +2992,17 @@ if(mat==3){
   pigment*=.77+.31*fissure+.10*smoothstep(.49,.58,fissure);
 }
 if(splat)pigment*=leafLight*(.96+.04*sin(uv.y*9.+seedV*18.));
+if(mat==36){
+  pigment=texture(shellMap,col.xy).rgb;
+  vec3 shellN=texture(shellNormalMap,col.xy).rgb*2.-1.;
+  shellN.xz=mat2(cos(crabPose.w),-sin(crabPose.w),sin(crabPose.w),cos(crabPose.w))*shellN.xz;
+  n=normalize(shellN+.12*n);
+}
+if((mat==2||mat==32)&&caveDraw<.5&&dist<21.&&wpos.y>.58&&wpos.y<1.74&&length((wpos.xz-vec2(-24.,67.))/vec2(7.7,6.))<1.36){
+  vec4 b=barnacles(wpos,n,v);
+  pigment=mix(pigment,vec3(.77,.72,.59)*(.54+.64*b.r),b.g*.90);
+  pigment*=1.-.56*b.b;
+}
 float damp=0.;
 if(mat==32){
   vec2 mineral=wpos.xz*3.8+vec2(wpos.y*2.1,-wpos.y*1.3);
@@ -2985,7 +3045,7 @@ if(mat==32){
   float rim=pow(1.-clamp(dot(n,v),0.,1.),4.);
   result+=damp*(sunColor()*shine*.57*sunLit+vec3(.13,.18,.19)*rim);
 }
-if(highDetail>.5&&fx[5]>0&&mat==1&&wpos.y>-.25&&wpos.y<.98&&abs(wpos.z-coastZ(wpos.x))<6.5&&openStrand(wpos.xz)){
+if((fx[15]>0||(highDetail>.5&&fx[5]>0))&&mat==1&&wpos.y>-.25&&wpos.y<.98&&abs(wpos.z-coastZ(wpos.x))<6.5&&openStrand(wpos.xz)){
   float level=swashLevel(wpos.x,clockT);
   float height=wpos.y+.037*noise(wpos.xz*2.);
   // Sample the receding run-up over the last three seconds. Older reaches dry gradually.
@@ -3008,6 +3068,14 @@ if(mat==21){vec2 a=(wpos.xy-col.xy)/vec2(1.38,1.03)+vec2(.5,0);float shore=.13+.
 float lampD=length(lamp-wpos);vec3 direct=vec3(1.,.68,.34)*max(.16,dot(n,normalize(lamp-wpos)))*3.8/(1.+.38*lampD*lampD);
 if(caveDraw>.5){vec3 bounce=texture(bounceMap,(wpos.xz-vec2(-106,-85))/vec2(75.52,100.8)).rgb;result=pigment*(vec3(.105,.145,.19)+direct*ao+(fx[0]>0?bounce*1.65:vec3(.055,.075,.08)));if(mat==11)result+=col*(.53+.15*max(0.,n.y)+.03*sin(clockT+wpos.x));if(mat==27)result*=.63+.30*max(0.,dot(n,normalize(vec3(-.4,.6,.35))));if(fx[6]>0&&n.y<-.3){vec2 cu=(wpos.xz-waterSim.xy)/waterSim.z;if(all(greaterThan(cu,vec2(0)))&&all(lessThan(cu,vec2(1))))result+=vec3(.08,.25,.21)*texture(causticMap,cu).r;}}
 else result+=pigment*direct*.65;
+if(fx[14]>0 && (mat==37||(mat==11&&tissue>0.))){
+  bool cap=mat==11;
+  vec3 source=cap?normalize(lamp-wpos):lightV;
+  float back=max(0.,-dot(n,source));
+  float intensity=cap?3.6/(.6+dot(lamp-wpos,lamp-wpos)):sunLit;
+  float transmission=exp(-3.6*tissue);
+  result+=intensity*(.055+.95*back)*transmission*(cap?vec3(1.,.60,.25):vec3(.87,.42,.065));
+}
 if(caveDraw>.5)result/=vec3(.82+.74*max(result.r,max(result.g,result.b)));
 vec3 fog=caveDraw>.5?vec3(.085,.16,.185):horizon();result=mix(result,fog,1.-exp(-dist*(caveDraw>.5?.012:.0030)));frag=vec4(result,1);normalOut=vec4(n*.5+.5,1);}
 `
@@ -3462,6 +3530,11 @@ void main(){
           gl.uniform4fv(u.bottlePos, bottlePositions);
           gl.uniform3fv(u.bottleColor, bottleColors);
         }
+        if(u.crabPose) gl.uniform4f(u.crabPose,crab.x,sandHeight(crab.x,crab.z),crab.z,crab.yaw);
+        f('shellSpread',crab.spread);
+        tex(pr,'shellMap',shellAtlas,12);
+        tex(pr,'shellNormalMap',shellNormals,14);
+        tex(pr,'reliefMap',reliefAtlas,13);
         tex(pr, 'canopy', canopySheet, 11);
         tex(pr, 'oceanMap', ocean.tex, 0);
         tex(pr, 'rippleMap', sim.tex, 1);
@@ -3504,7 +3577,7 @@ void main(){
             if (g.layer === 'land' || g.layer === activeLand() || g.layer === 'cave') drawObj(shadowProg, g);
           farShadowSun = S.sun;
         }
-        let stamp = [...sunBasis.at, S.sun, Math.floor(S.time * 6), S.station].join('/');
+        let stamp = [...sunBasis.at, S.sun, Math.floor(S.time * 6), S.station, +enabled(13), crab.spread].join('/');
         if (stamp === shadowStamp) return;
         shadowStamp = stamp;
         bind(shadowTarget);
@@ -3515,6 +3588,7 @@ void main(){
         geo(shadowProg, ['land', activeLand(), 'cave'], true);
         drawObj(shadowProg, dynMesh);
         drawObj(shadowProg, avatarShadow);
+        drawShell(shadowProg);
       }
       function caustics() {
         bind(caustTarget);
@@ -3555,6 +3629,11 @@ void main(){
         gl.enable(gl.DEPTH_TEST);
         useProgram(solidProg);
         geo(solidProg, ['land', activeLand(), 'cave']);
+        if (!interior) {
+          gl.uniform1f(solidProg.u.caveDraw,0);
+          drawShell(solidProg);
+          if(enabled(16)) drawObj(solidProg,trackVAO);
+        }
         gl.uniform1f(solidProg.u.caveDraw, +interior);
         drawObj(solidProg, dynMesh);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, T.opaque.f);
@@ -3721,6 +3800,7 @@ void main(){
                   s[0].toLowerCase() === String(value).toLowerCase() ||
                   s[1].toLowerCase() === String(value).toLowerCase()
               );
+        if (shellView) closeShell();
         if (i < 0 || i > 7 || !Number.isInteger(i)) throw RangeError('Station must be 1–8 or its name');
         let s = stations[i];
         S.station = i;
@@ -3759,6 +3839,7 @@ void main(){
           ];
       }
       function move(mx, mz, dt, fast = false, world = false) {
+        if (shellView) return;
         let length = hypot(mx, mz);
         if (length > 1) {
           mx /= length;
@@ -3818,6 +3899,11 @@ void main(){
               footClock = 0;
               let wet = S.inCave ? caveWater(x, z) > 0 : waterLine(x, z) > terrain(x, z) + 0.025;
               if (wet && needed(5)) disturb(x, z, 0.13, 0.44);
+              if(!S.inCave && hypot(dx,dz)>.02 && !wet && needed(16)){
+                const heading=atan2(dx,dz), side=footSide*.095;
+                stampTrack(x+cos(heading)*side,z-sin(heading)*side,heading,false);
+                footSide=-footSide;
+              }
               soundStep(wet);
             }
           }
@@ -3833,6 +3919,8 @@ void main(){
         updateLantern();
       }
       function nearestUse() {
+        if (shellView) return 'Return to walk';
+        if (flags[12] && !S.inCave && S.station === 1 && hypot(S.x-crab.x,S.z-crab.z)<4.4) return 'Inspect shell';
         if (S.carrying && S.inCave) return 'Set down';
         if (!S.carrying && hypot(S.x - lantern[0], S.z - lantern[2]) < 3.5 && abs(S.y - lantern[1]) < 3.2)
           return 'Lantern';
@@ -3865,7 +3953,9 @@ void main(){
       }
       function interact() {
         let action = nearestUse();
-        if (action === 'Lantern') {
+        if (action === 'Inspect shell') inspectShell();
+        else if (action === 'Return to walk') closeShell();
+        else if (action === 'Lantern') {
           S.carrying = true;
           updateLantern();
         } else if (action === 'Set down') {
@@ -3936,6 +4026,7 @@ void main(){
       }
       function tick(dt) {
         S.time += dt;
+        advanceShorelife(dt);
         if (S.started && !S.panel && !S.photo)
           setLook(S.yaw + padLook[0] * dt * 2.15, S.pitch - padLook[1] * dt * 1.75);
         if (padSun) setSun(S.sun + padSun * dt * 0.4);
@@ -4041,6 +4132,9 @@ void main(){
           ellipsoid([S.x, y + 1.54, S.z], [0.15, 0.19, 0.155], iron, 0, 4, 7);
         });
         collect('moving', dynMesh, () => {
+          if (!S.inCave && hypot(S.x-crab.x,S.z-crab.z)<38) {
+            const before=seed; drawCrabBody(); seed=before;
+          }
           let [x, y, z] = lantern;
           rod([x, y - 0.29, z], [x, y - 0.22, z], 0.18, 0.2, iron, 6, 7);
           ellipsoid([x, y - 0.05, z], [0.139, 0.19, 0.139], rgb('ffd98a'), 11, 4, 7);
@@ -4142,6 +4236,7 @@ void main(){
       function render() {
         if (!ready) return;
         let start = performance.now();
+        syncTracks();
         resize();
         basis();
         obstacles();
@@ -4158,7 +4253,7 @@ void main(){
           drawFlags = flags.slice();
           if (side) {
             let id = S.compare || stations[S.station][6];
-            if (id === 13) drawFlags.fill(side === 1);
+            if (id === allTechniques) drawFlags.fill(side === 1);
             else drawFlags[id - 1] = side === 1;
           }
           dynamicGeometry();
@@ -4234,7 +4329,7 @@ void main(){
       }
       function toggle(id, on) {
         id = Number(String(id).replace(/^T/i, ''));
-        if (id < 1 || id > 12 || !Number.isInteger(id)) throw RangeError('Technique must be T1–T12');
+        if (id < 1 || id > effects.length || !Number.isInteger(id)) throw RangeError('Technique must be T1–T16');
         flags[id - 1] = on === undefined ? !flags[id - 1] : !!on;
         updateUI();
         return flags[id - 1];
@@ -4257,7 +4352,7 @@ void main(){
         updateUI();
       }
       function pickTarget(delta) {
-        S.compare = (S.compare + delta + 14) % 14;
+        S.compare = (S.compare + delta + allTechniques + 1) % (allTechniques + 1);
         updateUI();
         notice('Compare ' + $('target').selectedOptions[0].text);
       }
@@ -4274,19 +4369,19 @@ void main(){
           'Gamepad · Sticks walk and look. A uses, X or RT throws, RB or L3 runs. LB compares. D-pad selects an effect or changes the sun, Y toggles. B flies, triggers change height. Start opens effects and Back enters photo mode.';
       }
       const stationFX = [
-        [6, 9, 3],
-        [5, 7, 9],
+        [6, 9, 3, 16],
+        [5, 7, 9, 13, 14, 15, 16],
         [5, 7, 6],
         [3, 2, 4, 10],
         [8, 9, 10, 3, 11],
         [12, 5, 7, 2, 8],
-        [1, 4, 9, 5, 7, 2],
+        [1, 4, 9, 5, 7, 2, 15],
         [11, 6, 3, 2]
       ];
       function updateSign() {
         let label = $('signLabel');
         label.hidden = true;
-        if (!S.started || S.panel || !camBasis.forward) return;
+        if (!S.started || S.panel || shellView || !camBasis.forward) return;
         let p = signs[S.station];
         if (!p) return;
         let diff = sub(add(p, [0, 0.32, 0]), camBasis.eye),
@@ -4347,6 +4442,7 @@ void main(){
         $('rise').hidden = $('sink').hidden = !S.free;
         $('splitLatch').setAttribute('aria-pressed', latched);
         $('freeBtn').setAttribute('aria-pressed', S.free);
+        $('shellSpacing').disabled=!flags[12];
         $('qualityBtn').textContent = 'Quality · ' + S.quality;
         $('soundBtn').textContent = 'Sound · ' + (S.sound ? 'on' : 'off');
         $('menu').setAttribute('aria-expanded', S.panel);
@@ -4373,6 +4469,8 @@ void main(){
           touch,
           floatOK,
           flags: [...flags],
+          crab: {x:crab.x,z:crab.z,y:sandHeight(crab.x,crab.z),yaw:crab.yaw,tuck:crab.tuck,spread:crab.spread,inspecting:!!shellView,slices:32},
+          tracks: {human:tracks.filter(t=>!t.small).length,crab:tracks.filter(t=>t.small).length,washed:washedTracks},
           effective: flags.map((on, i) => on && (floatOK || !floatEffects.includes(i + 1))),
           carrying: S.carrying,
           lantern: [...lantern],
@@ -4446,7 +4544,7 @@ void main(){
         }
         try {
           timed();
-          for (let i = 0; i < 12; i++) {
+          for (let i = 0; i < effects.length; i++) {
             const near = stationFX[S.station].includes(i + 1) || i === 10 || (!S.inCave && i === 2);
             if (!near || (!floatOK && floatEffects.includes(i + 1))) {
               result.push(0);
@@ -4536,7 +4634,7 @@ void main(){
           splitOn();
         }
         if (edge(14) || edge(15)) {
-          selected = (selected + (edge(15) ? 1 : 11)) % 12;
+          selected = (selected + (edge(15) ? 1 : effects.length - 1)) % effects.length;
           S.compare = selected + 1;
           updateUI();
           notice(effects[selected] + ' · ' + (flags[selected] ? 'on' : 'off'));
@@ -4671,7 +4769,8 @@ void main(){
         }
         if (k === 'Tab') panel();
         else if (k === 'Escape') {
-          if (S.photo) photo(false);
+          if (shellView) closeShell();
+          else if (S.photo) photo(false);
           else if (S.panel) panel(false);
           $('dial').hidden = true;
         } else if (k === 'KeyH') showControls();
@@ -4797,8 +4896,241 @@ void main(){
       window.oncontextmenu = (e) => e.preventDefault();
       let bottlePositions, bottleColors;
       const staticStats = { splats: 0, tris: 0 };
+      const crab = {x:-26.4,z:59.9,phase:0,yaw:Math.PI/2,tuck:0,spread:0,stride:0};
+      let shellView=null, shellAtlas, shellNormals, reliefAtlas, footSide=1, washedTracks=0, tracksDirty=true;
+      const tracks=[], shellGroups=[];
+      const trackVAO=makeVAO('splat',new Float32Array(0),true);
+      function crabRoute(t) { return [-26.4+1.25*sin(t),59.9+.37*sin(2*t)]; }
+      function sandHeight(x,z){
+        // Match the two triangles of the rendered ground tile, including the sloping pool banks.
+        const size=1.5, bx=floor((x+162)/size)*size-162,bz=floor((z+150)/size)*size-150;
+        const u=(x-bx)/size,v=(z-bz)/size;
+        const b=terrain(bx+size,bz),d=terrain(bx,bz+size);
+        if(u+v<=1)return terrain(bx,bz)*(1-u-v)+b*u+d*v;
+        return terrain(bx+size,bz+size)*(u+v-1)+b*(1-v)+d*(1-u);
+      }
+      function stampTrack(x,z,angle,small) {
+        const height=sandHeight(x,z), distance=shore(x)-z;
+        if(distance < -1 || distance > 13 || height<waterLine(x,z)-.015) return;
+        tracks.push({x,z,height,angle,small});
+        if(tracks.length>320) tracks.shift();
+        tracksDirty=true;
+      }
+      function crabPrints(x,z,yaw,parity) {
+        for(const side of [-1,1]){
+          const reach=side*(.19+.028*parity), along=side*.044*parity;
+          stampTrack(x+cos(yaw)*reach+sin(yaw)*along,z-sin(yaw)*reach+cos(yaw)*along,yaw+side*.48,true);
+        }
+      }
+      function advanceShorelife(dt) {
+        const near=!S.inCave && hypot(S.x-crab.x,S.z-crab.z)<1.15;
+        crab.tuck=mix(crab.tuck,near&&!shellView?1:0,1-exp(-dt*5));
+        if(!shellView){
+          crab.phase+=dt*.26*(1-crab.tuck);
+          const [x,z]=crabRoute(crab.phase);
+          crab.stride+=hypot(x-crab.x,z-crab.z);
+          const heading=near ? atan2(crab.x-S.x,crab.z-S.z)
+            : atan2(1.25*cos(crab.phase),.74*cos(2*crab.phase));
+          crab.yaw+=atan2(sin(heading-crab.yaw),cos(heading-crab.yaw))*(1-exp(-dt*5));
+          crab.x=x;crab.z=z;
+          if(crab.stride>.19){crab.stride=0;if(needed(16)) crabPrints(x,z,crab.yaw,sin(crab.phase*20)>0?1:-1);}
+        }
+        // A mark is removed only when this part of the shoreline is inundated.
+        if (simTicks%5===0) {
+          for(let i=tracks.length-1;i>=0;i--){
+            const m=tracks[i],x=m.x,t=S.time-.62,coast=shore(x);
+            if(m.height>.59 || abs(m.z-coast)>6.5 || abs(x-streamX(m.z))<5.4 ||
+               pools.some(([px,pz,rx,rz])=>hypot((x-px)/rx,(m.z-pz)/rz)<1.42)) continue;
+            const phase=t*1.46+.82*sin(.27*x+.11*coast)+.34*sin(.69*x-t*.18);
+            const reach=.065+(.38+.095*sin(S.time*.31+x*.085))*(.5+.5*sin(phase))**1.35;
+            if(m.height<reach){tracks.splice(i,1);washedTracks++;tracksDirty=true;}
+          }
+        }
+      }
+      function syncTracks(){
+        if(!tracksDirty)return;
+        const data=[];
+        for(const m of tracks){
+          const a=m.angle,w=m.small?.045:.071,h=m.small?.065:.154;
+          const u=[cos(a)*w,0,-sin(a)*w],v=[sin(a)*h,0,cos(a)*h];
+          u[1]=(sandHeight(m.x+u[0],m.z+u[2])-sandHeight(m.x-u[0],m.z-u[2]))*.5;
+          v[1]=(sandHeight(m.x+v[0],m.z+v[2])-sandHeight(m.x-v[0],m.z-v[2]))*.5;
+          data.push(m.x,m.height+.009,m.z,...u,...v,0,1,0,...scale(groundColor(m.x,m.z,m.height),.86),m.small?38:39);
+        }
+        uploadDyn(trackVAO,data);tracksDirty=false;
+      }
+      function inspectShell(){
+        shellView={x:S.x,y:S.y,z:S.z,yaw:S.yaw,pitch:S.pitch,free:S.free};
+        release();S.free=true;frameShell();
+        $('shellTools').hidden=false;
+      }
+      function frameShell(){
+        const base=sandHeight(crab.x,crab.z),distance=1+.19*crab.spread;
+        S.x=crab.x+.84*distance;S.z=crab.z-.96*distance;S.y=base+.57+.18*crab.spread;
+        lookAt(crab.x,base+.31+.22*crab.spread,crab.z);
+      }
+      function closeShell(){
+        if(!shellView)return;
+        Object.assign(S,shellView);shellView=null;crab.spread=0;
+        $('shellSpacing').value=0;$('shellTools').hidden=true;
+      }
+      function drawShell(pr){
+        if(!enabled(13)||S.inCave||hypot(S.x-crab.x,S.z-crab.z)>38)return;
+        for(const g of shellGroups) drawObj(pr,g);
+      }
+      function drawCrabBody(){
+        const y=sandHeight(crab.x,crab.z), c=cos(crab.yaw),s=sin(crab.yaw);
+        const point=(x,h,z)=>[crab.x+c*x+s*z,y+h,crab.z-s*x+c*z];
+        const exposed=1-.9*crab.tuck, rust=rgb('ad5838'), ivory=rgb('dec397');
+        if(!enabled(13))ellipsoid(point(0,.28,-.02),[.30,.23,.31],rgb('ab805a'),6,6,11);
+        const head=point(0,.13,.29*exposed);
+        ellipsoid(point(0,.14,.16*exposed),[.121,.088,.15],rgb('995537'),6,7,11);
+        ellipsoid(head,[.112,.077,.105],rust,6,7,12);
+        for(const side of [-1,1]){
+          for(let k=0;k<3;k++){
+            const phase=crab.phase*44+k*1.9+side*1.7;
+            const base=point(side*.069,.12,.11*exposed+k*.034);
+            const knee=point(side*(.205+.035*k)*exposed,.16+.032*cos(phase),(.12+.042*k)*exposed);
+            const toe=point(side*(.282+.043*k)*exposed,.016+.025*max(0,sin(phase)),(.09+.065*k+.035*cos(phase))*exposed);
+            rod(base,knee,.026,.015,rust,6,6);rod(knee,toe,.016,.004,ivory,6,5);
+          }
+          const tip=point(side*.058,.14+.092*exposed,.34*exposed);
+          rod(head,tip,.012,.009,rust,6,6);
+          const feeler=point(side*.067,.146,.41*exposed);
+          rod(head,feeler,.006,.004,ivory,6,4);
+          rod(feeler,point(side*.16,.163,.55*exposed),.004,.001,ivory,6,4);
+          ellipsoid(tip,[.021,.021,.021],rgb('25262a'),6,4,7);
+          const claw=point(side*.12,.095,.39*exposed);
+          rod(head,claw,.027,.024,rust,6,6);
+          ellipsoid(claw,[side>0?.058:.037,.036,.051],rgb('cd8755'),6,5,8);
+          for(const prong of [-1,1])rod(claw,point(side*.12+prong*.026,.094,.46*exposed),.013,.003,ivory,6,5);
+        }
+      }
+      // Horizontal cross-sections of a tapered helical tube. Each atlas cell has its own silhouette and aperture.
+      function makeShell(){
+        const n=72,layers=32, bytes=new Uint8Array(n*8*n*4*4), normals=new Uint8Array(bytes.length), turns=[];
+        for(let i=0;i<=112;i++){
+          const t=i/112,g=exp(3.4*(t-1)),a=(t-1)*TAU*2.25-.76;
+          turns.push([-.12+.14*t,.31+.252*g*sin(a),.238*g*cos(a)-.05,.035+.158*g,t]);
+        }
+        layer='shell';
+        for(let j=0;j<layers;j++){
+          const y0=.04+j*.56/layers,y1=y0+.56/layers,y=(y0+y1)*.5;
+          const mask=new Uint8Array(n*n);
+          for(let iz=0;iz<n;iz++)for(let ix=0;ix<n;ix++){
+            const x=(ix+.5)/n*.88-.44,z=(iz+.5)/n*.88-.44;
+            let dist=10,closest=turns[0];
+            for(const q of turns){
+              const dx=(x-q[0])*.87,dy=y-q[1],dz=z-q[2],d=Math.sqrt(dx*dx+dy*dy+dz*dz)-q[3];
+              if(d<dist){dist=d;closest=q;}
+            }
+            if(dist>0)continue;
+            const opening=hypot((x-.018)/.145,(y-.143)/.12,(z-.285)/.163);
+            if(opening<1)continue;
+            mask[iz*n+ix]=1;
+            const spiral=atan2(y-.31,z+.05),radial=hypot(y-.31,z+.05);
+            const coilPhase=spiral-4.18*Math.log(max(.021,radial)/.248)+.76;
+            const whorl=smooth(.36,.92,abs(sin(.5*coilPhase)));
+            const flank=smooth(.03,.13,abs(x-.015));
+            const rib=.5+.5*cos(closest[4]*155.+x*15.+y*5.);
+            const ridge=smooth(.66,1,rib), rim=1-smooth(1,1.18,opening);
+            const shade=.78+.19*(y-.04)/.56+.11*ridge;
+            const baseTint=blend(rgb('9b6344'),rgb('ebce9b'),.30+.28*ridge+.26*whorl);
+            const furrow=flank*(1-smooth(.04,.23,abs(sin(.5*coilPhase))));
+            const tint=blend(scale(baseTint,1-.43*furrow),rgb('f1d8aa'),rim);
+            const normal=unit([(x-closest[0])*.76,y-closest[1],z-closest[2]]);
+            const addr=4*((floor(j/8)*n+iz)*n*8+(j%8)*n+ix);
+            for(let k=0;k<3;k++)bytes[addr+k]=clamp(tint[k]*shade)*255;
+            bytes[addr+3]=255;
+            for(let k=0;k<3;k++)normals[addr+k]=(.5+.5*normal[k])*255;
+            normals[addr+3]=255;
+          }
+          const p=(u,h,v)=>[u/n*.88-.44,h,v/n*.88-.44];
+          const uv=(u,v)=>[(j%8+u/n)/8,(floor(j/8)+v/n)/4,j];
+          const rect=(vs,cs)=>{for(const f of [[0,1,2],[0,2,3]])tri(...f.map(k=>vs[k]),sand,36,null,f.map(k=>cs[k]));};
+          for(const h of [y0,y1])rect([p(0,h,0),p(0,h,n),p(n,h,n),p(n,h,0)],[uv(0,0),uv(0,n),uv(n,n),uv(n,0)]);
+          // Give exposed pixels a side face so slices also hold up when viewed edge-on.
+          for(let v=0;v<n;v++)for(let u=0;u<n;u++)if(mask[v*n+u]){
+            const color=uv(u+.5,v+.5);
+            for(const [dx,dz,ax,az,bx,bz] of [[-1,0,0,1,0,0],[1,0,1,0,1,1],[0,-1,0,0,1,0],[0,1,1,1,0,1]]){
+              const nx=u+dx,nz=v+dz;
+              if(nx>=0&&nz>=0&&nx<n&&nz<n&&mask[nz*n+nx])continue;
+              quad(p(u+ax,y0,v+az),p(u+ax,y1,v+az),p(u+bx,y1,v+bz),p(u+bx,y0,v+bz),color,36);
+            }
+          }
+        }
+        shellAtlas=texture(n*8,n*4,bytes);
+        shellNormals=texture(n*8,n*4,normals);
+        for(const g of groups.values())if(g.layer==='shell')shellGroups.push(g);
+        layer='land';
+      }
+      function makeBarnacleMap(){
+        const size=256,bytes=new Uint8Array(size*size*4),colony=[];
+        const hash=i=>{const a=sin(i*73.19+4.13)*43758.545;return a-floor(a);};
+        for(let i=0;i<57;i++){
+          const clump=i%5, a=hash(i+23)*TAU,r=.20*sqrt(hash(i+34));
+          colony.push([hash(clump+308)+r*cos(a),hash(clump+513)+r*sin(a),.017+.058*hash(i+19),a]);
+        }
+        for(let v=0;v<size;v++)for(let u=0;u<size;u++){
+          const x=(u+.5)/size,y=(v+.5)/size;
+          const fissure=1-smooth(.001,.018,abs(sin(TAU*(x+2*y)+.9*sin(TAU*y)))*.2);
+          let h=.20+.045*sin(TAU*(3*x+y))-.13*fissure,shell=0,pore=0;
+          for(const [cx,cy,r,a] of colony){
+            let dx=x-cx,dy=y-cy;dx-=Math.round(dx);dy-=Math.round(dy);
+            if(abs(dx)>r*1.2||abs(dy)>r*1.2)continue;
+            const radius=hypot(dx,dy)/r,theta=atan2(dy,dx)+a;
+            const rr=radius*(1+.075*cos(5*theta));
+            const wall=(1-smooth(.55,1.12,rr))*smooth(.16,.45,rr);
+            h=max(h,.16+wall*(.70+.09*cos(6*theta)));
+            shell=max(shell,wall);pore=max(pore,1-smooth(.17,.37,rr));
+          }
+          const i=4*(v*size+u);
+          bytes.set([clamp(h)*255,shell*255,pore*255,255],i);
+        }
+        reliefAtlas=texture(size,size,bytes);
+        for(const wrap of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,wrap,gl.REPEAT);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+      }
+      function growKelp(){
+        // Blades are attached to the pool bed. Tip, margin and central rib carry different optical thicknesses.
+        for(const [x,z] of [[-25.5,65.3],[-21.7,67.8],[-29.1,67.1],[-13,65.7]]){
+          for(let blade=0;blade<6;blade++){
+            const a=blade*2.4+x, length=.64+.31*sin(blade*4+x), base=terrain(x,z)-.07;
+            let prev;
+            for(let j=0;j<=11;j++){
+              const t=j/11,w=.008+.105*sin(Math.PI*t)**.66;
+              const center=[x+cos(a)*(.14*t+.24*t*t),base+length*t,z+sin(a)*.36*t+.055*sin(8*t+a)*t];
+              const row=[-1,0,1].map(side=>({
+                p:add(center,[side*w*sin(a+.7*t),side*.027*sin(16*t+a)*t,-side*w*cos(a+.7*t)]),
+                m:72+.10+.47*(1-t)+.39*(1-abs(side))*(1-.65*t),
+                c:blend(rgb('5d6233'),rgb('959744'),t*.60+.18*(1-abs(side)))
+              }));
+              if(prev)for(let k=0;k<2;k++)for(const f of [[prev[k],prev[k+1],row[k+1]],[prev[k],row[k+1],row[k]]])
+                tri(...f.map(v=>v.p),grass,37,null,f.map(v=>v.c),f.map(v=>v.m));
+              prev=row;
+            }
+          }
+        }
+      }
+      function buildTidePoolLife(){
+        makeShell(); makeBarnacleMap(); growKelp();
+        const savedSeed=seed;
+        layer='cave';
+        for(const [l,o,h] of [[5.6,1.68,.76],[5.92,2.05,.41]]){
+          const [x,z]=caveWorld(l,o);
+          mushroom([x,caveFloor(l)-.05,z],h,rgb('80c9ba'));
+        }
+        layer='land';seed=savedSeed;
+        for(let i=-19;i<=0;i++){
+          const t=i*.12,[x,z]=crabRoute(t);
+          crabPrints(x,z,atan2(1.25*cos(t),.74*cos(2*t)),i%2?1:-1);
+        }
+      }
       function initialize() {
         initUI();
+        $('shellSpacing').oninput = e => { crab.spread = Number(e.target.value); frameShell(); render(); };
+        $('shellClose').onclick = () => { closeShell(); render(); };
         buildGround();
         beachDecor();
         woods();
@@ -4809,6 +5141,7 @@ void main(){
         fieldObjects();
         buildWater();
         shoreDetails();
+        buildTidePoolLife();
         for (let g of groups.values()) uploadGroup(g);
         gotoStation(1);
         if (!test) {
@@ -4907,7 +5240,7 @@ void main(){
           },
           photo,
           compare: (id) => {
-            S.compare = clamp(+id, 0, 13);
+            S.compare = clamp(+id, 0, allTechniques);
             updateUI();
             render();
           },

@@ -16,7 +16,7 @@ The game also opens directly from `Astra-demo.html`. It generates its scenery an
 
 ## Reading a comparison
 
-Hold **V** during the walk to compare the current station's main effect. Comma and period select any of the twelve or all effects. The Effects panel provides the same selection and a latching split. Both halves render the same camera, sun and simulation state. The left forces the selected effect on and the right uses its stand-in. Other switches retain their settings. **Measure cost** synchronizes readback and compares whole-frame render times in both measurement orders. It measures the current viewpoint and excludes simulation stepping. Small deltas can be dominated by timing noise.
+Hold **V** during the walk to compare the current station's main effect. Comma and period select any of the sixteen techniques or all effects. The Effects panel provides the same selection and a latching split. Both halves render the same camera, sun and simulation state. The left forces the selected effect on and the right uses its stand-in. Other switches retain their settings. **Measure cost** synchronizes readback and compares whole-frame render times in both measurement orders. It measures the current viewpoint and excludes simulation stepping. Small deltas can be dominated by timing noise.
 
 The [comparison atlas](evidence/atlas.html) opens the original PNGs and slides between co-registered frames. Each station has all-on and all-off plates, plus a separate plate for each technique listed at that station. An object outside the field of view can produce little change in a particular plate. For example, the stream view faces inland while the ocean blend is downstream at the mouth. The tide-pool plates include a pebble impact. The glasshouse plates include moving bubbles frozen at one instant.
 
@@ -68,6 +68,17 @@ The [matched coastal views](evidence/surf-comparison.jpg) compare the previous H
 - A directional swell shoals near the strand. Curved wave fronts wrap around the arch feet, and the short waves diminish on their sheltered sides. An animated shallow film runs up the sand and leaves a damp edge for several seconds. The enclosed tide pools and stream mouth are excluded from the beach wash.
 - The arch and offshore stacks use denser geometry on High. Their tidal notches change the silhouettes near sea level. Tilted sediment beds, interrupted joints and a damp lower band continue across the rock faces and the arch ceiling.
 - Run `node verify.mjs --surf` to capture both station views, the offshore arch, and the same arch 1.9 seconds later. The check cycles through all three graphics presets, toggles the ocean, and exercises the forced no-float path.
+
+## Shorelife techniques
+
+| Effect | Where to try it | Implementation |
+| --- | --- | --- |
+| T13 · Shape-stacked shell | Jump to Tide pools and use **Inspect shell**. Drag **Shell layers** to separate and reassemble the cross-sections. **Return to walk** restores the camera. | A tapered helix and an oval opening generate 32 horizontal sprite masks and local surface normals. Each slice has a thin side wall for low viewing angles. Jointed legs and stalked eyes move beneath the shell. The crab turns and withdraws as the walker approaches. |
+| T14 · Parallax rock relief | Walk sideways along the rock rim of the first tide pool. | A tiled height map contains barnacle rims, pores and fissures. The shader marches along the viewing direction and interpolates the first intersection. The comparison retains the flat texture. |
+| T15 · Thickness translucency | Face the sun through tide-pool kelp, or place the cave lantern behind the mushrooms near the entrance. | Per-vertex thickness distinguishes the blade margin, midrib, cap centre and radial gills. Backlighting follows the sun or the current lantern position, with stronger attenuation through thicker tissue. |
+| T16 · Persistent sand tracks | Walk along the strand, then cross the wet edge. Follow the smaller paired marks at Tide pools. | Footfalls and crab strides leave oriented impressions on the ground triangles. Swash removes marks within its local reach. A bounded list retains the most recent 320 marks during the session. |
+
+The [visual summary](evidence/shorelife-review.jpg) and [comparison atlas](evidence/atlas.html#2/13) show the new techniques. Run `node verify.mjs --shorelife` to check the shell controls, low viewing angle, avoidance, track persistence, wash and split comparisons.
 
 ## Differences and limits
 
