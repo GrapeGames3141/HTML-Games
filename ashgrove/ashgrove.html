@@ -1269,7 +1269,7 @@ function buildLeshy(){
     tHit(T, 'sh' + s, mid3(sh, el), 0.2); tHit(T, 'el' + s, mid3(el, wr), 0.16); tHit(T, 'hip' + s, mid3(hip, kn), 0.22); tHit(T, 'kn' + s, mid3(kn, an), 0.18);
   }
   tHit(T, 'spine', CORE, 0.18, 'core');
-  tHit(T, 'head', [0, 2.95, 0.12], 0.25, 'head'); tHit(T, 'spine', [0, 2.3, -0.05], 0.48); tHit(T, 'spine', [0, 1.78, 0], 0.32); tHit(T, 'pelvis', [0, 1.5, 0], 0.32);
+  tHit(T, 'head', [0, 2.95, 0.12], 0.25, 'head'); tHit(T, 'spine', [0, 2.32, -0.16], 0.38); tHit(T, 'spine', [0, 1.78, 0], 0.32); tHit(T, 'pelvis', [0, 1.5, 0], 0.32);
   T.hp = 1e9; T.goo = [0.32,0.22,0.1]; T.points = 5000; T.flyer = false; T.shadow = 1.3; T.boss = true; T.rad = 1.0; T.prad = 1.3; T.aim = 'core'; T.wood = true;
   const fin = tFinish(T);
   fin.plate = new Uint8Array(fin.n); const cy = CORE[1] - 1.6;
@@ -1996,6 +1996,8 @@ function updLeshy(m, dt){
 }
 function leshyCore(m, dmg){
   const a = Math.min(m.coreHp, dmg); m.coreHp -= dmg; stats.dmgDealt += a; stats.weak++;
+  G.hitMark = Math.max(G.hitMark, 1.6); m.flash = 1; sfxVampHit();
+  { const h = m.T.hits.findIndex(q => q.kind === 'core'); puff(m.hitW[h*3], m.hitW[h*3+1], m.hitW[h*3+2], 6, [0.8,1.0,0.3], 0.1, 2, 0.6, 1); }
   if (m.coreHp > 0) return;
   m.phase--; stats.heartBreaks++; G.hitMark = 2;
   if (m.phase <= 0) { m.dead = false; killMob(m, [0,1,0]); stats.bosses++; G.relief = 0.001; G.snap = snapStats(); bossDown(m.zone, 'THE LESHY FALLS'); sfxVampDie(); return; }
@@ -2499,7 +2501,7 @@ function clearActors(){
 }
 function resetRun(){
   Object.assign(Wp, { cur: 0, owned: [true, false], ammo: [6, 0], res: [24, 0], up: newUps(), sp: [0, 0], spOn: [false, false], cd: 0, rel: false, sw: 0, swTo: -1, recoil: 0, flash: 0 });
-  Object.assign(G, { score: 0, kills: 0, lord: null, hintVamp: false, hintWard: false, playT: 0, snap: null, finalT: -1, relief: 0, peace: 0 });
+  Object.assign(G, { score: 0, kills: 0, lord: null, hintVamp: false, hintWard: false, hintBark: false, playT: 0, snap: null, finalT: -1, relief: 0, peace: 0 });
   Object.assign(stats, newStats());
   P.hp = 100; P.lastHurt = 99;
 }
@@ -2576,8 +2578,9 @@ function fire(){
       if (m.type === 'lich' && !G.hintWard) { G.hintWard = true; showSub('A ward turns the shot aside — <b style="color:#5f5">destroy the phylactery</b> first.', 4); } continue; }
     if (m.type === 'leshy') { const open = m.open > 0.5; m.since = 0;
       if (e.core && open) leshyCore(m, e.core*wd.dmg*1.6 + (e.n - e.core)*wd.dmg*0.3);
-      else { const bd = e.n*wd.dmg*(inc ? 1.2 : 0.5); const a = Math.min(m.bark, bd); m.bark = Math.max(0, m.bark - bd); stats.dmgDealt += a; if (inc) m.burnT = 4; sfxWood(); }
-      for (const pt of e.pts) blastMob(m, pt[0], pt[1], pt[2], cam.f, 0.12, 3);
+      else { const bd = e.n*wd.dmg*(inc ? 1.2 : 0.5); const a = Math.min(m.bark, bd); m.bark = Math.max(0, m.bark - bd); stats.dmgDealt += a; if (inc) m.burnT = 4; sfxWood();
+        if (e.core && !G.hintBark) { G.hintBark = true; showSub('The bark shields its core — burn it away or wait for it to roar.', 3.5); } }
+      for (const pt of e.pts) for (let q = 0; q < 4; q++) spawnDebris(pt[0], pt[1], pt[2], cam.f[0]*-rr(1, 3) + rr(-1, 1), rr(0.5, 2.5), cam.f[2]*-rr(1, 3) + rr(-1, 1), covDisc(0.04, 0.02, [0,1,0]), [0.22,0.15,0.09], 0.95, rr(1, 2), 0);
       continue; }
     let dmg = (e.n + e.head)*wd.dmg + e.core*wd.dmg*(m.type === 'lich' ? 1.0 : 0.5);
     if (m.type === 'wolf') { dmg *= ag ? 1.6 : inc ? 0.6 : 0.4; if (ag) { m.agT = 3; m.stagger = 0.45; sfxSizzle(); } }
