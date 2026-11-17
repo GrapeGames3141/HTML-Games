@@ -1,6 +1,6 @@
 {
   "title": "3D Print Arena",
-  "description": "A collectible card battler of 3D-printed creatures. Open packs, build a deck, and print your army onto the arena.",
+  "description": "3D Print Arena, also known as 3D Print Battles (3DPrintBattles), is a collectible card battler of 3D-printed creatures. Open packs, build a deck, and print your army onto the arena.",
   "category": "Strategy",
   "controls": "Mouse or touch: play cards from your hand, then pick what your creatures attack",
   "requirements": "WebGL2; about a 130 MB download the first time"

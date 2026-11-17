@@ -6,7 +6,7 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 
 | Game | Source | Local URL |
 | --- | --- | --- |
-| 3D Print Arena | `print-arena/print-arena.html` (launcher; the game is built from [3DPrintBattles](https://github.com/GrapeGames3141/3DPrintBattles), see `print-arena/SOURCE.md`) | `http://127.0.0.1:8000/print-arena/print-arena.html` |
+| 3D Print Arena (3D Print Battles) | `print-arena/print-arena.html` (launcher; the game is built from [3DPrintBattles](https://github.com/GrapeGames3141/3DPrintBattles), see `print-arena/SOURCE.md`) | `http://127.0.0.1:8000/print-arena/print-arena.html` |
 | Appalachian Eagle | `appalachian-eagle/appalachian-eagle.html` | `http://127.0.0.1:8000/appalachian-eagle/appalachian-eagle.html` |
 | Ashgrove | `ashgrove/ashgrove.html` | `http://127.0.0.1:8000/ashgrove/ashgrove.html` |
 | Broadside | `broadside/broadside.html` | `http://127.0.0.1:8000/broadside/broadside.html` |
