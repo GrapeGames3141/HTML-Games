@@ -32,7 +32,7 @@ Technique guides live as Markdown in this root folder. Read the matching guide i
 
 - Every new game gets its own folder: `E:\html games\<game>\`, with a short, meaningful folder name.
 - Name the main file meaningfully, never `index.html`. The default is the folder name: `<game>\<game>.html`.
-- Add the new game to the table above (and to the root `README.md`) in the first commit. For an arcade-ready game, also update the lobby and `tools/build-pages.py` `GAMES` registry, then run the build. Experiments follow the separate exclusion rule above.
+- Add the new game to the table above (and to the root `README.md`) in the first commit. The Pages build auto-discovers valid top-level game folders; run it after an arcade-ready game to verify the generated lobby. Experiments follow the separate exclusion rule above.
 - New games are root-owned. Never initialize a child repository for one.
 - Commit as you go: check in at each working milestone (first playable scaffold, each feature that works, each fix) rather than one large commit at the end, and push `main` to origin after each check-in.
 

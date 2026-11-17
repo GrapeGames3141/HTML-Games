@@ -17,6 +17,7 @@ class PagesTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         for name in ('index.html', 'arcade.css', 'arcade.js', '.nojekyll'):
             shutil.copyfile(ROOT / name, self.root / name)
+        shutil.copytree(ROOT / 'assets', self.root / 'assets')
         for name in builder.CURATED:
             folder = self.root / name
             folder.mkdir()
@@ -34,16 +35,22 @@ class PagesTests(unittest.TestCase):
         excluded = self.root / 'tools'
         excluded.mkdir()
         (excluded / 'tools.html').write_text('<title>Not a game</title>')
+        experiment = self.root / 'experiments'
+        experiment.mkdir()
+        (experiment / 'experiments.html').write_text('<title>Not an arcade game</title>')
         out = builder.build(self.root)
         lobby = (out / 'index.html').read_text(encoding='utf-8')
         self.assertIn('Clouds &lt;&amp;&gt; &quot;Sky&quot;', lobby)
         self.assertIn('future%20fields/launch.html', lobby)
         self.assertIn('data-filter="puzzle"', lobby)
         self.assertIn('SHOWING ALL 10 GAMES', lobby)
+        self.assertIn('10 PLAYABLE WORLDS', lobby)
+        self.assertNotIn('Not an arcade game', lobby)
         self.assertTrue((out / 'future fields/nested/game.js').exists())
         self.assertTrue((out / 'future fields/nested/art.png').exists())
         self.assertFalse((out / 'future fields/snapshots/old.js').exists())
         self.assertFalse((out / 'tools/tools.html').exists())
+        self.assertFalse((out / 'experiments').exists())
         self.assertTrue((out / 'splat/index.html').exists())
         shutil.rmtree(game)
         builder.build(self.root)

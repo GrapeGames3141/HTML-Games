@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXCLUDED = {"work", "tools", "tests", "assets", "experiments", "design-review", "node_modules", "vendor", "build", "dist", "coverage", "references", "snapshots"}
 SKIP_DIRS = EXCLUDED | {".git", "__pycache__", "source", "sources", "research"}
 EXTENSIONS = {".html", ".htm", ".js", ".mjs", ".css", ".json", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".ico", ".mp3", ".ogg", ".wav", ".mp4", ".webm", ".woff", ".woff2", ".ttf", ".otf", ".wasm", ".glb", ".gltf", ".bin"}
-CURATED = {"prism-swarm": "prism", "appalachian-eagle": "eagle", "splat": "splat", "ashgrove": "ashgrove", "sitter": "sitter", "castle-defense": "castle", "broadside": "broadside", "splatcraft": "splatcraft", "dustdevil": "dustdevil"}
+CURATED = {"prism-swarm": "prism", "appalachian-eagle": "eagle", "splat": "splat", "ashgrove": "ashgrove", "castle-defense": "castle", "broadside": "broadside", "splatcraft": "splatcraft", "dustdevil": "dustdevil", "merlin": "merlin"}
 
 class PageParser(HTMLParser):
     def __init__(self):
@@ -77,11 +77,10 @@ def new_card(folder, data, number):
     search = " ".join([folder.name, *data.values()]).lower()
     href = quote(folder.name, safe="") + "/" + quote(entry_name(folder), safe="")
     return (f'<article class="game-card" data-id="{e(game_id)}" data-category="{e(category)}" data-search="{e(search)}">'
-            f'<a class="card-link play-link" data-game="{e(game_id)}" href="{href}">'
-            f'<div class="card-art art-generated"><span class="art-index">{number:02} / {e(data["category"].upper())}</span>'
-            '<span class="generated-symbol" aria-hidden="true">✳</span><span class="art-caption">READY TO PLAY ↗</span></div>'
-            f'<div class="card-top"><span class="category">{e(data["category"].upper())}</span><span class="arrow" aria-hidden="true">↗</span></div>'
-            f'<h3>{title}</h3><p>{desc}</p></a><p class="details">{controls}<br><span>{req}</span></p></article>')
+            f'<a class="play-link" data-game="{e(game_id)}" href="{href}">'
+            f'<div class="art-generated"><span class="generated-symbol" aria-hidden="true">✳</span></div><div class="fade"></div>'
+            f'<div class="card-copy"><p class="category">{number:02} · {e(data["category"].upper())}</p><h3>{title}</h3><span>Ready to play <b>↗</b></span></div>'
+            '</a></article>')
 
 def runtime_files(folder):
     for path in sorted(folder.rglob("*")):
@@ -133,6 +132,7 @@ def build(root=ROOT):
     source = re.sub(r'(<div class="filters" role="group" aria-label="Filter games by category">).*?(</div><label class="search">)', lambda m: m.group(1) + ''.join(filters) + m.group(2), source, count=1, flags=re.S)
     source = re.sub(r'(<div class="game-grid" id="game-grid">).*?(</div><div id="empty-state")', lambda m: m.group(1) + '\n' + '\n'.join(cards) + '\n    ' + m.group(2), source, count=1, flags=re.S)
     source = re.sub(r'SHOWING ALL \d+ GAMES', f'SHOWING ALL {len(cards):02} {"GAME" if len(cards) == 1 else "GAMES"}', source)
+    source = re.sub(r'(GRAPEGAMES ARCADE · )\d+ PLAYABLE WORLDS', lambda m: f'{m.group(1)}{len(cards):02} PLAYABLE WORLDS', source)
     source = re.sub(r'\b(?:Six|Eight|Nine|Ten) different ways to get lost for a little while\.', 'Find a new way to get lost for a little while.', source)
     source = re.sub(r'FEATURED GAME <span class="feature-number">01 / \d+</span>', f'FEATURED GAME <span class="feature-number">01 / {len(cards):02}</span>', source)
     source = re.sub(r'content="Explore (?:six|eight|nine|ten) free browser games from GrapeGames\."', f'content="Explore {len(cards)} free browser games from GrapeGames."', source)
@@ -154,7 +154,7 @@ def build(root=ROOT):
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(item, dest)
     for game in games:
-        if game.name in ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "sitter", "castle-defense"):
+        if game.name in ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "castle-defense"):
             target = quote(entry_name(game), safe="")
             (out / game.name / "index.html").write_text(f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url={target}"><title>Moved</title><p>This game moved to <a href="{target}">{escape(entry_name(game))}</a>.</p>', encoding="utf-8")
     for rel in [Path("index.html")] + [Path(game.name) / entry_name(game) for game in games]:

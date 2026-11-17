@@ -7,6 +7,7 @@
   let category = 'all';
   let recent = '';
   try { recent = localStorage.getItem('grapegames-last-played') || ''; } catch (_) { /* Storage is optional. */ }
+
   function update() {
     const query = search.value.trim().toLowerCase();
     let shown = 0;
@@ -23,25 +24,27 @@
     count.textContent = `SHOWING ${shown === cards.length ? 'ALL ' : ''}${String(shown).padStart(2, '0')} ${shown === 1 ? 'GAME' : 'GAMES'}`;
     empty.hidden = shown !== 0;
   }
+
+  function playRandom() {
+    const visible = cards.filter(card => !card.hidden);
+    const withoutRecent = visible.filter(card => card.dataset.id !== recent);
+    const pool = withoutRecent.length ? withoutRecent : (visible.length ? visible : cards);
+    const link = pool[Math.floor(Math.random() * pool.length)].querySelector('.play-link');
+    if (link) link.click();
+  }
+
   filters.forEach(button => button.addEventListener('click', () => { category = button.dataset.filter; update(); }));
   search.addEventListener('input', update);
   document.querySelector('#reset-filters').addEventListener('click', () => { category = 'all'; search.value = ''; update(); search.focus(); });
   document.querySelectorAll('.play-link').forEach(link => link.addEventListener('click', () => {
     try { localStorage.setItem('grapegames-last-played', link.dataset.game); } catch (_) { /* Playing does not depend on storage. */ }
   }));
-  document.querySelector('#random-game').addEventListener('click', () => {
-    const choices = cards.filter(card => card.dataset.id !== recent);
-    const pool = choices.length ? choices : cards;
-    const card = pool[Math.floor(Math.random() * pool.length)];
-    card.querySelector('.play-link').click();
-  });
+  document.querySelector('#random-game').addEventListener('click', playRandom);
+  document.querySelector('#hero-random').addEventListener('click', playRandom);
   if (recent) {
     const card = cards.find(item => item.dataset.id === recent);
-    if (card) {
-      const label = document.createElement('span');
-      label.className = 'spooky';
-      label.textContent = ' / LAST PLAYED';
-      card.querySelector('.category').append(label);
-    }
+    const categoryLabel = card && card.querySelector('.category');
+    if (categoryLabel) categoryLabel.append(document.createTextNode(' · LAST PLAYED'));
   }
+  update();
 })();
