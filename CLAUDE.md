@@ -15,6 +15,7 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Ashgrove | `ashgrove\ashgrove.html` | `horror.html` |
 | Splatcraft | `splatcraft\splatcraft.html` | none yet |
 | Broadside | `broadside\broadside.html` | none yet |
+| Dust Devil | `dustdevildustdevil.html` | none yet |
 | Castle Defense | `castle-defense\castle-defense.html` | none yet |
 
 Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source file to the mapped release name, then verify both byte length and SHA-256. Each game's source file is named after its folder, `<game>\<game>.html`; keep that name and do not add an `index.html`. The root `index.html` is the intentional arcade lobby, not a game source.
