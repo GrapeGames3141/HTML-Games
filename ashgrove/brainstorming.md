@@ -1,6 +1,6 @@
 # Ashgrove: Campaign Expansion Notes
 
-**Status:** planning only; no implementation is authorized by this note.
+**Status:** implemented 2026-11-16 in `ashgrove/ashgrove.html` — chapters II–VIII (chapel interior, crypt, catacombs, caves, haunted wood, Leshy grove, meadow), Heavy/Silver/Incendiary ammo, the new upgrades, credits and the results pane. The notes below are the original plan and remain the design reference.
 
 **Updated:** 2026-11-16
 
