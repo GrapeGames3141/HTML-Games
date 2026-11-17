@@ -37,7 +37,19 @@ The [comparison atlas](evidence/atlas.html) opens the original PNGs and slides b
 | T11 · Kuwahara paint | Four neighbourhoods compete on colour variance. The filter mixes the selected mean with the original pixel and reaches full strength at the easel. |
 | T12 · Particle fluid | A spatial hash finds neighbouring particles for pressure and viscosity. Gravity, pool impacts and drag differentiate the falling water and mud. Velocity-stretched splats accumulate thickness in two material channels. A screen-space filter refracts and shades the result. |
 
-The opaque pass writes colour, depth and normals. Colour and depth are copied before refractive drawing. Quality scales scene resolution, near and far shadows, ripple grids (64–128), FFT grids (32–128), shaft samples and fluid particles (500–1,800). At seed 412 the static scene contains 189,627 splats and 281,716 triangles before view culling.
+The opaque pass writes colour, depth and normals. Colour and depth are copied before refractive drawing. Quality scales scene resolution, near and far shadows, ripple grids (64–128), FFT grids (32–128), shaft samples and fluid particles (500–1,800). At seed 412 the static scene contains 206,450 splats and 448,881 triangles before view culling.
+
+## Screenshot-guided polish
+
+The [matched before-and-after sheet](evidence/polish-review.jpg) compares crops from the original Astra checkpoint `1829b73` with the polished build. The camera, simulation step, viewport and low-quality setting match within each pair.
+
+- The sheltered tide pools now keep their own ripple surface. A softer caustic response preserves the shell and anemone colours. The stream has a pebbled bed, marginal reeds and clearer shallows.
+- Foliage uses four locally generated leaf sprays and denser inner crowns. The light and shadow passes share the leaf silhouettes. Fern leaflets attach to a central stem. Driftwood follows the beach slope, with shell fragments and wrack along the strand.
+- The glasshouse panes reflect the sky. Smooth bubble normals let the background show through the centre while the rim retains its thin-film colours. Nearby sign descriptions appear beneath the station caption.
+- The falls resolve particle thickness into falling strands, with mossy rock shelves and short foam streaks at impact. The local ripple mesh has a smaller vertical excursion while its slopes still drive refraction and caustics.
+- Cave mushrooms have curved stems, scalloped caps and radial gills. The pool samples nearby cave light for reflections. Crystal faces have mineral seams and directional shading.
+
+The extra crown, fern and cave geometry increases the static scene budget. Hardware frame time remains unmeasured.
 
 ## Differences and limits
 
@@ -65,6 +77,6 @@ For a fixed simulation, open `?test&seed=412&q=low`. The test surface includes `
 
 Headless Edge on SwiftShader rendered all eight stations at low, medium and high quality, then visited all eight with float effects forced to their stand-ins. The continuous traversal crossed both cave portals, visited all eight stations and finished within 0.18 m of every waypoint. The browser reported no page, shader or WebGL errors.
 
-The verifier exercised keyboard walking, mouse drag-look, emulated touch gestures in both control zones, simulated gamepad buttons, the effects panel, held split, bubbles, lantern pickup and placement, the sundial, free camera and a 357,764-byte photo-mode PNG download. The final default-seed start card was entered with a browser mouse event. The comparison gallery decoded all 54 PNGs. Pixel differences were checked in the world area of all eight main-effect comparisons.
+The verifier exercised keyboard walking, mouse drag-look, emulated touch gestures in both control zones, simulated gamepad buttons, the effects panel, held split, bubbles, lantern pickup and placement, the sundial, free camera and a verified photo-mode PNG download. The final default-seed start card was entered with a browser mouse event. The comparison gallery decoded all 54 PNGs. Pixel differences were checked in the world area of all eight main-effect comparisons.
 
 The timing pass produced the expected synchronous-readback warning. One scripted audio activation also produced a browser autoplay warning. Sound starts or resumes on user interaction. The full raw results are retained alongside the plates.

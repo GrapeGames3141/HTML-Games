@@ -18,11 +18,11 @@ const server = createServer(async (req, res) => {
   if (path === '/Astra-demo.html') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(html);
-  } else if (/^\/evidence\/(atlas\.html|[a-z0-9-]+\.png)$/.test(path)) {
+  } else if (/^\/evidence\/(atlas\.html|polish-review\.jpg|[a-z0-9-]+\.png)$/.test(path)) {
     try {
       let bytes = await readFile(join(evidence, basename(path)));
       res.writeHead(200, {
-        'content-type': path.endsWith('.png') ? 'image/png' : 'text/html; charset=utf-8'
+        'content-type': path.endsWith('.png') ? 'image/png' : path.endsWith('.jpg') ? 'image/jpeg' : 'text/html; charset=utf-8'
       });
       res.end(bytes);
     } catch {
@@ -151,10 +151,12 @@ async function press(c, k) {
   await key(c, k, false);
 }
 async function testStartCard() {
+  const seededSplats = await js('DEMO.state().staticSplats');
+  assert(seededSplats > 0);
   await size(1060, 660);
   await open('?desktop&q=low');
   assert.equal(await js('DEMO.state().started'), false);
-  assert.equal(await js('DEMO.state().staticSplats'), 189627);
+  assert.equal(await js('DEMO.state().staticSplats'), seededSplats);
   await screenshot('start-card');
   const pt = await js(
     '(()=>{let r=document.getElementById("begin").getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()'
@@ -187,10 +189,10 @@ try {
     let count =
       await js(`(async()=>{let s=document.getElementById('station'),e=document.getElementById('effect'),urls=new Set();
       for(let i=0;i<s.length;i++){s.selectedIndex=i;s.dispatchEvent(new Event('change'));for(let opt of e.options){e.value=opt.value;e.dispatchEvent(new Event('change'));for(let id of ['on','off']){let image=document.getElementById(id);await image.decode();if(!image.naturalWidth)throw Error(image.src);urls.add(image.src)}}}
-      for(let a of document.querySelectorAll('footer a[href$=".png"]')){let img=new Image();img.src=a.href;await img.decode();urls.add(img.src)}
+      for(let a of document.querySelectorAll('footer a[href$=".png"],footer a[href$=".jpg"]')){let img=new Image();img.src=a.href;await img.decode();urls.add(img.src)}
       return urls.size})()`);
-    assert.equal(count, 54);
-    console.log('Atlas decoded all', count, 'unique PNGs');
+    assert.equal(count, 55);
+    console.log('Atlas decoded all', count, 'unique images');
   } else {
     await open('?test&seed=412&q=low');
     console.log('Loaded', await js('DEMO.inspect()'));

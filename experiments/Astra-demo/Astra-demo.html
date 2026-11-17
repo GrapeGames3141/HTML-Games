@@ -341,24 +341,19 @@
         color: #4c6051;
       }
       #signLabel {
-        position: absolute;
-        transform: translate(-50%, -100%);
-        max-width: 240px;
-        background: #153637ef;
-        border: 1px solid #bbbc9366;
-        padding: 6px 10px;
-        border-radius: 3px;
-        font-size: 11px;
-        text-align: center;
-        line-height: 1.35;
-      }
-      #signLabel strong {
-        color: var(--accent);
-        display: block;
+        color: #e4e6d5;
         font:
-          12px Georgia,
-          serif;
-        margin-bottom: 2px;
+          11px/1.4 'Trebuchet MS',
+          Arial,
+          sans-serif;
+        max-width: min(780px, 88vw);
+        margin-top: 3px;
+      }
+      @media (max-width: 600px) {
+        #signLabel {
+          max-width: 60vw;
+          font-size: 10px;
+        }
       }
       #cross {
         position: absolute;
@@ -576,7 +571,6 @@
           <span id="perf" class="readout"></span><button id="menu">Effects &nbsp; ☰</button>
         </div>
       </header>
-      <div id="signLabel" hidden></div>
       <div id="cross" hidden></div>
       <div id="compare" hidden><span class="chip">Effect on</span><span class="chip">Stand-in</span></div>
       <div id="notice" role="status" hidden></div>
@@ -627,6 +621,7 @@
             <div id="stationNo" class="eyebrow"></div>
             <h2 id="stationName"></h2>
             <p id="caption"></p>
+            <div id="signLabel" hidden></div>
           </div>
           <span id="context" class="readout"></span>
         </div>
@@ -979,17 +974,32 @@
         for (let j = 0; j < rows; j++)
           for (let i = 0; i < cols; i++) {
             let k = (i + 1) % cols;
-            quad(
-              rings[j][i],
-              rings[j + 1][i],
-              rings[j + 1][k],
-              rings[j][k],
-              scale(col, 1 + 0.035 * sin(i * 5 + j * 2)),
-              mat
-            );
+            if (mat === 9 && !rough) {
+              const corners = [rings[j][i], rings[j + 1][i], rings[j + 1][k], rings[j][k]];
+              for (const face of [
+                [0, 1, 2],
+                [0, 2, 3]
+              ]) {
+                const points = face.map((v) => corners[v]);
+                tri(
+                  ...points,
+                  col,
+                  mat,
+                  points.map((q) => unit(q.map((v, d) => (v - p[d]) / (r[d] * r[d]))))
+                );
+              }
+            } else
+              quad(
+                rings[j][i],
+                rings[j + 1][i],
+                rings[j + 1][k],
+                rings[j][k],
+                scale(col, 1 + 0.035 * sin(i * 5 + j * 2)),
+                mat
+              );
           }
       }
-      const sand = rgb('eac58c'),
+      const sand = rgb('ddc69f'),
         wet = rgb('a19470'),
         grass = rgb('829255'),
         trail = rgb('b4a078'),
@@ -1136,6 +1146,26 @@
           );
       }
       const trunks = [];
+      function crownCore(center, radius, angle, tone) {
+        const rings = [
+          [0.16, -0.36],
+          [0.76, -0.14],
+          [0.7, 0.17],
+          [0.23, 0.37]
+        ].map(([width, height], band) =>
+          Array.from({ length: 7 }, (_, j) => {
+            const a = angle + (j * TAU) / 7 + 0.11 * band;
+            const r = radius * width * (1 + 0.16 * sin(j * 3.1 + angle));
+            return add(center, [r * cos(a), radius * (height + 0.055 * sin(a * 3 + band)), r * sin(a)]);
+          })
+        );
+        for (let band = 1; band < rings.length; band++)
+          for (let i = 0; i < 7; i++) {
+            const j = (i + 1) % 7,
+              shade = scale(tone, 0.72 + 0.085 * band + 0.035 * cos(angle + i));
+            quad(rings[band - 1][i], rings[band][i], rings[band][j], rings[band - 1][j], shade, 31);
+          }
+      }
       function tree(x, z, h) {
         let y = terrain(x, z) - 0.1;
         let p = [x, y, z],
@@ -1154,15 +1184,16 @@
           ];
           rod(blend(p, top, 0.43 + t * 0.39), end, h * 0.017, h * 0.005, bark, 3, 5);
           let R = h * (0.16 + 0.07 * (1 - t));
+          crownCore(end, R, a, cols[k % cols.length]);
           for (let j = 0; j < 33; j++) {
             let th = rand() * TAU,
               e = between(-0.83, 1),
               rr = sqrt(1 - e * e),
               n = [rr * cos(th), e, rr * sin(th)];
-            let pos = add(end, [n[0] * R, n[1] * R * 0.56, n[2] * R]);
+            let pos = add(end, [n[0] * R * 0.88, n[1] * R * 0.45, n[2] * R * 0.88]);
             let u = scale(unit([-sin(th), 0.18, cos(th)]), R * between(0.3, 0.51)),
               v = scale(unit(cross(n, u)), R * between(0.2, 0.45));
-            daub(pos, u, v, scale(pick(cols), 0.84 + 0.23 * max(0, e)), 4, n);
+            daub(pos, u, v, scale(pick(cols), 0.87 + 0.25 * max(0, e)), 28, n);
           }
         }
       }
@@ -1179,15 +1210,22 @@
                 [x, y, z],
                 add(scale(dir, len * t), [0, len * (0.35 * sin(t * Math.PI) + 0.28 * t), 0])
               );
-            for (let s of [-1, 1])
+            const lower = add(p, add(scale(dir, -len / 7), [0, -len * 0.055 * cos(t * Math.PI), 0]));
+            const spine = scale(sub(p, lower), 0.52);
+            daub(scale(add(p, lower), 0.5), spine, scale(side, size * 0.012), rgb('7e8651'), 29, [0, 1, 0]);
+            for (const sign of [-1, 1]) {
+              const axis = add(scale(side, sign * len * 0.18 * (1 - t * 0.8)), scale(dir, len * 0.095));
+              const half = scale(axis, 0.53),
+                across = scale(unit(cross([0, 1, 0], axis)), len * (0.038 - 0.019 * t));
               daub(
-                p,
-                add(scale(side, s * len * 0.15 * (1 - t * 0.72)), scale(dir, len * 0.11)),
-                [0, 0.035 + len * 0.026, 0],
-                pick([rgb('688749'), rgb('78974c'), rgb('427a4d')]),
-                5,
+                add(p, half),
+                half,
+                add(across, [0, len * 0.014, 0]),
+                pick([rgb('668a49'), rgb('789953'), rgb('42764a')]),
+                29,
                 [0, 1, 0]
               );
+            }
           }
         }
       }
@@ -1322,8 +1360,24 @@
           let y = terrain(x, z);
           let a = [x, y + 0.19, z],
             b = [x + between(1.8, 4.3), y + 0.23, z + between(-0.8, 1.1)];
-          rod(a, b, 0.16, 0.082, rgb('99886f'), 3);
-          rod(blend(a, b, 0.4), add(blend(a, b, 0.4), [0.4, 0.48, -0.2]), 0.087, 0.025, bark, 3);
+          const angle = i * 2.399 + 0.34,
+            length = hypot(...sub(b, a)) * (i % 3 === 0 ? 0.98 : 0.57);
+          const direction = [cos(angle), 0, sin(angle)],
+            side = [-sin(angle), 0, cos(angle)];
+          const joint = (t, width) => {
+            const p = add(a, add(scale(direction, t * length), scale(side, width)));
+            p[1] = terrain(p[0], p[2]) + 0.06 + 0.11 * sin(t * Math.PI);
+            return p;
+          };
+          const base = joint(0, 0),
+            bend = joint(0.45, 0.17 * cos(i)),
+            tip = joint(1, -0.1);
+          const radius = i % 3 === 0 ? 0.105 : 0.065,
+            wood = rgb(i % 2 ? 'ae997d' : '978673');
+          rod(base, bend, radius, radius * 0.8, wood, 3, 7);
+          rod(bend, tip, radius * 0.8, 0.016, wood, 3, 6);
+          const fork = add(joint(0.78, 0.32 * cos(i)), [0, 0.12 + 0.08 * sin(i), 0]);
+          rod(bend, fork, radius * 0.48, 0.014, wood, 3, 5);
         }
       }
       function woods() {
@@ -1528,19 +1582,67 @@
         }
       }
       function mushroom(p, h, col) {
-        rod(p, add(p, [0.06, h, 0]), h * 0.085, h * 0.078, rgb('99b2a6'), 27, 6);
-        let cap = add(p, [0.06, h, 0]);
-        ellipsoid(cap, [h * 0.48, h * 0.18, h * 0.47], col, 11, 4, 10);
+        const phase = rand() * TAU,
+          lean = [0.13 * h * cos(phase), 0, 0.13 * h * sin(phase)];
+        const crown = add(add(p, lean), [0, h, 0]),
+          elbow = add(p, [-lean[0] * 0.18, h * 0.44, -lean[2] * 0.18]);
+        rod(p, elbow, h * 0.115, h * 0.062, rgb('647d82'), 27, 8);
+        rod(elbow, crown, h * 0.062, h * 0.045, rgb('b1c3ab'), 27, 8);
+        const radius = h * (0.49 + 0.06 * sin(phase)),
+          slices = 32;
+        const tiers = [
+          [0.08, -0.038],
+          [0.7, -0.086],
+          [1, -0.022],
+          [0.93, 0.058],
+          [0.69, 0.153],
+          [0.37, 0.22],
+          [0.015, 0.245]
+        ];
+        const rings = tiers.map(([width, level], band) =>
+          Array.from({ length: slices }, (_, i) => {
+            const a = (i * TAU) / slices,
+              fold = 0.038 * sin(5 * a + phase) + 0.021 * cos(8 * a - phase);
+            const radial = width * radius * (1 + fold);
+            const edgeWave = width * width * (0.026 * sin(4 * a + phase) + 0.013 * cos(7 * a));
+            const pos = add(crown, [radial * cos(a), h * (level + edgeWave), 0.91 * radial * sin(a)]);
+            const normal = unit([cos(a) * width, band < 2 ? -0.8 : 1.05 - width * 0.82, sin(a) * width]);
+            let tint;
+            if (band < 2) tint = blend(rgb('746987'), rgb('dfd2b0'), (i % 2) * 0.64 + 0.1);
+            else if (band === 2) tint = blend(col, rgb('d9f1be'), 0.63);
+            else
+              tint = scale(
+                blend(rgb('236479'), col, 0.45 + 0.12 * cos(phase)),
+                1.21 - 0.105 * band + 0.105 * cos(3 * a + phase)
+              );
+            return { pos, normal, tint };
+          })
+        );
+        for (let band = 1; band < rings.length; band++)
+          for (let i = 0; i < slices; i++) {
+            const j = (i + 1) % slices,
+              a = rings[band - 1][i],
+              b = rings[band][i],
+              c = rings[band][j],
+              d = rings[band - 1][j];
+            for (const face of [
+              [a, b, c],
+              [a, c, d]
+            ])
+              tri(
+                ...face.map((k) => k.pos),
+                col,
+                11,
+                face.map((k) => k.normal),
+                face.map((k) => k.tint)
+              );
+          }
         for (let i = 0; i < 6; i++) {
-          let a = i * 2.4;
-          daub(
-            add(cap, [h * 0.29 * cos(a), h * 0.14, h * 0.29 * sin(a)]),
-            [h * 0.052, 0, 0],
-            [0, 0.01, h * 0.049],
-            rgb('e1ffe3'),
-            11,
-            [0, 1, 0]
-          );
+          const a = phase + i * 2.4,
+            r = radius * (0.3 + 0.38 * abs(sin(i + phase))),
+            f = r / radius;
+          const pos = add(crown, [r * cos(a), h * (0.252 - 0.202 * f * f), 0.91 * r * sin(a)]);
+          daub(pos, [0.025 * h, 0, 0], [0, 0.003 * h, 0.018 * h], rgb('d7ebc6'), 11, [0, 1, 0]);
         }
       }
       function cave() {
@@ -1665,6 +1767,103 @@
           let [x, z] = caveWorld(0.8, cos(a) * 5.1);
           rock(x, z, 1.8, 1.5, 1.6, 14.1 + sin(a) * 6.2, rgb('838579'));
         }
+      }
+      // Close-range scale cues follow the strand line and stream banks.
+      function shoreDetails() {
+        const savedSeed = seed;
+        for (let i = 0; i < 420; i++) {
+          const x = between(-113, 39),
+            z = shore(x) - between(0.4, 9.8),
+            y = terrain(x, z);
+          if (y < 0.09 || waterLine(x, z) > y) continue;
+          const angle = rand() * TAU,
+            along = [cos(angle), 0, sin(angle)],
+            across = [-sin(angle), 0, cos(angle)];
+          if (i % 4 === 0) {
+            const p = [x, y + 0.018, z],
+              length = between(0.14, 0.42);
+            for (let j = 0; j < 4; j++) {
+              const root = add(p, scale(along, length * j * 0.47)),
+                curl = sin(j * 1.7 + angle);
+              daub(
+                add(root, [0, 0.017, 0]),
+                add(scale(along, length * 0.33), scale(across, 0.035 * curl)),
+                add(scale(across, 0.038), [0, 0.01, 0]),
+                rgb(j % 2 ? '706e42' : '797649'),
+                29,
+                [0, 1, 0]
+              );
+            }
+          } else {
+            const width = between(0.04, 0.097),
+              center = [x, y + 0.018, z];
+            for (let rib = 0; rib < 7; rib++) {
+              const a = -1.02 + rib * 0.34,
+                b = a + 0.34;
+              const rim = (t) =>
+                add(
+                  center,
+                  add(
+                    scale(along, width * cos(t)),
+                    add(scale(across, width * sin(t)), [0, 0.024 * cos(t), 0])
+                  )
+                );
+              tri(center, rim(a), rim(b), rgb(rib % 2 ? 'e5d5b3' : 'b8a388'), 2);
+            }
+          }
+        }
+        for (let i = 0; i < 125; i++) {
+          const z = between(-44, 57),
+            x = streamX(z) + pick([-1, 1]) * between(3.4, 5.2),
+            y = terrain(x, z);
+          if (y < waterLine(x, z) - 0.19) continue;
+          const angle = rand() * TAU;
+          for (let j = 0; j < 9; j++) {
+            const a = angle + j * 2.4,
+              h = between(0.35, 0.83),
+              lean = between(0.08, 0.33);
+            daub(
+              [x + cos(a) * lean * 0.45, y + h * 0.47, z + sin(a) * lean * 0.45],
+              [-sin(a) * 0.031, 0, cos(a) * 0.031],
+              [cos(a) * lean * 0.56, h * 0.56, sin(a) * lean * 0.56],
+              rgb(j % 3 ? '839258' : '526d4a'),
+              5,
+              [0, 0.9, 0.24]
+            );
+          }
+        }
+        for (const side of [-1, 1]) {
+          for (let j = 0; j < 13; j++) {
+            const l = between(-2.2, 3.5),
+              width = side * between(3.6, 6.1),
+              [x, z] = caveWorld(l, width);
+            const base = 14.45 + j * 0.39,
+              reach = between(0.9, 1.65);
+            ellipsoid(
+              [x, base, z],
+              [reach, 0.42, reach * 0.67],
+              rgb(j % 3 ? '6d776a' : '90917a'),
+              2,
+              4,
+              9,
+              0.18
+            );
+            if (j > 7)
+              for (let k = 0; k < 9; k++) {
+                const a = k * 2.4,
+                  r = between(0.12, 0.68);
+                daub(
+                  [x + cos(a) * r, base + 0.4, z + sin(a) * r * 0.68],
+                  [reach * 0.19, 0.014, 0],
+                  [0, 0, 0.18],
+                  rgb(k % 3 ? '77905b' : '526e50'),
+                  2,
+                  [0, 1, 0]
+                );
+              }
+          }
+        }
+        seed = savedSeed;
       }
       function fieldObjects() {
         const [x, z] = [-91, -3];
@@ -2205,7 +2404,7 @@
             if (p.vy < -2) {
               p.vy *= -0.21;
               p.vz += 0.6;
-              if (i % 67 === 0) disturb(p.x, p.z, 0.08);
+              if (i % 67 === 0) disturb(p.x, p.z, 0.029);
             } else p.vy = 0.09;
             p.y = 14.09;
             if (p.age > (p.mud ? 2.3 : 1.75)) drops[i] = spawnDrop(i);
@@ -2221,7 +2420,10 @@
           for (let x = -162; x <= 156; x += 1.2) {
             let y = waterLine(x, z),
               dep = y - terrain(x, z);
-            row.push({ p: [x, y + 0.027, z], c: [dep, smooth(shore(x) - 5, shore(x) + 2, z), 0] });
+            row.push({
+              p: [x, y + 0.027, z],
+              c: [dep, y === 0.79 ? 0 : smooth(shore(x) - 5, shore(x) + 2, z), 0]
+            });
           }
           if (prev)
             for (let i = 1; i < row.length; i++) {
@@ -2336,21 +2538,103 @@ float fbm(vec2 p){return .56*noise(p)+.28*noise(p*2.07+9.)+.16*noise(p*4.16+31.)
 vec3 sunColor(){return mix(vec3(1.,.94,.78),vec3(1.,.58,.31),smoothstep(.48,1.,day));}
 vec3 horizon(){return mix(vec3(.79,.87,.82),vec3(.97,.68,.47),smoothstep(.32,1.,day));}
 vec3 sky(vec3 d){float h=max(d.y,0.);vec3 c=mix(horizon(),mix(vec3(.30,.62,.73),vec3(.39,.48,.66),day),smoothstep(0.,.81,pow(h,.72)));float s=max(dot(d,lightV),0.);c+=sunColor()*(.16*pow(s,20.)+.57*smoothstep(.9993,.9998,s));vec2 cloud=d.xz/max(.045,d.y+.065)*1.35+vec2(clockT*.006,0);float field=fbm(cloud*.72)+.11*noise(cloud*3.2)+.047*noise(cloud*8.2)+.026*noise(cloud*18.5);float cover=smoothstep(.53,.70,field)*smoothstep(.015,.14,d.y);c=mix(c,mix(vec3(.90,.90,.81),vec3(1.,.82,.67),day),cover*.76);
-float a=atan(d.x,d.z);float ridge=.009+.014*noise(vec2(a*9.,1.))+.018*noise(vec2(a*23.,3.));if(d.y<ridge&&d.y>-.01)c=mix(c,vec3(.48,.65,.65),.46);return c;}
+float a=atan(d.x,d.z),base=-eye.y/1550.;
+float ridge=.006+.014*noise(vec2(a*9.,1.))+.019*noise(vec2(a*23.,3.));
+float headland=smoothstep(base-.005,base+.002,d.y)*(1.-smoothstep(base+ridge-.002,base+ridge+.002,d.y));
+return mix(c,mix(vec3(.54,.69,.71),horizon(),.36),headland*.79);}
 vec4 ripple(vec2 xz){vec2 uv=(xz-waterSim.xy)/waterSim.z;if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1))))return vec4(.5,.5,.5,0);return texture(rippleMap,uv);}
 vec3 wave(vec2 xz,float sea){vec3 rip=fx[4]>0?(ripple(xz).rgb-.5)*vec3(2.,1.25,1.25):vec3(0);float t=clockT;float phase=xz.y*1.4+xz.x*.36-t*1.65+.64*sin(xz.x*1.21+t*.42);vec3 small=vec3(.018*sin(phase),.006*cos(phase),.044*cos(phase));small+=vec3(.008*sin(xz.x*2.2+t),.016*cos(xz.x*2.2+t),0);if(fx[5]>0&&sea>.001){vec3 a=texture(oceanMap,xz/48.).rgb-.5,b=texture(oceanMap,mat2(.82,.57,-.57,.82)*xz/23.+.23).rgb-.5;return rip+small+sea*(a*vec3(1.5,.69,.69)+b*vec3(.30,.19,.19));}return rip+small*(.45+sea);}
 vec3 film(float ct,float thickness){vec3 phase=4.*3.14159*1.32*thickness*sqrt(.43+.57*ct*ct)/vec3(650.,520.,445.);return .51+.47*cos(phase);}
 `;
+      // Four silhouettes share a mipmapped sheet. The sun pass samples the same gaps as the colour pass.
+      function makeLeafSheet() {
+        const tile = 128,
+          paper = document.createElement('canvas');
+        paper.width = paper.height = tile * 2;
+        const ctx = paper.getContext('2d');
+        function leaf(x, y, angle, length, width, tone) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(angle);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.bezierCurveTo(length * 0.16, -width, length * 0.68, -width, length, 0);
+          ctx.bezierCurveTo(length * 0.62, width * 0.67, length * 0.25, width, 0, 0);
+          ctx.fillStyle = 'rgb(' + [tone, tone, tone].join(',') + ')';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(1, 0);
+          ctx.quadraticCurveTo(length * 0.42, -width * 0.13, length * 0.86, 0);
+          ctx.lineWidth = 0.8;
+          ctx.strokeStyle = '#c9ccbd';
+          ctx.stroke();
+          ctx.restore();
+        }
+        for (let variant = 0; variant < 4; variant++) {
+          ctx.save();
+          ctx.translate(((variant % 2) + 0.5) * tile, (Math.floor(variant / 2) + 0.5) * tile);
+          for (let twig = 0; twig < 7; twig++) {
+            const a = (twig * TAU) / 7 + variant * 0.27 + 0.14 * sin(twig * 5 + variant);
+            const length = 35 + 8 * sin(variant * 3 + twig * 2);
+            ctx.save();
+            ctx.rotate(a);
+            ctx.beginPath();
+            ctx.moveTo(-7, 0);
+            ctx.quadraticCurveTo(length * 0.43, -4, length, 1);
+            ctx.lineWidth = 2.2;
+            ctx.strokeStyle = '#898d78';
+            ctx.stroke();
+            for (let j = 0; j < 4; j++) {
+              const t = (j + 0.4) / 4,
+                base = t * length,
+                reach = 23 - 8 * t + 2 * cos(twig + j);
+              for (const side of [-1, 1])
+                leaf(
+                  base,
+                  -2 * sin(t * Math.PI),
+                  side * (0.7 + 0.22 * t),
+                  reach,
+                  6.6 - 2 * t,
+                  Math.round(108 + 49 * t + 30 * sin(twig * 4 + j * 1.8 + side + variant))
+                );
+            }
+            leaf(length - 3, 0, 0.08, 15, 4.4, 176);
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+        const atlas = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, atlas);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, paper);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        return atlas;
+      }
+      const canopySheet = makeLeafSheet();
       const gAttrs = `layout(location=0)in vec3 pos;layout(location=1)in vec3 normal;layout(location=2)in vec3 color;layout(location=3)in float material;layout(location=4)in vec3 axisU;layout(location=5)in vec3 axisV;
 uniform bool splat;out vec2 uv;out vec3 wpos,norm,col;flat out int mat;flat out float seedV;
 vec3 geometry(){mat=int(material+.2);vec3 p=pos;vec2 c=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID%4<2)?-1.:1.);uv=splat?c:vec2(0);seedV=fract(dot(pos,vec3(.421,.765,.517)));if(splat)p+=axisU*c.x+axisV*c.y;
-if(mat==4||mat==5)p.x+=sin(clockT*1.2+pos.z*.65+pos.x*.27)*(.045+.06*float(mat==5))*(.5+.5*c.y);
+if(mat==4||mat==5||mat==28||mat==29)p.x+=sin(clockT*1.2+pos.z*.65+pos.x*.27)*(.045+.06*float(mat==5))*(.5+.5*c.y);
 if(mat==23)p+=vec3(sin(clockT*.27+pos.z)*2.,.22*sin(clockT*2.+pos.x)+c.x*.07*sin(clockT*4.),cos(clockT*.27+pos.z)*1.4);
 if(mat==24)p+=vec3(.68*sin(clockT*.65+pos.x),.04*sin(clockT+pos.y),.23*cos(clockT*.8+pos.x));
-if(mat==25)p+=vec3(.65*sin(clockT*.85+pos.z),.24*sin(clockT*1.6+pos.x),.53*cos(clockT+pos.z));if(mat==12)p.y+=wave(p.xz,color.g).x*smoothstep(-.05,.8,color.r);wpos=p;norm=normal;col=color;return p;}
+if(mat==25)p+=vec3(.65*sin(clockT*.85+pos.z),.24*sin(clockT*1.6+pos.x),.53*cos(clockT+pos.z));if(mat==12)p.y+=wave(p.xz,color.g).x*mix(.15,1.,color.g)*smoothstep(-.05,.8,color.r);if(mat==30)p.y+=.15*wave(p.xz,0.).x;wpos=p;norm=normal;col=color;return p;}
 `;
       const gVert = sceneUniforms + gAttrs + `void main(){gl_Position=project(geometry());}`;
-      const gIn = `in vec2 uv;in vec3 wpos,norm,col;flat in int mat;flat in float seedV;uniform bool splat;void cut(){if(splat&&dot(uv,uv)>1.+.10*sin(atan(uv.y,uv.x)*3.+seedV*26.))discard;}`;
+      const gIn = `in vec2 uv;in vec3 wpos,norm,col;flat in int mat;flat in float seedV;uniform bool splat;uniform sampler2D canopy;float leafLight=1.;
+void cut(){
+  if(!splat)return;
+  if(mat==28){
+    float tile=floor(seedV*3.999);
+    vec2 st=(vec2(mod(tile,2.),floor(tile*.5))+.5+.486*uv)*.5;
+    vec4 leaf=texture(canopy,st);
+    if(leaf.a<.30)discard;
+    leafLight=.62+.64*leaf.r;
+  }else if(mat==29||mat==5){
+    float width=mat==29?pow(max(0.,1.-uv.x*uv.x),.83):(.62-.50*uv.y);
+    if((mat==29?abs(uv.y):abs(uv.x))>width)discard;
+  }else if(dot(uv,uv)>1.+.10*sin(atan(uv.y,uv.x)*3.+seedV*26.))discard;
+}`;
       const shadowProg = program(
         sceneUniforms + gAttrs + `void main(){gl_Position=vec4(shadowPos(geometry()),1.);}`,
         gIn + `void main(){cut();}`
@@ -2363,19 +2647,46 @@ if(mat==25)p+=vec3(.65*sin(clockT*.85+pos.z),.24*sin(clockT*1.6+pos.x),.53*cos(c
 uniform vec4 obstacles[8],bottlePos[14];uniform vec3 bottleColor[14];uniform float caveDraw;layout(location=0)out vec4 frag;layout(location=1)out vec4 normalOut;
 float softShadow(vec3 p,vec3 ray,float farD){float visibility=1.,t=.16;for(int j=0;j<15;j++){vec3 q=p+ray*t;float d=8.;for(int i=0;i<8;i++){vec4 ob=obstacles[i];vec3 diff=q-ob.xyz;diff.y*=.33;d=min(d,length(diff)-ob.w);}if(d<.015)return .17;visibility=min(visibility,6.*d/t);t+=clamp(d,.09,2.6);if(t>farD)break;}return clamp(visibility,.17,1.);}
 void main(){cut();if(caveDraw>.5&&!portalVisible(wpos))discard;vec3 n=normalize(norm),v=normalize(eye-wpos);if(mat!=1&&dot(n,v)<0.)n=-n;float dist=length(wpos-eye);vec3 pigment=col;float grit=noise(wpos.xz*3.4+wpos.y)*.08+noise(wpos.xy*15.+wpos.z)*.038-.056;
-if(mat==1){pigment*=.94+.10*fbm(wpos.xz*.51)+.07*noise(wpos.xz*22.)+grit+.029*sin(wpos.z*7.3+.55*sin(wpos.x*2.3));}
-if(mat==2){float bands=sin(wpos.y*5.+1.4*noise(wpos.xz*.72)+.13*wpos.x);pigment*=.96+.06*smoothstep(-.4,.4,bands)+grit;}
-if(mat==3)pigment*=.88+.15*noise(wpos.xz*24.+wpos.y*.3);
-if(splat)pigment*=.96+.04*sin(uv.y*9.+seedV*18.);
+if(mat==1){
+  float striation=sin(wpos.z*7.8+.67*sin(wpos.x*2.2)+1.3*noise(wpos.xz*1.6));
+  pigment*=.94+.10*fbm(wpos.xz*.51)+.07*noise(wpos.xz*22.)+grit+.032*striation;
+  float channel=41.+6.*sin(wpos.z*.066)-max(0.,-wpos.z-21.)*1.74;
+  float bank=(1.-smoothstep(2.6,4.6,abs(wpos.x-channel)))*step(-66.,wpos.z)*step(wpos.z,63.);
+  if(bank>.01){
+    vec2 bed=wpos.xz*vec2(6.4,8.2),cell=floor(bed),uvBed=fract(bed);
+    float nearD=2.,second=2.,tone=0.;
+    for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+      vec2 b=vec2(i,j),id=cell+b;float shade=hash(id+7.);
+      vec2 off=b+.15+.70*vec2(shade,hash(id+43.))-uvBed;float d=dot(off,off);
+      if(d<nearD){second=nearD;nearD=d;tone=shade;}else second=min(second,d);
+    }
+    vec3 gravel=mix(vec3(.29,.30,.26),vec3(.65,.59,.44),tone);
+    gravel*=.70+.30*smoothstep(.012,.16,second-nearD);
+    pigment=mix(pigment,gravel,bank*.81);
+  }
+}
+if(mat==2){
+  vec2 strata=vec2(wpos.x*.38+wpos.z*.24,wpos.y*2.3);
+  float silt=fbm(strata+2.*noise(wpos.xz*.31));
+  float vein=1.-smoothstep(.015,.105,abs(silt-.48));
+  pigment*=.77+.34*silt+.10*vein+grit;
+  if(caveDraw>.5)pigment=mix(pigment,pigment*vec3(.70,.92,1.17),.4+.5*vein);
+}
+if(mat==31)pigment*=.85+.27*fbm(wpos.xz*1.8+wpos.y*.62);
+if(mat==3){
+  float fissure=fbm(wpos.xz*8.+vec2(wpos.y*.22,wpos.y*.37));
+  pigment*=.77+.31*fissure+.10*smoothstep(.49,.58,fissure);
+}
+if(splat)pigment*=leafLight*(.96+.04*sin(uv.y*9.+seedV*18.));
 float sunLit=fx[2]>0?shadow(wpos+n*.035):.92;float light=max(dot(n,lightV),0.);float ao=1.;
 if(fx[3]>0&&(caveDraw>.5||distance(wpos.xz,vec2(65,-24))<27.))ao=softShadow(wpos+n*.08,caveDraw>.5?normalize(lamp-wpos):lightV,caveDraw>.5?length(lamp-wpos):14.);
-vec3 result=pigment*(vec3(.43,.53,.54)+sunColor()*(.22+.63*light)*(.27+.73*sunLit)*ao);if(mat==4||mat==5)result+=pigment*vec3(.14,.13,.03)*max(0.,dot(-n,lightV));
+vec3 result=pigment*(vec3(.43,.53,.54)+sunColor()*(.22+.63*light)*(.27+.73*sunLit)*ao);if(mat==4||mat==5||mat==28||mat==29)result+=pigment*vec3(.14,.13,.03)*max(0.,dot(-n,lightV));
 if(mat==1&&wpos.y<1.9)result+=vec3(.27,.24,.18)*pow(max(dot(reflect(-lightV,n),v),0.),22.)*(1.-smoothstep(.2,1.9,wpos.y));
 if(mat==9&&fx[9]>0)result=mix(result,film(abs(dot(v,n)),365.+noise(wpos.xz*2.)*145.),.63);
 if(mat==1&&fx[2]>0&&fx[8]>0&&distance(wpos.xz,vec2(34,-77))<22.){for(int i=0;i<14;i++){vec4 bottle=bottlePos[i];float h=bottle.y-wpos.y;if(h<=0.)continue;vec2 spot=bottle.xz-lightV.xz*h/max(.09,lightV.y);float mask=1.-smoothstep(bottle.w*.5,bottle.w*1.8,length(wpos.xz-spot));result=mix(result,result*(.20+bottleColor[i]*1.25),mask*.82);}}
 if(mat==21){vec2 a=(wpos.xy-col.xy)/vec2(1.38,1.03)+vec2(.5,0);float shore=.13+.16*sin(a.x*3.+.5)-.12*a.x;vec3 miniature=a.y>.58?mix(vec3(.76,.80,.72),vec3(.37,.61,.68),a.y):mix(vec3(.25,.56,.57),vec3(.62,.80,.73),a.y+.20*sin(85.*a.y+a.x*8.));if(a.y<shore)miniature=vec3(.76,.65,.44);vec2 arch=(a-vec2(.60,.51))/vec2(.17,.23);float ring=length(arch);if(ring>.57&&ring<1.&&arch.y>-.07)miniature=vec3(.63,.53,.39);result=miniature*(.97+.055*noise(a*vec2(96,155)));}
 float lampD=length(lamp-wpos);vec3 direct=vec3(1.,.68,.34)*max(.16,dot(n,normalize(lamp-wpos)))*3.8/(1.+.38*lampD*lampD);
-if(caveDraw>.5){vec3 bounce=texture(bounceMap,(wpos.xz-vec2(-106,-85))/vec2(75.52,100.8)).rgb;result=pigment*(vec3(.105,.145,.19)+direct*ao+(fx[0]>0?bounce*1.65:vec3(.055,.075,.08)));if(mat==11)result+=col*(.48+.045*sin(clockT+wpos.x));if(fx[6]>0&&n.y<-.3){vec2 cu=(wpos.xz-waterSim.xy)/waterSim.z;if(all(greaterThan(cu,vec2(0)))&&all(lessThan(cu,vec2(1))))result+=vec3(.08,.25,.21)*texture(causticMap,cu).r;}}
+if(caveDraw>.5){vec3 bounce=texture(bounceMap,(wpos.xz-vec2(-106,-85))/vec2(75.52,100.8)).rgb;result=pigment*(vec3(.105,.145,.19)+direct*ao+(fx[0]>0?bounce*1.65:vec3(.055,.075,.08)));if(mat==11)result+=col*(.53+.15*max(0.,n.y)+.03*sin(clockT+wpos.x));if(mat==27)result*=.63+.30*max(0.,dot(n,normalize(vec3(-.4,.6,.35))));if(fx[6]>0&&n.y<-.3){vec2 cu=(wpos.xz-waterSim.xy)/waterSim.z;if(all(greaterThan(cu,vec2(0)))&&all(lessThan(cu,vec2(1))))result+=vec3(.08,.25,.21)*texture(causticMap,cu).r;}}
 else result+=pigment*direct*.65;
 if(caveDraw>.5)result/=vec3(.82+.74*max(result.r,max(result.g,result.b)));
 vec3 fog=caveDraw>.5?vec3(.085,.16,.185):horizon();result=mix(result,fog,1.-exp(-dist*(caveDraw>.5?.012:.0030)));frag=vec4(result,1);normalOut=vec4(n*.5+.5,1);}
@@ -2385,7 +2696,7 @@ vec3 fog=caveDraw>.5?vec3(.085,.16,.185):horizon();result=mix(result,fog,1.-exp(
       const skyProg = program(
         fullVert,
         sceneUniforms +
-          `in vec2 tc;layout(location=0)out vec4 frag;layout(location=1)out vec4 normOut;void main(){vec2 nd=tc*2.-1.;vec3 d=normalize(forwardV+nd.x/lens.x*rightV+nd.y/lens.y*upV);vec3 c=sky(d);if(d.y<-.006)c=mix(horizon(),vec3(.38,.64,.67),smoothstep(.035,.35,-d.y));frag=vec4(c,1.);normOut=vec4(0,0,0,0);}`
+          `in vec2 tc;layout(location=0)out vec4 frag;layout(location=1)out vec4 normOut;void main(){vec2 nd=tc*2.-1.;vec3 d=normalize(forwardV+nd.x/lens.x*rightV+nd.y/lens.y*upV);vec3 c=sky(d);if(d.y<(-eye.y/1550.-.005))c=mix(horizon(),vec3(.38,.64,.67),smoothstep(.035,.35,-d.y));frag=vec4(c,1.);normOut=vec4(0,0,0,0);}`
       );
       const waterProg = program(
         gVert,
@@ -2397,10 +2708,14 @@ vec2 base=gl_FragCoord.xy/size,shift=clamp(vec2(dot(n-vec3(0,1,0),rightV),dot(n-
 if(texture(opaqueDepth,base+shift).r<gl_FragCoord.z)shift*=.10;
 vec3 bed=texture(opaqueColor,base).rgb;if(fx[8]>0){bed=vec3(texture(opaqueColor,base+shift*1.04).r,texture(opaqueColor,base+shift).g,texture(opaqueColor,base+shift*.96).b);}
 vec2 cu=(wpos.xz-waterSim.xy)/waterSim.z;float caust=0.;if(all(greaterThan(cu,vec2(0)))&&all(lessThan(cu,vec2(1)))&&fx[6]>0)caust=texture(causticMap,cu).r;
-bed+=vec3(.37,.54,.36)*caust*exp(-dep*.23);
-vec3 deep=caveMode>.5?vec3(.048,.20,.22):mix(vec3(.10,.52,.49),vec3(.12,.43,.52),smoothstep(.5,5.,dep));vec3 transmission=fx[8]>0?exp(-min(dep/ct,12.)*vec3(.57,.34,.25)):vec3(.32);vec3 c=mix(deep,bed,transmission);vec3 reflected=caveMode>.5?vec3(.23,.43,.41):sky(reflect(-v,n));float fres=.06+.69*pow(1.-ct,3.5);c=mix(c,reflected,fres);
+bed+=vec3(.32,.40,.26)*(1.-exp(-1.28*caust))*exp(-dep*.28);
+vec3 deep=caveMode>.5?vec3(.048,.20,.22):mix(vec3(.075,.40,.365),vec3(.05,.35,.43),smoothstep(.5,5.,dep));vec3 transmission=fx[8]>0?exp(-min(dep/max(ct,.34),12.)*vec3(.46,.24,.18)):vec3(.32);vec3 c=mix(deep,bed,transmission);vec3 reflectionRay=reflect(-v,n);
+vec2 wallHit=wpos.xz+reflectionRay.xz*(2.6/max(.25,reflectionRay.y));
+vec3 cavernReflection=vec3(.048,.097,.12)+texture(bounceMap,(wallHit-vec2(-106,-85))/vec2(75.52,100.8)).rgb*.34;
+vec3 reflected=caveMode>.5?cavernReflection:sky(reflectionRay);float fres=.06+.69*pow(1.-ct,3.5);c=mix(c,reflected,fres);
 float sunGlint=pow(max(0.,dot(normalize(v+lightV),n)),180.);c+=sunColor()*sunGlint*.64;
-float line=.16+.13*sin(wpos.x*.9+clockT*1.25)+.12*noise(wpos.xz*3.);float foam=(1.-smoothstep(line,line+.21,dep+w.x))*(.53+.47*noise(wpos.xz*8.));float crest=smoothstep(.29,.63,w.x+.23*w.z);c=mix(c,vec3(.91,.94,.84),sea*clamp(foam+crest*.68,0.,.94));if(caveMode<.5)c=mix(c,horizon(),max(1.-exp(-dist*.0029),smoothstep(250.,490.,dist)));frag=vec4(c,1);}
+float line=.16+.13*sin(wpos.x*.9+clockT*1.25)+.12*noise(wpos.xz*3.);float lace=fbm(wpos.xz*vec2(2.3,3.8)+vec2(.0,clockT*.18));
+float foam=(1.-smoothstep(line,line+.22,dep+w.x))*(.22+.78*smoothstep(.29,.62,lace));float crest=smoothstep(.29,.63,w.x+.23*w.z);c=mix(c,vec3(.91,.94,.84),sea*clamp(foam+crest*.68,0.,.94));if(caveMode<.5)c=mix(c,horizon(),max(1.-exp(-dist*.0029),smoothstep(250.,490.,dist)));else c=mix(bed,c,smoothstep(0.,.105,dep));frag=vec4(c,1);}
 `
       );
       const glassProg = program(
@@ -2410,9 +2725,21 @@ float line=.16+.13*sin(wpos.x*.9+clockT*1.25)+.12*noise(wpos.xz*3.);float foam=(
           `uniform int blendMode;out vec4 frag;
 void main(){cut();if(mat==10&&!portalVisible(wpos))discard;vec3 n=normalize(norm),v=normalize(eye-wpos);float ct=abs(dot(v,n));vec2 base=gl_FragCoord.xy/size;float thick=mat==7?.09:mat==8?.33:mat==10?.66:.035;float optical=thick/max(.25,ct);vec2 d=fx[8]>0?vec2(dot(n,rightV),dot(n,upV))*.029*optical:vec2(0);vec3 behind=vec3(texture(opaqueColor,base+d*1.13).r,texture(opaqueColor,base+d).g,texture(opaqueColor,base+d*.87).b);
 vec3 c=behind*exp(-(1.-col)*optical*2.9);float alpha=mat==7?.16:mat==8?.62:mat==10?.78:.28;
-if(mat==7)c=mix(c,vec3(.68,.85,.74),.32+.28*noise(wpos.xy*3.+wpos.z));else c=mix(c,col,mat==10?.48:.24);float rim=pow(1.-ct,2.4);c+=rim*vec3(.42,.5,.52)+pow(abs(dot(reflect(-lightV,n),v)),52.)*.52;
-if(mat==9){c=fx[9]>0?mix(behind,film(ct,315.+95.*noise(wpos.xy*1.7+clockT*.18)),.42+.5*rim):mix(behind,vec3(.85,.90,.86),.22);alpha=.21+.55*rim;}
-if(mat==10)c+=col*(.19+.11*sin(wpos.y*6.));if(mat==26){float radial=1.-dot(uv,uv);alpha=.11*radial;c=col;}alpha=clamp(alpha+rim*.16,0.,.96);
+if(mat==7){float bloom=fbm(vec2(wpos.z*4.+wpos.x,wpos.y*.9));c=mix(c,sky(reflect(-v,n)),.22+.40*pow(1.-ct,2.));c=mix(c,vec3(.58,.71,.59),.10+.21*bloom);alpha=.18+.10*bloom;}else c=mix(c,col,mat==10?.48:.24);float rim=pow(1.-ct,2.4);c+=rim*vec3(.42,.5,.52)+pow(abs(dot(reflect(-lightV,n),v)),52.)*.52;
+if(mat==9){
+  vec3 reflected=reflect(-v,n);
+  float pearl=pow(max(0.,dot(reflected,normalize(vec3(-.48,.8,.35)))),42.);
+  vec3 spectrum=film(ct,355.+125.*fbm(wpos.xy*2.7+vec2(wpos.z,clockT*.14)));
+  vec3 sheen=fx[9]>0?mix(vec3(.82,.91,.88),spectrum,.67):vec3(.83,.88,.88);
+  c=mix(behind,sheen,.12+.77*rim)+vec3(.96,.99,.94)*pearl*.9;
+  alpha=.12+.52*rim+.27*pearl;
+}
+if(mat==10){
+  float plane=.5+.5*dot(n,normalize(vec3(-.57,.76,.29)));
+  float seam=smoothstep(.948,.986,sin(wpos.y*22.+4.*n.x+noise(wpos.xz*7.)));
+  c=mix(c,col*(.28+.72*plane),.47)+col*(.09+.14*plane)+vec3(.11,.16,.18)*seam;
+}if(mat==26){float radial=1.-dot(uv,uv);alpha=.11*radial;c=col;}alpha=clamp(alpha+rim*.16,0.,.96);
+if(mat==30){float edge=1.-smoothstep(.45,1.,dot(uv,uv));float lace=fbm(wpos.xz*7.+vec2(clockT*.25,0));alpha=edge*(.12+.58*smoothstep(.33,.67,lace));c=col;}
 if(blendMode==1){float weight=clamp(3./(.2+.009*length(wpos-eye)),1.,9.);frag=vec4(c*alpha,alpha)*weight;}else if(blendMode==2)frag=vec4(0,0,0,alpha);else frag=vec4(c,alpha);}
 `
       );
@@ -2432,20 +2759,42 @@ void main(){vec2 world=waterSim.xy+grid*waterSim.z;vec4 rip=ripple(world);vec3 w
           `in vec2 tc;uniform sampler2D baseMap,normalMap;uniform float paint;uniform int shaftSteps;out vec4 frag;
 vec3 paintColor(vec3 c){vec2 texel=1./size;vec3 selected=c;float best=100.;for(int j=0;j<4;j++){vec2 s=vec2(j%2==0?-1.:1.,j<2?-1.:1.);vec3 sum=vec3(0),sq=vec3(0);for(int a=0;a<3;a++)for(int b=0;b<3;b++){vec3 t=texture(baseMap,tc+texel*s*vec2(float(a)*1.35,float(b))*(1.+paint)).rgb;sum+=t;sq+=t*t;}sum/=9.;float v=dot(abs(sq/9.-sum*sum),vec3(.3,.55,.15));if(v<best){best=v;selected=sum;}}return mix(c,selected,paint);}
 void main(){vec3 c=texture(baseMap,tc).rgb;if(fx[10]>0)c=paintColor(c);if(fx[1]>0){vec2 nd=tc*2.-1.;vec3 ray=forwardV+rightV*nd.x/lens.x+upV*nd.y/lens.y;float dep=texture(opaqueDepth,tc).r,z=min(66.,.120014/max(.000001,1.00023-(2.*dep-1.)));float glow=0.;for(int i=0;i<18;i++){if(i>=shaftSteps)break;float t=z*(float(i)+hash(gl_FragCoord.xy))/float(shaftSteps);vec3 p=eye+ray*t;float den=.005;if(caveMode>.5){float k=length(p.xz-vec2(-81.3,-20.2)-lightV.xz*(p.y-32.)*.8);den=.055*exp(-k*k*.29);}else den*=.55+.8*noise(p.xz*.095);glow+=shadow(p)*den*exp(-t*.025);}float normWeight=texture(normalMap,tc).a;c+=sunColor()*glow*z/float(shaftSteps)*(.58+.42*normWeight);}
-float vignette=dot(tc-.5,tc-.5);c*=1.03-.24*vignette;c+=(hash(gl_FragCoord.xy)-.5)*.008;frag=vec4(c,1);}
+float vignette=dot(tc-.5,tc-.5);
+float luminance=dot(c,vec3(.24,.65,.11));
+c=mix(vec3(luminance),c,1.075);
+c=(c-.40)*1.055+.40;
+c*=1.018-.21*vignette;c+=(hash(gl_FragCoord.xy)-.5)*.008;frag=vec4(c,1);}
 `
       );
 
       const fluidProg = program(
         sceneUniforms +
-          `layout(location=0)in vec3 pos;layout(location=1)in vec3 velocity;layout(location=2)in float mud;out vec2 uv;out float dirt;void main(){uv=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID<2)?-1.:1.);dirt=mud;vec3 p=pos+rightV*uv.x*(mud>.5?.21:.25)+upV*uv.y*(.28+abs(velocity.y)*.046);gl_Position=project(p);}`,
+          `layout(location=0)in vec3 pos;layout(location=1)in vec3 velocity;layout(location=2)in float mud;out vec2 uv;out float dirt;void main(){uv=vec2((gl_VertexID%2==0)?-1.:1.,(gl_VertexID<2)?-1.:1.);dirt=mud;vec3 p=pos+rightV*uv.x*(mud>.5?.18:.235)+upV*uv.y*(.25+abs(velocity.y)*.079);gl_Position=project(p);}`,
         `in vec2 uv;in float dirt;out vec4 frag;void main(){float t=max(0.,1.-dot(uv,uv));frag=vec4(t*t*(1.-dirt),t*t*dirt,0,0);}`
       );
       const fluidComposite = program(
         fullVert,
-        `in vec2 tc;uniform sampler2D baseMap,thickMap;uniform vec2 size;out vec4 frag;
+        sceneUniforms +
+          `in vec2 tc;uniform sampler2D baseMap,thickMap;out vec4 frag;
 vec2 field(vec2 p){vec2 e=1./size;return (texture(thickMap,p).rg*4.+texture(thickMap,p+e*vec2(2,0)).rg+texture(thickMap,p-e*vec2(2,0)).rg+texture(thickMap,p+e*vec2(0,2)).rg+texture(thickMap,p-e*vec2(0,2)).rg)*.125;}
-void main(){vec2 h=field(tc),e=1./size;float dx=field(tc+vec2(e.x,0)).r-field(tc-vec2(e.x,0)).r;float a=1.-exp(-h.r*.82);vec3 c=texture(baseMap,tc+vec2(dx*.009,0)).rgb;c=mix(c,mix(vec3(.43,.75,.72),vec3(.91,.96,.89),smoothstep(.3,3.,h.r)),a);c=mix(c,vec3(.44,.32,.20),1.-exp(-h.g*.78));frag=vec4(c,1);}`
+void main(){
+  vec2 h=field(tc),e=1./size;
+  vec2 nd=tc*2.-1.;vec3 ray=forwardV+rightV*nd.x/lens.x+upV*nd.y/lens.y;
+  vec2 axis=normalize(vec2(-48.,67.));float denom=dot(ray.xz,axis);
+  float depth=clamp((-3.3-dot(eye.xz-vec2(-43.,-74.),axis))/(abs(denom)<.001?.001:denom),0.,100.);
+  vec3 hit=eye+ray*depth;
+  float across=dot(hit.xz-vec2(-43.,-74.),vec2(axis.y,-axis.x));
+  float thread=fbm(vec2(across*6.4,hit.y*.74+clockT*3.9));
+  float ribbon=smoothstep(.39,.72,thread);
+  float gradient=field(tc+vec2(e.x,0)).r-field(tc-vec2(e.x,0)).r;
+  float opacity=1.-exp(-h.r*(.40+.42*ribbon));
+  vec3 c=texture(baseMap,tc+vec2(gradient*.004,0)).rgb;
+  vec3 water=mix(vec3(.30,.58,.57),vec3(.81,.92,.88),ribbon);
+  water+=vec3(.12,.13,.11)*smoothstep(.62,.86,thread)*min(h.r,1.);
+  water=mix(water,vec3(.83,.91,.86),(1.-smoothstep(14.15,14.85,hit.y))*.55);
+  c=mix(c,water,opacity);
+  c=mix(c,vec3(.34,.26,.16),1.-exp(-h.g*.79));frag=vec4(c,1);
+}`
       );
       const emptyVAO = gl.createVertexArray();
       function makeVAO(kind, data, dynamic = false) {
@@ -2708,6 +3057,7 @@ void main(){vec2 h=field(tc),e=1./size;float dx=field(tc+vec2(e.x,0)).r-field(tc
           gl.uniform4fv(u.bottlePos, bottlePositions);
           gl.uniform3fv(u.bottleColor, bottleColors);
         }
+        tex(pr, 'canopy', canopySheet, 11);
         tex(pr, 'oceanMap', ocean.tex, 0);
         tex(pr, 'rippleMap', sim.tex, 1);
         tex(pr, 'shadowMap', shadowTarget.depth, 2);
@@ -3205,7 +3555,7 @@ void main(){vec2 h=field(tc),e=1./size;float dx=field(tc+vec2(e.x,0)).r-field(tc
           while (sim.acc >= 0.025) {
             if (S.station === 5 && simTicks % 4 === 0) {
               let [x, z] = caveWorld(-4, sin(S.time * 3));
-              disturb(x, z, 0.08);
+              disturb(x, z, 0.031);
             }
             if (S.inCave && simTicks % 65 === 0) {
               let [x, z] = caveWorld(39, -1.1);
@@ -3335,6 +3685,22 @@ void main(){vec2 h=field(tc),e=1./size;float dx=field(tc+vec2(e.x,0)).r-field(tc
                 p = [xz[0], 20.4 - 6.25 * t * t, xz[1]];
               daub(p, scale(camBasis.right, 0.18), [0, 0.65, 0], rgb('b8ddd8'), 26);
             }
+          if (S.station === 5) {
+            for (let i = 0; i < 65; i++) {
+              const phase = (S.time * 0.37 + i * 0.618034) % 1;
+              const lateral = 2.48 * sin(i * 37.13) + 0.28 * sin(phase * TAU + i);
+              const [x, z] = caveWorld(-4.1 - phase * (1.3 + 0.7 * cos(i)), lateral);
+              const width = 0.16 + 0.42 * (1 - phase);
+              daub(
+                [x, 14.108, z],
+                [az * width, 0, -ax * width],
+                [ax * 0.18, 0, az * 0.18],
+                rgb('d4e7db'),
+                30,
+                [0, 1, 0]
+              );
+            }
+          }
           for (let f of foamEvents)
             for (let i = 0; i < 15; i++) {
               let a = (i * TAU) / 15,
@@ -3512,13 +3878,9 @@ void main(){vec2 h=field(tc),e=1./size;float dx=field(tc+vec2(e.x,0)).r-field(tc
           x = innerWidth * 0.5 + (factor * dot(diff, camBasis.right)) / depth,
           y = innerHeight * 0.5 - (factor * dot(diff, camBasis.up)) / depth;
         if (x < 84 || x > innerWidth - 84 || y < 100 || y > innerHeight - 120) return;
-        label.innerHTML =
-          '<strong>' +
-          stations[S.station][1] +
-          '</strong>' +
-          stationFX[S.station].map((t) => 'T' + t + ' ' + effects[t - 1]).join(' · ');
-        label.style.left = x + 'px';
-        label.style.top = y + 'px';
+        const ids = stationFX[S.station];
+        const text = ids.map((t) => effects[t - 1]).join(' · ');
+        if (label.textContent !== text) label.textContent = text;
         label.hidden = false;
       }
       function updateLightUI() {
@@ -4028,6 +4390,7 @@ void main(){vec2 h=field(tc),e=1./size;float dx=field(tc+vec2(e.x,0)).r-field(tc
         cave();
         fieldObjects();
         buildWater();
+        shoreDetails();
         staticStats.splats = splatCount;
         staticStats.tris = meshCount;
         for (let g of groups.values()) uploadGroup(g);

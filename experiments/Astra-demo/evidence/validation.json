@@ -17,11 +17,11 @@
       634,
       396
     ],
-    "triangles": 281716,
-    "splats": 189627,
-    "frameMs": 3.3736220202778515
+    "triangles": 448881,
+    "splats": 206450,
+    "frameMs": 4.637151346914714
   },
-  "photoBytes": 357764,
+  "photoBytes": 366629,
   "routeMeters": 560.2150146823433,
   "walk": [
     {
@@ -196,7 +196,7 @@
   "cost": [
     0,
     0,
-    21.350000143051147,
+    5.6499998569488525,
     0,
     0,
     0,
@@ -204,7 +204,7 @@
     0,
     0,
     0,
-    23.34999990463257,
+    0,
     0
   ],
   "touchMovement": true,
@@ -218,8 +218,7 @@
   ],
   "errors": [],
   "warnings": [
-    "[.WebGL-0x6dac004c4400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
-    "[.WebGL-0x6dac004c4400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
-    "The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page. "
+    "[.WebGL-0x3644004c5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "[.WebGL-0x3644004c5000]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
   ]
 }
