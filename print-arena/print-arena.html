@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#14111c">
+  <title>3D Print Arena</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #14111c; overflow: hidden; }
+    #game { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; border: 0; display: block; background: #14111c; }
+    noscript { color: #fff; font: 16px Arial, sans-serif; display: block; padding: 24px; }
+  </style>
+</head>
+<body>
+  <!-- The game is built from GrapeGames3141/3DPrintBattles and published on
+       that repository's GitHub Pages site (same origin as the arcade), so its
+       ~130 MB of files never live in this repository. -->
+  <iframe id="game" src="https://grapegames3141.github.io/3DPrintBattles/" title="3D Print Arena" allow="autoplay; fullscreen; gamepad" allowfullscreen></iframe>
+  <noscript>3D Print Arena needs JavaScript and WebGL2.</noscript>
+  <script>
+    // Keys pressed inside the game go to the game's own page. Pass them on so
+    // the arcade's Quick hide keys work here as in every other game.
+    (() => {
+      const frame = document.getElementById('game');
+      frame.addEventListener('load', () => {
+        let inner;
+        try { inner = frame.contentWindow; inner.addEventListener; } catch (e) { return; }
+        inner.addEventListener('keydown', event => {
+          window.dispatchEvent(new KeyboardEvent('keydown', {
+            key: event.key, code: event.code, repeat: event.repeat, isComposing: event.isComposing,
+            altKey: event.altKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey,
+            bubbles: true, cancelable: true
+          }));
+        }, true);
+        frame.focus();
+      });
+    })();
+  </script>
+</body>
+</html>
