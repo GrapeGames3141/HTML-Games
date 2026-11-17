@@ -28,6 +28,8 @@ The root `index.html` is the GrapeGames Arcade: a screenshot-led hero and card s
 
 Castle Defense / Bastion of the Four Roads is based on `GrapeGames3141/castle-defense`, commit `1e0db1147e56025d28960f2e059e19bc6212f74a`. The arcade retains its phone landscape HUD adjustment and the upstream Tailwind CDN reference.
 
+The published Pages build provides **Quick hide**: Escape, P, Pause, or the backtick key immediately opens `https://keytrainsecure.com/` in the same tab. The arcade header and each game also have a Quick hide control, and supported in-game pause controls use the same destination. P and backtick remain available for typing in form fields; Escape still hides the page. High Country's Space pause also triggers quick hide while flying. This behavior is added during the Pages build, so standalone source game files retain their original controls.
+
 ### GitHub Pages
 
 The `Publish arcade to GitHub Pages` workflow publishes on pushes to `main` and can also be run manually. In repository **Settings → Pages**, set **Source** to **GitHub Actions**. A private repository requires a GitHub plan that supports Pages for private repositories; the workflow does not change repository visibility.
