@@ -179,6 +179,13 @@ single self-contained HTML5 file for mobile touchscreens and desktop browsers.
         .gold-pulse {
             animation: goldPop 0.28s ease-out;
         }
+        /* Phones held sideways: the HUD is as tall as the screen, so shrink both bars to keep the roads visible.
+           Coarse pointers only, so desktop windows are unaffected. */
+        @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+            body > div.fixed.top-0, body > div.fixed.bottom-0 { zoom: 0.7; padding: 6px; }
+            body > div.fixed.top-0 button { min-height: 44px; }
+            body > div.fixed.bottom-0 button[id^="laneBtn"] { min-height: 44px; min-width: 66px; }
+        }
     </style>
 </head>
 <body class="relative select-none overflow-hidden">
