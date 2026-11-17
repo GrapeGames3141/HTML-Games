@@ -53,7 +53,7 @@
 <div id="hud">
   <div id="pPanel" class="panel ship"><h4>Your galleon <b id="pName">—</b></h4><canvas id="pDiag" width="440" height="224"></canvas><div class="rows" id="pRows"></div></div>
   <div id="ePanel" class="panel ship"><h4>Enemy <b id="eName">—</b></h4><canvas id="eDiag" width="440" height="224"></canvas><div class="rows" id="eRows"></div></div>
-  <div id="guns" class="panel"><div class="gunrow" id="gunsP"><label>PORT</label></div><div class="gunrow" id="gunsS"><label>STARBOARD</label></div></div>
+  <div id="guns" class="panel"><div class="gunrow" id="gunsP"><label>PORT</label></div><div class="gunrow" id="gunsS"><label>STARBOARD</label></div><div class="gunrow" id="gunsC"><label>BOW · STERN</label></div></div>
   <div id="aim"><svg width="34" height="34" viewBox="-17 -17 34 34">
     <circle r="11" fill="none" stroke="rgba(255,246,225,.9)" stroke-width="1.6"/>
     <circle id="charge" r="15" fill="none" stroke="#ffcf6a" stroke-width="3" stroke-dasharray="0 999" transform="rotate(-90)"/>
@@ -71,7 +71,7 @@
   <table>
     <tr><td>Mouse</td><td>Move the aiming point. Guns that can reach it swivel onto it.</td></tr>
     <tr><td>Click</td><td>Fire the gun that bears best.</td></tr>
-    <tr><td>Hold · release</td><td>Staggered broadside from every loaded gun that bears.</td></tr>
+    <tr><td>Hold · release</td><td>Staggered broadside from every loaded gun that bears. Bow and stern chasers join in when she's ahead or astern.</td></tr>
     <tr><td>Gunnery</td><td>Shot falls and scatters. Aim above distant targets; the range shows at the cursor.</td></tr>
     <tr><td>Targets</td><td>Mast base: topple it · Rudder: wreck her steering · Gun deck: knock out guns · Waterline: flood her · Hold amidships: spill her stores</td></tr>
     <tr><td>Right-drag · wheel</td><td>Look around · zoom</td></tr>
@@ -493,6 +493,7 @@ const HULL = {
 };
 const GUN_X = [-5.8, -3.2, -0.6, 2.0, 4.6, 7.2, 9.8];
 const GUN_Y = 3.9;
+const CHASERS = [[21.4, 6.0, 0.95, 0], [21.4, 6.0, -0.95, 0], [-20.3, 8.3, 1.3, Math.PI], [-20.3, 8.3, -1.3, Math.PI]];   // x, pivot y, z, base yaw
 const MAST_DEFS = [
   { name: 'foremast', x: 13.0, h: 24, share: 0.32, yard: 14 },
   { name: 'mainmast', x: 1.0, h: 29, share: 0.45, yard: 17 },
@@ -542,6 +543,7 @@ function hullColor(x, y, z, S) {
     if (Math.abs(x - gx) < 0.42 && y > 1.35 && y < 1.95) { c = (Math.abs(x - gx) > 0.34 || y < 1.42 || y > 1.88) ? S.wale : S.lid; return [c[0], c[1], c[2], 0.9]; }
     if (Math.abs(x - gx) < 0.46 && y > 3.48 && y < 4.18) return [0.035, 0.03, 0.025, 0.4];
   }
+  if (x > 21.2 && y > 5.7 && y < 6.35 && Math.abs(Math.abs(z) - 0.95) < 0.4) return [0.035, 0.03, 0.025, 0.4];   // bow chase ports
   // quarter galleries
   if (x < -15.6 && x > -19.4 && y > 5.9 && y < 6.7) { const f = (x + 30) / 0.8 % 1; if (f > 0.2 && f < 0.8 && y > 6.0 && y < 6.6) return [0.55, 0.42, 0.2, 1, 1]; return [S.trim[0], S.trim[1], S.trim[2], 1]; }
   return [c[0] * pm, c[1] * pm, c[2] * pm, 1];
@@ -563,6 +565,7 @@ function buildHull(S) {
     return [x, y, lerp(-w, w, u)];
   }, 34, 34, (u, v, p) => {
     const y = p[1], z = p[2];
+    if (y > 7.95 && y < 8.6 && Math.abs(Math.abs(z) - 1.3) < 0.38) return [0.035, 0.03, 0.025, 0.4];   // stern chase ports
     if ((y > 4.3 && y < 5.0) || (y > 6.2 && y < 6.9)) { const f = (z + 20) / 1.1 % 1; if (f > 0.2 && f < 0.75) return [0.58, 0.43, 0.2, 1, 1]; return [...S.trim, 1]; }
     if (Math.abs(y - 5.6) < 0.12 || Math.abs(y - 7.6) < 0.12 || y > HULL.rail(-21) - 0.2) return [...S.trim, 1];
     if (y < 0.15) return [...S.bottom, 1];
@@ -781,6 +784,7 @@ class Ship {
     this.gunTpl = buildCannonTpl(this.S); this.rudTpl = buildRudderTpl(this.S);
     this.cannons = [];
     for (const sd of [-1, 1]) for (const gx of GUN_X) this.cannons.push({ x: gx, side: sd, p0: [gx, GUN_Y, sd * (HULL.hw(gx, GUN_Y) - 1.05)], base: sd > 0 ? -Math.PI / 2 : Math.PI / 2 });
+    for (const [cx, cy, cz, b] of CHASERS) this.cannons.push({ x: cx, side: 0, chaser: cx > 0 ? 'bow' : 'stern', p0: [cx, cy, cz], base: b });
     this.range = isPlayer ? 150 : 135; this.reloadTime = isPlayer ? 7.5 : 10; this.spread = 1; this.aimErr = 1.2;
     this.reset(0, 0, 0);
   }
@@ -788,10 +792,10 @@ class Ship {
     Object.assign(this, { x, z, yaw, speed: 3, cmd: 0, rud: 0, roll: 0, rollV: 0, pitch: 0, pitchV: 0, heave: 0, rollT: 0, pitchT: 0,
       list: 0, trim: 0, sinkY: 0, sinkExtra: 0, breaches: [], rudHits: 0, rudState: 'ok', jam: 0, supplies: 1, crew: 1,
       founder: false, founderT: 0, sunk: false, side: 0, gunT: 0, fireCD: 2, aiZone: null, aiErr: [0, 0, 0], deckAwash: 0,
-      portsAwash: false, events: new Set(), foamT: 0 });
+      portsAwash: false, events: new Set(), foamT: 0, manT: R(15, 30), rangeGoal: this.range, bias: 0, weaveP: R(28, 40), weavePh: R(0, TAU) });
     this.water = new Float32Array(10);
     for (const m of this.masts) Object.assign(m, { holes: [], hp: 100, state: 'up', phi: 0, phiV: 0, psi: 0, side: 1, t: 0, worldM: null, brace: 0 });
-    for (const c of this.cannons) Object.assign(c, { yaw: 0, pitch: 0, ty: 0, tp: 0, reach: false, loaded: true, reload: 0, reloadMax: 1, state: 'ok', recoil: 0, lx: 0, lz: 0, vx: 0, vz: 0, spin: 0, tilt: 0, fallY: 0 });
+    for (const c of this.cannons) Object.assign(c, { yaw: 0, pitch: 0, ty: 0, tp: 0, reach: false, loaded: true, reload: 0, reloadMax: 1, state: 'ok', recoil: 0, lx: 0, lz: 0, vx: 0, vz: 0, spin: 0, tilt: 0, fallY: 0, ly: GUN_Y });
     this.updateMatrix();
   }
   get fwd() { return [Math.cos(this.yaw), 0, Math.sin(this.yaw)]; }
@@ -802,16 +806,23 @@ class Ship {
     this.M = m4mul(Y, m4mul(m4RZ(this.pitchT), m4RX(this.rollT)));
     this.Mi = m4invRigid(this.M);
   }
-  helm(opp) {
+  helm(opp, dt, t) {
     if (!opp || opp.sunk || opp.founder) { this.cmd = 0.12; return; }
+    // a healthy ship keeps manoeuvring: drifts its fighting range, bears up or away now and then, and weaves gently
+    let weave = 0;
+    if (this.rudState === 'ok') {
+      this.manT -= dt;
+      if (this.manT <= 0) { this.manT = R(22, 40); this.rangeGoal = this.range * R(0.75, 1.3); this.bias = rnd() < 0.45 ? R(-1, 1) * 16 * DEG : 0; }
+      weave = Math.sin(t * TAU / this.weaveP + this.weavePh) * 9 * DEG;
+    } else { this.rangeGoal = this.range; this.bias = 0; }
     const dx = opp.x - this.x, dz = opp.z - this.z, dist = Math.hypot(dx, dz), brg = Math.atan2(dz, dx);
     const rel = wrap(brg - this.yaw);
     if (!this.side || Math.abs(rel) < 18 * DEG || Math.abs(rel) > 162 * DEG) this.side = rel >= 0 ? 1 : -1;
     const guns = sd => this.cannons.filter(c => c.side === sd && c.state === 'ok').length;
     if (guns(this.side) < 2 && guns(-this.side) >= 3 && !this.wearing) { this.side = -this.side; this.wearing = true; shipEvent(this, 'wearing round to bring her other broadside to bear', 'wear' + this.side, false); }
     if (guns(this.side) >= 2) this.wearing = false;
-    const err = clamp((dist - this.range) / this.range, -1, 1);
-    let want = brg - this.side * (90 - 22 * err) * DEG;      // keep her inside the guns' ±28° arc
+    const err = clamp((dist - this.rangeGoal) / this.rangeGoal, -1, 1);
+    let want = brg - this.side * (90 - 22 * err) * DEG + weave + this.bias;      // stays roughly inside the guns' ±28° arc
     const r0 = Math.hypot(this.x, this.z);
     if (r0 > 550) { const home = Math.atan2(-this.z, -this.x); want += wrap(home - want) * smooth(550, 800, r0); }
     if (dist < 65) want = brg + Math.PI;
@@ -824,7 +835,7 @@ class Ship {
   }
   update(dt, t, opp) {
     if (this.sunk) return;
-    if (!this.founder) this.helm(opp);
+    if (!this.founder) this.helm(opp, dt, t);
     let cmd = this.cmd, rate = 0.3;
     if (this.rudState === 'damaged') { cmd *= 0.35; rate = 0.05; }
     if (this.rudState === 'jammed') { cmd = this.jam; rate = 0.5; }
@@ -930,7 +941,7 @@ class Ship {
     }
   }
   cannonMatrix(c) {
-    if (c.state === 'loose' || c.state === 'smashed') return m4chain(this.M, m4T(c.lx, GUN_Y - 0.05, c.lz), m4RY(c.spin), m4RZ(c.tilt));
+    if (c.state === 'loose' || c.state === 'smashed') return m4chain(this.M, m4T(c.lx, c.ly - 0.05, c.lz), m4RY(c.spin), m4RZ(c.tilt));
     if (c.state === 'gone') return m4chain(m4T(c.wx, c.fallY, c.wz), m4RY(c.spin), m4RZ(c.tilt));
     return m4chain(this.M, m4T(c.p0[0], c.p0[1], c.p0[2]), m4RY(c.base + c.yaw), m4RZ(c.pitch), m4T(-c.recoil, 0, 0));
   }
@@ -1016,10 +1027,10 @@ class Ship {
         }
       }
     }
-    if (y > 3.2 && y < 4.7) for (const c of this.cannons) {
+    for (const c of this.cannons) {
       if (c.state !== 'ok' && c.state !== 'loose') continue;
-      const px = c.state === 'ok' ? c.p0[0] : c.lx, pz = c.state === 'ok' ? c.p0[2] : c.lz;
-      if (Math.abs(b[0] - px) < 0.9 && Math.abs(b[2] - pz) < 1.3) return { zone: 'gun', c, p: b };
+      const px = c.state === 'ok' ? c.p0[0] : c.lx, pz = c.state === 'ok' ? c.p0[2] : c.lz, py = c.state === 'ok' ? c.p0[1] : c.ly;
+      if (Math.abs(y - py) < 0.75 && Math.abs(b[0] - px) < (c.chaser ? 1.3 : 0.9) && Math.abs(b[2] - pz) < (c.chaser ? 0.8 : 1.3)) return { zone: 'gun', c, p: b };
     }
     if (this.insideSolid(b)) {
       const p = this.refine(a, b), d = HULL.deck(p[0]);
@@ -1239,12 +1250,12 @@ function applyHit(sh, info, ball) {
   if (info.zone === 'gun') {
     const c = info.c; splinters(wp, 16, sh.S.carriage); smoke(wp, 3, 0.7); sfx.crunch(d);
     if (c.state === 'loose') { c.vx += ldir[0] * 3; c.vz += ldir[2] * 3; return true; }
-    c.lx = c.p0[0]; c.lz = c.p0[2]; c.spin = c.base + c.yaw; c.loaded = false;
-    if (rnd() < 0.45) {
+    c.lx = c.p0[0]; c.lz = c.p0[2]; c.ly = c.p0[1]; c.spin = c.base + c.yaw; c.loaded = false;
+    if (!c.chaser && rnd() < 0.45) {
       c.state = 'loose'; const v = Math.hypot(ldir[0], ldir[2]) || 1;
       c.vx = ldir[0] / v * R(2.5, 4.5); c.vz = ldir[2] / v * R(2.5, 4.5); c.tilt = 0;
       shipEvent(sh, 'a gun is torn loose and rolling across the deck', 'loose' + c.x + c.side, false);
-    } else { c.state = 'smashed'; c.tilt = -R(0.2, 0.4); c.spin += R(-0.7, 0.7); shipEvent(sh, 'a gun is knocked out', 'gunko' + c.x + c.side, false); }
+    } else { c.state = 'smashed'; c.tilt = -R(0.2, 0.4); c.spin += R(-0.7, 0.7); shipEvent(sh, c.chaser ? `a ${c.chaser} chaser is knocked out` : 'a gun is knocked out', 'gunko' + c.x + c.side + c.p0[2], false); }
     return true;
   }
   if (info.zone === 'bulwark') {
@@ -1307,6 +1318,13 @@ function aiGunnery(sh, opp, dt) {
   const th = solveElev(m4pt(sh.M, [0, GUN_Y, side * 4.5]), T);
   const ready = [];
   for (const c of sh.cannons) {
+    if (c.chaser) {
+      const pw = m4pt(sh.M, c.p0), tc = solveElev(pw, T);
+      if (tc === null) { c.ty = 0; c.tp = 0; c.reach = false; continue; }
+      const dx = T[0] - pw[0], dz = T[2] - pw[2], dh = Math.hypot(dx, dz);
+      if (sh.aimAt(c, [pw[0] + dx, pw[1] + Math.tan(tc) * dh, pw[2] + dz]) && c.loaded) ready.push(c);
+      continue;
+    }
     if (c.side !== side || th === null) { c.ty = 0; c.tp = 0; c.reach = false; continue; }
     const pw = m4pt(sh.M, c.p0), dx = T[0] - pw[0], dz = T[2] - pw[2], dh = Math.hypot(dx, dz);
     if (sh.aimAt(c, [pw[0] + dx, pw[1] + Math.tan(th) * dh, pw[2] + dz]) && c.loaded) ready.push(c);
@@ -1456,7 +1474,7 @@ function drawAimMarker(VP) {
 /* ---------- HUD ---------- */
 const stats = { shots: 0, hits: 0 };
 function buildGunPips() {
-  for (const [id, sd] of [['gunsP', -1], ['gunsS', 1]]) {
+  for (const [id, sd] of [['gunsP', -1], ['gunsS', 1], ['gunsC', 0]]) {
     const row = $(id); row.querySelectorAll('.gun').forEach(e => e.remove());
     for (const c of player.cannons.filter(c => c.side === sd).sort((a, b) => b.x - a.x)) { const d = document.createElement('div'); d.className = 'gun'; d.appendChild(document.createElement('i')); row.appendChild(d); c.pip = d; }
   }
@@ -1468,7 +1486,7 @@ function rowsHtml(sh) {
   const rud = { ok: 'answering', damaged: '<span class="warn">damaged</span>', jammed: '<span class="warn">jammed</span>', gone: '<span class="warn">shot away</span>' }[sh.rudState];
   const status = sh.sunk ? '<span class="warn">SUNK</span>' : sh.founder ? '<span class="warn">FOUNDERING</span>' : W > 600 ? '<span class="warn">sinking</span>' : W > 150 ? 'taking water' : 'sound';
   return [['Status', status], ['Speed', (sh.speed * 1.944).toFixed(1) + ' kn'], ['List', Math.abs(sh.rollT) > 0.12 ? `<span class="warn">${listText(sh)}</span>` : listText(sh)],
-    ['Water', sh.founder ? '<span class="warn">going down</span>' : `${W.toFixed(0)} t <span style="opacity:.6">/ ${FOUNDER_W}</span>`], ['Masts', masts], ['Rudder', rud], ['Guns', `${ready} ready · ${guns}/14 working`], ['Stores', (sh.supplies * 100).toFixed(0) + '%']]
+    ['Water', sh.founder ? '<span class="warn">going down</span>' : `${W.toFixed(0)} t <span style="opacity:.6">/ ${FOUNDER_W}</span>`], ['Masts', masts], ['Rudder', rud], ['Guns', `${ready} ready · ${guns}/${sh.cannons.length} working`], ['Stores', (sh.supplies * 100).toFixed(0) + '%']]
     .map(([a, b]) => `<div class="row"><span>${a}</span><span>${b}</span></div>`).join('');
 }
 function drawDiag(cv, sh) {
@@ -1491,7 +1509,7 @@ function drawDiag(cv, sh) {
     const col = c.state !== 'ok' ? '#ff7a5c' : c.loaded ? '#d9b36a' : '#6b6250';
     const px = c.state === 'ok' ? c.x : c.lx, pz = c.state === 'ok' ? c.p0[2] : c.lz;
     if (c.state === 'gone') continue;
-    g.fillStyle = col; g.fillRect(X(px) - 4, Z(pz) - 4, 8, 8);
+    g.fillStyle = col; g.fillRect(X(px) - 4, Z(pz * (c.chaser && c.state === 'ok' ? 2.5 : 1)) - 4, 8, 8);
   }
   // masts
   for (const m of sh.masts) {

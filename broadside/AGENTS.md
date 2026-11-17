@@ -8,7 +8,7 @@ Sections are marked by `/* ===` banners, in this order:
 
 1. **Core**: math, mat4 helpers, the shared wave function (`WAVES` → `waveH` in JS and `WAVE_GLSL`), environment constants (`SUN`, `WIND_TO`), and the splat builder (`SB`, `surf`, `line`, `cyl`, `box`).
 2. **WebGL2**: splat, sky, water and line shaders, the dynamic splat buffer (`dput`, `dtpl`), and the polar water mesh.
-3. **Galleon geometry**: `HULL` (keel, deck, rail, transom, stem, half-beam `hw`). The same functions drive splat generation and hit tests. Also `GUN_X`, `MAST_DEFS`, the compartments (`COMP_X`), paint `STYLES`, and the hull/mast/cannon/rudder/flotsam builders.
+3. **Galleon geometry**: `HULL` (keel, deck, rail, transom, stem, half-beam `hw`). The same functions drive splat generation and hit tests. Also `GUN_X`, `CHASERS` (two bow and two stern chase guns), `MAST_DEFS`, the compartments (`COMP_X`), paint `STYLES`, and the hull/mast/cannon/rudder/flotsam builders.
 4. **Islands**: distant static splats.
 5. **Ship**: helm AI (wears ship rather than tacking through the wind), sailing, wave motion, flooding (breaches, carpenters, pumps, lower-port downflooding, list and trim, foundering), mast topple/drag/cut-away, cannon aiming (`aimAt`) and loose cannons, hit `probe`.
 6. **Game**: sound, particles, flotsam, cannon fire and ball ballistics, `applyHit` zone effects, enemy gunnery (`solveElev`, `pickZone`), player aiming, camera, render, HUD, game flow, input, and the `window.BS` test API.
@@ -19,6 +19,7 @@ Sections are marked by `/* ===` banners, in this order:
 - Flooding: `FLOOD_K`, `CAP`, `FOUNDER_W`, the pump rate and carpenter plug rate in `Ship.flood`, and the lower-port leak area.
 - Enemy difficulty: `spawnEnemy` (aim error, reload, spread, rising with each win) and the `aiGunnery` fire range.
 - Sailing: `VMAX`, the wind polar in `Ship.update`, and the no-go angle in `helm`.
+- Manoeuvring (only while the rudder is undamaged): in `helm`, the range goal drifts every 22–40 s, there's an occasional ±16° bias to bear up or away, and a gentle ±9° weave on a 28–40 s period.
 
 ## Testing
 

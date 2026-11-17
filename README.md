@@ -2,19 +2,34 @@
 
 Portable GitHub source collection for the standalone HTML games in this folder. Branch `main` at `https://github.com/GrapeGames3141/HTML-Games` tracks every game as ordinary files, so fresh clones need no submodule setup. On this machine, Appalachian Eagle and Prism Swarm retain old local Git histories inside their folders; those histories are not required by GitHub clones.
 
-Each game’s editable entry point is named after its folder: `<game>/<game>.html` (for example `splat/splat.html`). With the local server, open `http://127.0.0.1:8000/<game>/<game>.html`. Read [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) before any iteration. Technique guides such as [SPLAT-GUIDE.md](SPLAT-GUIDE.md) record how the splat games are built and tested. They describe ownership, validation, safe commit order, and the optional Drive release mapping.
+Each game’s editable entry point is named after its folder: `<game>/<game>.html` (for example `splat/splat.html`). The root `index.html` is the GrapeGames Arcade lobby, an intentional exception to that per-game rule. With the local server, open `http://127.0.0.1:8000/<game>/<game>.html`. Read [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) before any iteration. Technique guides such as [SPLAT-GUIDE.md](SPLAT-GUIDE.md) record how the splat games are built and tested.
 
 | Game | Source | Local URL |
 | --- | --- | --- |
 | Appalachian Eagle | `appalachian-eagle/appalachian-eagle.html` | `http://127.0.0.1:8000/appalachian-eagle/appalachian-eagle.html` |
 | Ashgrove | `ashgrove/ashgrove.html` | `http://127.0.0.1:8000/ashgrove/ashgrove.html` |
 | Broadside | `broadside/broadside.html` | `http://127.0.0.1:8000/broadside/broadside.html` |
+| Castle Defense | `castle-defense/castle-defense.html` | `http://127.0.0.1:8000/castle-defense/castle-defense.html` |
 | Prism Swarm | `prism-swarm/prism-swarm.html` | `http://127.0.0.1:8000/prism-swarm/prism-swarm.html` |
 | Sitter | `sitter/sitter.html` | `http://127.0.0.1:8000/sitter/sitter.html` |
 | Splat | `splat/splat.html` | `http://127.0.0.1:8000/splat/splat.html` |
 | Splatcraft | `splatcraft/splatcraft.html` | `http://127.0.0.1:8000/splatcraft/splatcraft.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
+
+## Arcade website
+
+The root `index.html` is the GrapeGames Arcade: eight playable games, search, category filters, a random-game button and a last-played marker. The lobby uses plain HTML, CSS and JavaScript; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
+
+Castle Defense / Bastion of the Four Roads was copied unchanged from `GrapeGames3141/castle-defense`, commit `37444662367c43e09db5d56691162bccb66ef9fc`. Its existing Tailwind CDN reference is retained.
+
+### GitHub Pages
+
+The `Publish arcade to GitHub Pages` workflow publishes on pushes to `main` and can also be run manually. In repository **Settings → Pages**, set **Source** to **GitHub Actions**. A private repository requires a GitHub plan that supports Pages for private repositories; the workflow does not change repository visibility.
+
+Expected project URL: <https://grapegames3141.github.io/HTML-Games/>.
+
+Validate and package locally with `node --check arcade.js` and `python tools/build-pages.py`. The generated `work/pages/` directory contains only playable site files, excluding source snapshots, research references and local tools. It includes generated compatibility aliases for the prior six `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
 
 Use this prompt for Claude Code:
 

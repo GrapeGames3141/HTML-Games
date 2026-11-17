@@ -2,7 +2,7 @@
 
 This repository lives at `E:\html games`. Keep durable source, assets, outputs, and validation evidence on `E:`.
 
-Each game keeps its source entry point as `<game>/<game>.html`, named after its folder (for example `splat/splat.html`), so files are easy to tell apart. Do not add an `index.html`. Every new game gets its own folder with a meaningful name and a meaningfully named main file (default `<game>/<game>.html`). Commit at each working milestone and push the root `main` branch to origin after each commit. Files such as `aliens.html` and `horror.html` are named release copies; do not rename a source entry point to match a release filename.
+Each game keeps its source entry point as `<game>/<game>.html`, named after its folder (for example `splat/splat.html`), so files are easy to tell apart. Do not add an `index.html`. The root `index.html` is the intentional arcade lobby, not a game entry point. Every new game gets its own folder with a meaningful name and a meaningfully named main file (default `<game>/<game>.html`). Commit at each working milestone and push the root `main` branch to origin after each commit. Files such as `aliens.html` and `horror.html` are named release copies; do not rename a source entry point to match a release filename.
 
 Work with one writer at a time. Before changing a game, read this file, `CLAUDE.md`, and any `AGENTS.md` in that game's directory. Preserve unrelated modified and staged files. Never use `git reset --hard`, `git clean`, or bulk formatting against a game unless the user explicitly requests it.
 
