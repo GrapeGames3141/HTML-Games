@@ -308,7 +308,7 @@ const pFinal = prog(VS_FS, `
 in vec2 vU; out vec4 o; uniform sampler2D uTex,uBloom; uniform float uFlash,uHurt,uBloomK;
 void main(){ vec3 c=texture(uTex,vU).rgb+texture(uBloom,vU).rgb*uBloomK; c*=1.12; c+=uFlash*vec3(.07,.09,.16);
   c=clamp((c*(2.51*c+.03))/(c*(2.43*c+.59)+.14),0.,1.); c=pow(c,vec3(1./2.2));
-  vec2 q=vU-.5; float v=dot(q,q); c*=1.-v*.95; c=mix(c,vec3(.7,.05,.02),clamp(uHurt*v*1.3,0.,.45));
+  vec2 q=vU-.5; float v=dot(q,q); c*=1.-v*.95; c=mix(c,vec3(.7,.05,.02),clamp(uHurt*v*v*4.5,0.,.4));
   o=vec4(c,1.); }`);
 
 /* render targets */
@@ -829,8 +829,8 @@ function updSoldier(s, dt) {
 }
 
 /* --- castle damage --- */
-function damageWall(d) { G.wall -= d; G.hurt = d > .5 ? Math.min(1, G.hurt + .5) : Math.max(G.hurt, .3); }
-function damageGate(d) { G.gate.hp -= d; G.hurt = d > .5 ? Math.min(1, G.hurt + .5) : Math.max(G.hurt, .3); }
+function damageWall(d) { G.wall -= d; G.hurt = d > .5 ? Math.min(1, G.hurt + .4) : Math.max(G.hurt, .18); }
+function damageGate(d) { G.gate.hp -= d; G.hurt = d > .5 ? Math.min(1, G.hurt + .4) : Math.max(G.hurt, .18); }
 function gateIgnite(a) {
   const g = G.gate;
   if (g.wet > .25) { g.wet -= .25; fxSteam(GATE_X, 3, -3.6, 10); sfx('sizzle'); return false; }
