@@ -1,0 +1,41 @@
+name: Publish arcade to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the games
+        uses: actions/checkout@v4
+      - name: Check Cloudflare token
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Set the CLOUDFLARE_API_TOKEN repository secret to deploy to Cloudflare Pages."
+            exit 1
+          fi
+      - name: Check lobby JavaScript
+        run: |
+          node --check arcade.js
+          node --check assets/arcade/quick-hide.js
+      - name: Test Pages packaging
+        run: python3 -m unittest discover -s tools -p 'test_build_pages.py'
+      - name: Prepare playable site
+        run: python3 tools/build-pages.py
+      - name: Publish arcade to Cloudflare Pages
+        env:
+          CLOUDFLARE_ACCOUNT_ID: 3aed6802cc84d155b5f7940960ebd115
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4.164.0 pages deploy work/pages --project-name thearcadeshelf --branch main
