@@ -78,6 +78,7 @@
       if (!document.hidden && document.hasFocus() && !hiding) hide();
     }
   }, true);
+  /* Visible in-game Quick hide button temporarily disabled.
   if (game) {
     document.addEventListener('DOMContentLoaded', () => {
       const button = document.createElement('button');
@@ -92,4 +93,5 @@
       document.body.appendChild(button);
     }, {once:true});
   }
+  */
 })();
