@@ -22,6 +22,10 @@ class PagesTests(unittest.TestCase):
             folder = self.root / name
             folder.mkdir()
             (folder / (name + '.html')).write_text('<!doctype html><title>Game</title>', encoding='utf-8')
+        for destination in builder.PROMOTED_EXPERIMENTS:
+            source = self.root / destination
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_text('<!doctype html><title>Promoted experiment</title>', encoding='utf-8')
     def tearDown(self): self.temp.cleanup()
     def test_discovery_metadata_assets_and_rebuild(self):
         game = self.root / 'future fields'
@@ -36,22 +40,30 @@ class PagesTests(unittest.TestCase):
         excluded.mkdir()
         (excluded / 'tools.html').write_text('<title>Not a game</title>')
         experiment = self.root / 'experiments'
-        experiment.mkdir()
+        experiment.mkdir(exist_ok=True)
         (experiment / 'experiments.html').write_text('<title>Not an arcade game</title>')
         out = builder.build(self.root)
         lobby = (out / 'index.html').read_text(encoding='utf-8')
         self.assertIn('Clouds &lt;&amp;&gt; &quot;Sky&quot;', lobby)
         self.assertIn('future%20fields/launch.html', lobby)
         self.assertIn('data-filter="puzzle"', lobby)
-        self.assertIn('SHOWING ALL 10 GAMES', lobby)
-        self.assertIn('10 PLAYABLE WORLDS', lobby)
-        self.assertIn('content="Explore 10 free browser games from GrapeGames."', lobby)
+        self.assertIn('SHOWING ALL 12 GAMES', lobby)
+        self.assertIn('12 PLAYABLE WORLDS', lobby)
+        self.assertIn('content="Explore 12 free browser games from GrapeGames."', lobby)
+        self.assertIn('Littoral — Astra 6.2', lobby)
+        self.assertIn('Beach to Cave — Fable 5.2', lobby)
+        self.assertIn('data-filter="experiments"', lobby)
+        self.assertIn('12 · PUZZLE', lobby)
+        self.assertLess(lobby.index('Beach to Cave — Fable 5.2'), lobby.index('Clouds &lt;&amp;&gt; &quot;Sky&quot;'))
         self.assertNotIn('Not an arcade game', lobby)
         self.assertTrue((out / 'future fields/nested/game.js').exists())
         self.assertTrue((out / 'future fields/nested/art.png').exists())
         self.assertFalse((out / 'future fields/snapshots/old.js').exists())
         self.assertFalse((out / 'tools/tools.html').exists())
-        self.assertFalse((out / 'experiments').exists())
+        self.assertTrue((out / 'experiments/Astra-demo/Astra-demo.html').exists())
+        self.assertTrue((out / 'experiments/demo/demo.html').exists())
+        self.assertFalse((out / 'experiments/humanoid-model-experiment').exists())
+        self.assertFalse((out / 'experiments/Astra-demo/evidence').exists())
         self.assertTrue((out / 'assets/arcade/quick-hide.js').exists())
         for page in [out / 'index.html', out / 'future fields/launch.html'] + [out / name / (name + '.html') for name in builder.CURATED]:
             html = page.read_text(encoding='utf-8')
@@ -65,7 +77,7 @@ class PagesTests(unittest.TestCase):
         shutil.rmtree(game)
         builder.build(self.root)
         self.assertFalse((out / 'future fields').exists())
-        self.assertIn('SHOWING ALL 09 GAMES', (out / 'index.html').read_text(encoding='utf-8'))
+        self.assertIn('SHOWING ALL 11 GAMES', (out / 'index.html').read_text(encoding='utf-8'))
     def test_gold_entry_and_new_curated_card(self):
         game = self.root / 'gold-rush'
         game.mkdir()
@@ -81,6 +93,8 @@ class PagesTests(unittest.TestCase):
         self.assertIn('Custom Gold', lobby)
         self.assertIn('data-id="custom-id"', lobby)
         self.assertEqual(lobby.count('href="gold-rush/gold-rush.html"'), 1)
+        self.assertLess(lobby.index('Littoral — Astra 6.2'), lobby.index('Custom Gold'))
+        self.assertLess(lobby.index('Beach to Cave — Fable 5.2'), lobby.index('Custom Gold'))
 
     def test_title_fallback_and_invalid_entry(self):
         game = self.root / 'new-game'

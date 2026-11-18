@@ -10,9 +10,9 @@ From PowerShell, serve just this experiment.
 python -m http.server 8000 --bind 127.0.0.1 --directory 'E:\html games\experiments\Astra-demo'
 ```
 
-[Enter Littoral](http://127.0.0.1:8000/Astra-demo.html) · [Open the comparison atlas](http://127.0.0.1:8000/evidence/atlas.html)
+[Enter Littoral](http://127.0.0.1:8000/Astra-demo.html) · [Open the local comparison atlas](http://127.0.0.1:8000/evidence/atlas.html)
 
-The game also opens directly from `Astra-demo.html`. It generates its scenery and sound locally and has no runtime downloads. The root Pages packager excludes the entire experiments directory. The arcade has no entry for this project.
+The game also opens directly from `Astra-demo.html`. It generates its scenery and sound locally and has no runtime downloads. The root Pages packager includes only this explicitly curated HTML entrypoint; its evidence, plans, build notes, and sibling experiments stay excluded. The arcade has a curated Littoral card for this project.
 
 ## Reading a comparison
 

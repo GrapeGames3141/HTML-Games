@@ -12,6 +12,10 @@ EXCLUDED = {"work", "tools", "tests", "assets", "experiments", "design-review", 
 SKIP_DIRS = EXCLUDED | {".git", "__pycache__", "source", "sources", "research"}
 EXTENSIONS = {".html", ".htm", ".js", ".mjs", ".css", ".json", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".ico", ".mp3", ".ogg", ".wav", ".mp4", ".webm", ".woff", ".woff2", ".ttf", ".otf", ".wasm", ".glb", ".gltf", ".bin"}
 CURATED = {"prism-swarm": "prism", "appalachian-eagle": "eagle", "splat": "splat", "ashgrove": "ashgrove", "castle-defense": "castle", "broadside": "broadside", "splatcraft": "splatcraft", "dustdevil": "dustdevil", "merlin": "merlin"}
+PROMOTED_EXPERIMENTS = (
+    Path("experiments/Astra-demo/Astra-demo.html"),
+    Path("experiments/demo/demo.html"),
+)
 
 class PageParser(HTMLParser):
     def __init__(self):
@@ -115,32 +119,44 @@ def build(root=ROOT):
     articles = re.findall(r'<article class="game-card".*?</article>', source, flags=re.S)
     # A hand-authored card is recognized by its actual link, not a hardcoded ID.
     by_path = {(g.name, entry_name(g)): g for g in games}
-    curated_cards = {}
+    promoted_paths = {tuple(path.parts) for path in PROMOTED_EXPERIMENTS}
+    if promoted_paths & set(by_path): raise ValueError("Promoted experiment path collides with a discovered game")
+    # Preserve every accepted source-card position.  This keeps a promoted
+    # experiment in the intentional shelf order and means later automatic
+    # discoveries never reuse its display number.
+    cards = []
+    seen_paths = set()
     for article in articles:
         parser = PageParser()
         parser.feed(article)
         for url in parser.urls:
             parts = urlsplit(url)
             path_parts = unquote(parts.path).split("/")
+            if not parts.scheme and not parts.netloc and tuple(path_parts) in promoted_paths:
+                key = tuple(path_parts)
+                if key in seen_paths:
+                    raise ValueError(f"Duplicate promoted experiment card for {'/'.join(key)}")
+                seen_paths.add(key)
+                cards.append(article)
+                break
             if not parts.scheme and not parts.netloc and len(path_parts) == 2 and tuple(path_parts) in by_path:
                 game = by_path[tuple(path_parts)]
-                if game.name in curated_cards: raise ValueError(f"Duplicate lobby card for {game.name}")
-                curated_cards[game.name] = article
+                key = tuple(path_parts)
+                if key in seen_paths:
+                    raise ValueError(f"Duplicate lobby card for {game.name}")
+                seen_paths.add(key)
+                cards.append(article)
                 break
-    ordered = [next(g for g in games if g.name == name) for name in curated_cards]
-    ordered += [g for g in games if g.name not in curated_cards]
-    categories = {"action": "Action", "explore": "Explore", "creative": "Creative", "strategy": "Strategy"}
-    cards = []
-    for game in ordered:
-        if game.name in curated_cards:
-            cards.append(curated_cards[game.name])
-        else:
-            data = metadata(game)
-            slug = category_slug(data["category"])
-            if slug in categories and categories[slug].lower() != data["category"].lower():
-                raise ValueError(f"Conflicting category names for {slug}")
-            categories[slug] = data["category"]
-            cards.append(new_card(game, data, len(cards) + 1))
+    displayed_games = {key[0] for key in seen_paths if len(key) == 2}
+    uncurated = [g for g in games if g.name not in displayed_games]
+    categories = {"action": "Action", "explore": "Explore", "creative": "Creative", "strategy": "Strategy", "experiments": "Experiments"}
+    for game in uncurated:
+        data = metadata(game)
+        slug = category_slug(data["category"])
+        if slug in categories and categories[slug].lower() != data["category"].lower():
+            raise ValueError(f"Conflicting category names for {slug}")
+        categories[slug] = data["category"]
+        cards.append(new_card(game, data, len(cards) + 1))
     used = {re.search(r'data-category="([^"]+)"', c).group(1) for c in cards}
     filters = [f'<button class="filter active" type="button" data-filter="all" aria-pressed="true">All games <span>{len(cards):02}</span></button>']
     filters += [f'<button class="filter" type="button" data-filter="{escape(slug, quote=True)}" aria-pressed="false">{escape(label)}</button>' for slug, label in categories.items() if slug in used]
@@ -161,6 +177,15 @@ def build(root=ROOT):
             dest = out / item.relative_to(root)
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(item, dest)
+    for destination in PROMOTED_EXPERIMENTS:
+        source = root / destination
+        parents = [root / Path(*destination.parts[:depth]) for depth in range(1, len(destination.parts))]
+        if source.is_symlink() or not source.is_file() or any(parent.is_symlink() for parent in parents):
+            raise ValueError(f"Promoted experiment source is not a regular file in a regular folder: {destination}")
+        page = out / destination
+        page.parent.mkdir(parents=True, exist_ok=True)
+        html = source.read_text(encoding="utf-8-sig")
+        page.write_text(inject_quick_hide(html, runtime, destination.parent.as_posix()), encoding="utf-8")
     # Shared assets are optional and follow the same safe runtime allowlist.
     assets = root / "assets"
     if assets.is_dir() and not assets.is_symlink():
@@ -176,7 +201,8 @@ def build(root=ROOT):
         if game.name in ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "castle-defense"):
             target = quote(entry_name(game), safe="")
             (out / game.name / "index.html").write_text(f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url={target}"><title>Moved</title><p>This game moved to <a href="{target}">{escape(entry_name(game))}</a>.</p>', encoding="utf-8")
-    for rel in [Path("index.html")] + [Path(game.name) / entry_name(game) for game in games]:
+    pages = [Path("index.html")] + [Path(game.name) / entry_name(game) for game in games] + list(PROMOTED_EXPERIMENTS)
+    for rel in pages:
         page = out / rel
         parser = PageParser()
         parser.feed(page.read_text(encoding="utf-8-sig"))
@@ -186,7 +212,7 @@ def build(root=ROOT):
             if parts.path.startswith("/"): raise ValueError(f"Project-site link must be relative in {rel}: {url}")
             target = (page.parent / unquote(parts.path)).resolve()
             if not target.is_relative_to(out.resolve()) or not target.exists(): raise ValueError(f"Broken local link in {rel}: {url}")
-    print(f"Packaged {len(games)} games and arcade; all local HTML links resolve.")
+    print(f"Packaged {len(games) + len(PROMOTED_EXPERIMENTS)} games and arcade; all local HTML links resolve.")
     return out
 
 if __name__ == "__main__":

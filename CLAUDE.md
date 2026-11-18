@@ -22,7 +22,7 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Slingshot | `slingshot\slingshot.html` | none yet |
 | Ridiculous Wars | `ridiculous-wars\ridiculous-wars.html` | none yet |
 
-`experiments\humanoid-model-experiment\humanoid-model-experiment.html` is a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks. `experiments\demo\demo.html` is the rendering-technique demo (a walk from a beach to a cave, test API `window.DEMO`); its plan and build notes are in `experiments\demo\plan.md`.
+`experiments\Astra-demo\Astra-demo.html` and `experiments\demo\demo.html` are explicitly curated nested arcade and Pages entrypoints. Their evidence, plans, build notes, and sibling experiments stay excluded. `experiments\humanoid-model-experiment\humanoid-model-experiment.html` remains a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks.
 
 Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source file to the mapped release name, then verify both byte length and SHA-256. Each game's source file is named after its folder, `<game>\<game>.html`; keep that name and do not add an `index.html`. The root `index.html` is the intentional arcade lobby, not a game source.
 

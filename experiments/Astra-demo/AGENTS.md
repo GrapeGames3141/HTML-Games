@@ -1,6 +1,6 @@
 # Astra demo experiment
 
-This folder is an off-arcade development experiment. Never auto-list it on the arcade homepage or include it in the Pages build; promotion requires an explicit user request.
+This folder is an independently developed experiment. Its explicitly curated entrypoint, `experiments/Astra-demo/Astra-demo.html`, is included in the arcade homepage and Pages build; evidence, plans, build notes, and sibling experiments remain excluded. Do not auto-list any additional experiment content; further promotion requires an explicit user request.
 
 The intended entry point is `Astra-demo.html`. The user explicitly requested a GPT-6.2 Astra High chat to implement this comparison. Do not substitute a Terra implementer or another implementation model for the experiment.
 

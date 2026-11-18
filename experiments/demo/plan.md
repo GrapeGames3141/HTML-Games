@@ -4,7 +4,7 @@
 **Updated:** 2026-11-17
 **Folder:** `experiments/demo/` (entry point `experiments/demo/demo.html`, local URL `http://127.0.0.1:8000/experiments/demo/demo.html`)
 
-This is an experiment, not an arcade game. It stays out of the arcade lobby and the Pages build, per `experiments/AGENTS.md`.
+This is an experiment with one explicit arcade and Pages exception: `experiments/demo/demo.html` is curated as **Beach to Cave — Fable 5.2**. Its plans, evidence, and sibling experiments remain excluded; see the root [Experiments policy](../../README.md#experiments).
 
 ## Purpose
 

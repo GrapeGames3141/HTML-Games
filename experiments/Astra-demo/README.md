@@ -1,6 +1,6 @@
 # Astra demo comparison setup
 
-This is a planned, off-arcade model-comparison experiment. It is intentionally excluded from the arcade and GitHub Pages package. The intended fresh entry point is `Astra-demo.html`.
+This is a model-comparison experiment. Its existing `Astra-demo.html` entrypoint is explicitly curated for the arcade and GitHub Pages package, while the remaining experiment files stay source-only.
 
 The local Markdown snapshots below were copied byte-for-byte on 2026-11-17 from the current workspace. They contain historical implementation notes and references to their original locations; they are reference material for a fresh Astra build, not a claim that this folder already contains a game.
 
