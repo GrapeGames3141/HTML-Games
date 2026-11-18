@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Slingshot</title>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#cfd8cf;font-family:Georgia,'Times New Roman',serif;color:#2b2418;user-select:none;-webkit-user-select:none;touch-action:none}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:#cfd8cf;font-family:Georgia,'Times New Roman',serif;color:#2b2418;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+*{touch-action:none;-webkit-touch-callout:none}
+#ovBox{touch-action:pan-y}#ovBtn{touch-action:manipulation}
 canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #hud2d{pointer-events:none;z-index:2}
 .panel{position:fixed;padding:8px 12px;background:rgba(250,244,228,.8);border:2px solid rgba(80,60,35,.55);border-radius:10px;font-size:15px;line-height:1.4;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:3}
@@ -37,7 +39,8 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 .tbtn.on{background:rgba(233,195,125,.85)}
 body.touch .tbtn{display:flex}
 body.touch #br{display:none}
-@media (max-height:520px){.panel{font-size:12px;padding:5px 8px}.big{font-size:16px}#ovTitle{font-size:30px}#ovText{font-size:14px}}
+@media (max-width:600px){.panel{font-size:12px;padding:5px 8px;border-radius:8px}.big{font-size:15px}#skinLbl{display:none}#tl{max-width:58%}#bl{top:64px;bottom:auto}.dots span{width:6px;height:6px;margin-right:2px}.bands span{width:12px;height:5px}#msg{font-size:20px}#msg small{font-size:14px}#ouch{font-size:72px}}
+@media (max-height:520px){#skinBtn{top:auto;bottom:22px;right:156px}#hintBtn{top:auto;bottom:22px;right:216px}.panel{font-size:12px;padding:5px 8px}.big{font-size:16px}#ovTitle{font-size:30px}#ovText{font-size:14px}}
 </style>
 </head>
 <body>
@@ -67,7 +70,7 @@ body.touch #br{display:none}
 const QS = new URLSearchParams(location.search);
 const TEST = QS.has('test');
 const SEED = parseInt(QS.get('seed') || '1337', 10) || 1337;
-const QUAL = ['low', 'medium', 'high'].includes(QS.get('q')) ? QS.get('q') : 'medium';
+const QUAL = ['low', 'medium', 'high'].includes(QS.get('q')) ? QS.get('q') : ((('ontouchstart' in window) || navigator.maxTouchPoints > 0) && !QS.has('desktop') ? 'low' : 'medium');
 const TOUCH = QS.has('touch') || (!QS.has('desktop') && (('ontouchstart' in window) || navigator.maxTouchPoints > 0));
 const DENS = { low: 0.4, medium: 0.7, high: 1.0 }[QUAL];
 const DEG = Math.PI / 180;
@@ -752,7 +755,7 @@ function loadLevel(i) {
 function startGame() { G_.score = 0; G_.bands = 3; G_.yaw = 0; G_.pitch = -2 * DEG; loadLevel(0); }
 
 function pressDraw() {
-  auInit();
+  auInit(); G_.wantDraw = true;
   if (G_.mode !== 'play' || G_.drawing) return;
   if (G_.repairT > 0) return;
   if (G_.pebbles <= 0) { showMsg('Out of pebbles', '', 1.2); return; }
@@ -760,6 +763,7 @@ function pressDraw() {
   G_.drawing = true; G_.d = 0; G_.strainT = 0; G_.breakAt = GR(0.55, 1.35);
 }
 function releaseDraw() {
+  G_.wantDraw = false;
   if (!G_.drawing) return;
   G_.drawing = false; fire(G_.d);
 }
@@ -774,6 +778,7 @@ function fire(d) {
 }
 function snapBand() {
   if (G_.mode !== 'play' || G_.bands <= 0) return;
+  G_.wantDraw = false;
   G_.drawing = false; G_.d = 0; G_.strainT = 0; G_.bands--; G_.ouchCount++;
   G_.snapT = 0; G_.repairT = 1.9; G_.shake = 1; G_.flash = 1;
   SFX.snap(); SFX.ouch(); creak(0, 400);
@@ -927,6 +932,7 @@ function update(dt) {
   if (G_.drawing) { G_.dVis = target; G_.dVel = 0; }
   else { G_.dVel += (-(G_.dVis - target) * 260 - G_.dVel * 14) * dt; G_.dVis += G_.dVel * dt; }
   if (G_.cooldown > 0) { G_.cooldown -= dt; if (G_.cooldown <= 0 && G_.pebbles > 0) G_.loaded = true; }
+  if (G_.wantDraw && !G_.drawing && G_.mode === 'play' && G_.loaded && G_.cooldown <= 0 && G_.repairT <= 0 && G_.pebbles > 0) pressDraw();
   if (G_.repairT > 0) { G_.repairT -= dt; if (G_.repairT <= 0) { G_.snapT = -1; if (G_.bands <= 0) gameOver(); } }
   if (G_.snapT >= 0) G_.snapT += dt;
   G_.shake *= Math.exp(-5 * dt); G_.flash *= Math.exp(-3.5 * dt);
@@ -986,6 +992,8 @@ function drawSplats(sv, M, tint, lit, n) {
   gl.bindVertexArray(sv.vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n ?? sv.n);
 }
 const IDM = M4.I();
+// portrait screens: widen the vertical FOV so the horizontal view (and the slingshot's size) stays playable
+function fovFor(f, asp) { return asp >= 1 ? f : Math.max(f, 2 * Math.atan(Math.tan(f / 2) * 0.8 / asp)); }
 function render() {
   const asp = W / Hh;
   const [ay, ap] = aimAngles();
@@ -993,7 +1001,7 @@ function render() {
   const cb = camBasis(ay + Math.sin(G_.time * 50) * 0.01 * sh, ap + Math.cos(G_.time * 43) * 0.012 * sh);
   const eye = PLAYER;
   const view = M4.view(eye, cb.r, cb.u, cb.b);
-  const proj = M4.persp(G_.fov, asp, 0.05, 900);
+  const proj = M4.persp(fovFor(G_.fov, asp), asp, 0.05, 900);
   VP = M4.mul(proj, view); camInfo = cb;
   gl.viewport(0, 0, W, Hh);
   gl.clearColor(FOGCOL[0], FOGCOL[1], FOGCOL[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1030,7 +1038,7 @@ function render() {
   // first-person slingshot (own projection, depth cleared)
   if (G_.mode !== 'loading' && G_.mode !== 'title') {
     gl.clear(gl.DEPTH_BUFFER_BIT);
-    const projV = M4.persp(60 * DEG, asp, 0.01, 10);
+    const projV = M4.persp(fovFor(60 * DEG, asp), asp, 0.01, 10);
     useMesh(M4.mul(projV, view), eye);
     drawViewModel(cb, eye);
   }
@@ -1182,7 +1190,7 @@ let ovAction = null;
 function showOverlay(title, html, btn, action) { $('ovTitle').textContent = title; $('ovText').innerHTML = html; $('ovBtn').textContent = btn; $('ovBtn').style.display = ''; $('ov').classList.remove('hide'); ovAction = action || null; }
 function hideOverlay() { $('ov').classList.add('hide'); }
 function lock() { if (TEST) return; try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } }
-function unlock() { G_.drawing = false; creak(0, 400); if (document.pointerLockElement) document.exitPointerLock(); }
+function unlock() { G_.drawing = false; G_.wantDraw = false; creak(0, 400); if (document.pointerLockElement) document.exitPointerLock(); }
 function overlayGo() {
   auInit();
   if (G_.mode === 'title' || G_.mode === 'win' || G_.mode === 'over') startGame();
@@ -1221,16 +1229,44 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { const k = e.key.toLowerCase(); if (k === ' ') releaseDraw(); if (k === 'z' || k === 'shift') G_.zoom = false; });
 // touch: drag anywhere to look, buttons for draw / zoom / toggles
-const touches = new Map();
-cv.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; touches.set(e.pointerId, [e.clientX, e.clientY]); cv.setPointerCapture(e.pointerId); });
-cv.addEventListener('pointermove', e => { if (!touches.has(e.pointerId)) return; const [x, y] = touches.get(e.pointerId); if (G_.mode === 'play') look((e.clientX - x) * 1.3, (e.clientY - y) * 1.3); touches.set(e.pointerId, [e.clientX, e.clientY]); });
-const endTouch = e => touches.delete(e.pointerId); cv.addEventListener('pointerup', endTouch); cv.addEventListener('pointercancel', endTouch);
-const fb = $('fireBtn');
-fb.addEventListener('pointerdown', e => { e.preventDefault(); fb.setPointerCapture(e.pointerId); fb.classList.add('on'); pressDraw(); });
-const fbUp = e => { fb.classList.remove('on'); releaseDraw(); }; fb.addEventListener('pointerup', fbUp); fb.addEventListener('pointercancel', fbUp);
-$('zoomBtn').addEventListener('pointerdown', e => { e.preventDefault(); G_.zoom = !G_.zoom; updateHUD(); });
-$('skinBtn').addEventListener('pointerdown', e => { e.preventDefault(); G_.skin = 1 - G_.skin; updateHUD(); });
-$('hintBtn').addEventListener('pointerdown', e => { e.preventDefault(); G_.hint = !G_.hint; updateHUD(); });
+// Touch input uses plain Touch Events (reliable on iOS Safari and Android Chrome; pointer capture threw on phones).
+// Each finger is tracked by identifier: a finger that starts on HOLD draws, one on a toggle button flips it,
+// any other finger in play drags the aim. Several fingers at once are fine (aim while holding).
+const tLook = new Map(); let tFire = null;
+const btnOf = el => el && el.closest ? el.closest('.tbtn') : null;
+function onTouchStart(e) {
+  if (!$('ov').classList.contains('hide')) return; // let the overlay's button receive a normal click
+  e.preventDefault(); auInit();
+  for (const t of e.changedTouches) {
+    const b = btnOf(document.elementFromPoint(t.clientX, t.clientY)) || btnOf(t.target);
+    if (b && b.id === 'fireBtn') { if (tFire === null) { tFire = t.identifier; b.classList.add('on'); pressDraw(); } }
+    else if (b && b.id === 'zoomBtn') { G_.zoom = !G_.zoom; updateHUD(); }
+    else if (b && b.id === 'skinBtn') { G_.skin = 1 - G_.skin; updateHUD(); }
+    else if (b && b.id === 'hintBtn') { G_.hint = !G_.hint; updateHUD(); }
+    else tLook.set(t.identifier, [t.clientX, t.clientY]);
+  }
+}
+function onTouchMove(e) {
+  if (!tLook.size && tFire === null) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const p = tLook.get(t.identifier); if (!p) continue;
+    if (G_.mode === 'play') look((t.clientX - p[0]) * 1.3, (t.clientY - p[1]) * 1.3);
+    tLook.set(t.identifier, [t.clientX, t.clientY]);
+  }
+}
+function onTouchEnd(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier === tFire) { tFire = null; $('fireBtn').classList.remove('on'); releaseDraw(); }
+    tLook.delete(t.identifier);
+  }
+  if (tLook.size || tFire !== null || e.touches.length) e.preventDefault();
+}
+document.addEventListener('touchstart', onTouchStart, { passive: false });
+document.addEventListener('touchmove', onTouchMove, { passive: false });
+document.addEventListener('touchend', onTouchEnd, { passive: false });
+document.addEventListener('touchcancel', onTouchEnd, { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault()); // iOS pinch-zoom
 
 // ---------------------------------------------------------------- loop
 let last = performance.now(), frames = 0, fpsT = 0, fps = 0;
