@@ -812,17 +812,17 @@ function buildNav(){
 function genWorld(seed){
   const R=rngOf(seed),nodes=[],edges=[];
   W.seed=seed;W.nodes=nodes;W.edges=edges;
-  nodes.push({x:0,z:0,r:9.6,h:0,ph:R()*TAU,e:[]});
+  nodes.push({x:0,z:0,r:11,h:0,ph:R()*TAU,e:[]});
   const K=5+(R()<.5?1:0),a0=R()*TAU;
   for(let i=0;i<K;i++){const a=a0+i*TAU/K+(R()-.5)*.28,d=25.5+R()*5;
-    nodes.push({x:Math.sin(a)*d,z:Math.cos(a)*d,r:7.6+R()*2.3,h:0,ph:R()*TAU,e:[]})}
+    nodes.push({x:Math.sin(a)*d,z:Math.cos(a)*d,r:9+R()*2.3,h:0,ph:R()*TAU,e:[]})}
   const t1=R()*K|0,t2=(t1+2+(R()*(K-3)|0))%K;           // two non-adjacent raised terraces
   nodes[1+t1].h=2.2+R()*.7;nodes[1+t2].h=2.2+R()*.7;
   const link=(a,b,w)=>{const e={a,b,w};edges.push(e);nodes[a].e.push(e);nodes[b].e.push(e)};
-  for(let i=0;i<K;i++)link(1+i,1+(i+1)%K,2.7+R()*.8);    // ring: guarantees a loop
+  for(let i=0;i<K;i++)link(1+i,1+(i+1)%K,3.6+R()*.8);    // ring: guarantees a loop
   const sp=[];let cnt=0;for(let i=0;i<K;i++){sp.push(R()<.55);if(sp[i])cnt++}
   while(cnt<3){const i=R()*K|0;if(!sp[i]){sp[i]=true;cnt++}}
-  for(let i=0;i<K;i++)if(sp[i])link(0,1+i,2.9+R()*.8);   // spokes: more loops through the hub
+  for(let i=0;i<K;i++)if(sp[i])link(0,1+i,3.8+R()*.8);   // spokes: more loops through the hub
   // --- open cells ---
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){
     const x=(i+.5)*CS-HALF,z=(j+.5)*CS-HALF;let open=false;
