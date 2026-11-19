@@ -170,6 +170,8 @@ def build(root=ROOT):
     if out.exists(): shutil.rmtree(out)
     out.mkdir(parents=True)
     (out / "index.html").write_text(inject_quick_hide(source, runtime), encoding="utf-8")
+    if (root / "ads.txt").is_file():
+        shutil.copyfile(root / "ads.txt", out / "ads.txt")
     for name in ("arcade.css", "arcade.js", ".nojekyll"):
         shutil.copyfile(root / name, out / name)
     for game in games:
