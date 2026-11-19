@@ -9,6 +9,7 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Appalachian Eagle | `appalachian-eagle/appalachian-eagle.html` | `http://127.0.0.1:8000/appalachian-eagle/appalachian-eagle.html` |
 | Ashgrove | `ashgrove/ashgrove.html` | `http://127.0.0.1:8000/ashgrove/ashgrove.html` |
 | Broadside | `broadside/broadside.html` | `http://127.0.0.1:8000/broadside/broadside.html` |
+| Buccaneer | `buccaneer/buccaneer.html` | `http://127.0.0.1:8000/buccaneer/buccaneer.html` |
 | First Light | `firstlight/firstlight.html` | `http://127.0.0.1:8000/firstlight/firstlight.html` |
 | TrickType | `tricktype/tricktype.html` | `http://127.0.0.1:8000/tricktype/tricktype.html` |
 | Deckvolution: Ascent | `deckvolution/deckvolution.html` | `http://127.0.0.1:8000/deckvolution/deckvolution.html` |

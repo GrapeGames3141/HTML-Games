@@ -14,6 +14,7 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Ashgrove | `ashgrove\ashgrove.html` | `horror.html` |
 | Splatcraft | `splatcraft\splatcraft.html` | none yet |
 | Broadside | `broadside\broadside.html` | none yet |
+| Buccaneer | `buccaneer\buccaneer.html` | none yet |
 | Dust Devil | `dustdevil\dustdevil.html` | none yet |
 | Castle Defense | `castle-defense\castle-defense.html` | none yet |
 | Merlin's Tower Defense | `merlin\merlin.html` | none yet |

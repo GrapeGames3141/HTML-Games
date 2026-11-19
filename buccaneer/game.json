@@ -1,0 +1,7 @@
+{
+  "title": "Buccaneer",
+  "description": "Sail from Tortuga, hunt the trade routes, board prizes, and decide what kind of pirate captain you will be.",
+  "category": "Strategy",
+  "controls": "Mouse or touch to aim, give orders, fire guns, and make choices in port.",
+  "requirements": "WebGL2. Works on desktop and touch devices."
+}
