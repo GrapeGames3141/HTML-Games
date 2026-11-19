@@ -172,7 +172,7 @@ def build(root=ROOT):
     (out / "index.html").write_text(inject_quick_hide(source, runtime), encoding="utf-8")
     if (root / "ads.txt").is_file():
         shutil.copyfile(root / "ads.txt", out / "ads.txt")
-    for name in ("arcade.css", "arcade.js", ".nojekyll"):
+    for name in ("arcade.css", "arcade.js", ".nojekyll", "privacy.html"):
         shutil.copyfile(root / name, out / name)
     for game in games:
         for item in runtime_files(game):
@@ -203,7 +203,7 @@ def build(root=ROOT):
         if game.name in ("prism-swarm", "appalachian-eagle", "splat", "ashgrove", "castle-defense"):
             target = quote(entry_name(game), safe="")
             (out / game.name / "index.html").write_text(f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url={target}"><title>Moved</title><p>This game moved to <a href="{target}">{escape(entry_name(game))}</a>.</p>', encoding="utf-8")
-    pages = [Path("index.html")] + [Path(game.name) / entry_name(game) for game in games] + list(PROMOTED_EXPERIMENTS)
+    pages = [Path("index.html"), Path("privacy.html")] + [Path(game.name) / entry_name(game) for game in games] + list(PROMOTED_EXPERIMENTS)
     for rel in pages:
         page = out / rel
         parser = PageParser()

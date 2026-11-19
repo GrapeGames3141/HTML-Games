@@ -15,7 +15,7 @@ class PagesTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
-        for name in ('index.html', 'arcade.css', 'arcade.js', '.nojekyll'):
+        for name in ('index.html', 'arcade.css', 'arcade.js', '.nojekyll', 'privacy.html'):
             shutil.copyfile(ROOT / name, self.root / name)
         shutil.copytree(ROOT / 'assets', self.root / 'assets')
         for name in builder.CURATED:
@@ -50,6 +50,8 @@ class PagesTests(unittest.TestCase):
         self.assertIn('SHOWING ALL 12 GAMES', lobby)
         self.assertIn('THE ARCADE SHELF · 12 PLAYABLE WORLDS', lobby)
         self.assertIn('<title>The Arcade Shelf</title>', lobby)
+        self.assertIn('href="privacy.html"', lobby)
+        self.assertTrue((out / 'privacy.html').exists())
         self.assertIn('aria-label="The Arcade Shelf home"', lobby)
         self.assertIn('https://thearcadeshelf.com/', lobby)
         self.assertIn('content="Explore 12 free browser games at The Arcade Shelf."', lobby)
