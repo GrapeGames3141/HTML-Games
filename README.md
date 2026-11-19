@@ -2,7 +2,7 @@
 
 Portable GitHub source collection for the standalone HTML games in this folder. Branch `main` at `https://github.com/GrapeGames3141/HTML-Games` tracks every game as ordinary files, so fresh clones need no submodule setup. On this machine, Appalachian Eagle and Prism Swarm retain old local Git histories inside their folders; those histories are not required by GitHub clones.
 
-Each game’s editable entry point is named after its folder: `<game>/<game>.html` (for example `splat/splat.html`). The root `index.html` is the GrapeGames Arcade lobby, an intentional exception to that per-game rule. With the local server, open `http://127.0.0.1:8000/<game>/<game>.html`. Read [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) before any iteration. Technique guides such as [SPLAT-GUIDE.md](SPLAT-GUIDE.md) record how the splat games are built and tested.
+Each game’s editable entry point is named after its folder: `<game>/<game>.html` (for example `splat/splat.html`). The root `index.html` is The Arcade Shelf lobby, an intentional exception to that per-game rule. With the local server, open `http://127.0.0.1:8000/<game>/<game>.html`. Read [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) before any iteration. Technique guides such as [SPLAT-GUIDE.md](SPLAT-GUIDE.md) record how the splat games are built and tested.
 
 | Game | Source | Local URL |
 | --- | --- | --- |
@@ -10,6 +10,8 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Ashgrove | `ashgrove/ashgrove.html` | `http://127.0.0.1:8000/ashgrove/ashgrove.html` |
 | Broadside | `broadside/broadside.html` | `http://127.0.0.1:8000/broadside/broadside.html` |
 | First Light | `firstlight/firstlight.html` | `http://127.0.0.1:8000/firstlight/firstlight.html` |
+| TrickType | `tricktype/tricktype.html` | `http://127.0.0.1:8000/tricktype/tricktype.html` |
+| Deckvolution: Ascent | `deckvolution/deckvolution.html` | `http://127.0.0.1:8000/deckvolution/deckvolution.html` |
 | Ridiculous Wars | `ridiculous-wars/ridiculous-wars.html` | `http://127.0.0.1:8000/ridiculous-wars/ridiculous-wars.html` |
 | Dust Devil | `dustdevil/dustdevil.html` | `http://127.0.0.1:8000/dustdevil/dustdevil.html` |
 | Castle Defense | `castle-defense/castle-defense.html` | `http://127.0.0.1:8000/castle-defense/castle-defense.html` |
@@ -19,6 +21,7 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Splatcraft | `splatcraft/splatcraft.html` | `http://127.0.0.1:8000/splatcraft/splatcraft.html` |
 | Spearfish | `spearfish/spearfish.html` | `http://127.0.0.1:8000/spearfish/spearfish.html` |
 | Slingshot | `slingshot/slingshot.html` | `http://127.0.0.1:8000/slingshot/slingshot.html` |
+| Heroes Sold Separately | `guildmaster/guildmaster.html` | `http://127.0.0.1:8000/guildmaster/guildmaster.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
 
@@ -28,11 +31,11 @@ Development prototypes live under [`experiments/`](experiments/), outside the ar
 
 ## Arcade website
 
-The root `index.html` is the GrapeGames Arcade: a screenshot-led hero and card shelf for playable games, with search, category filters, two random-game controls, and a last-played marker. Approved production art lives in `assets/arcade/`; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
+The root `index.html` is The Arcade Shelf: a screenshot-led hero and card shelf for playable games, with search, category filters, two random-game controls, and a last-played marker. Approved production art lives in `assets/arcade/`; each game opens directly for its own keyboard, pointer and audio controls. High Country requires a WebGPU-capable browser over HTTPS or localhost.
 
 Castle Defense / Bastion of the Four Roads is based on `GrapeGames3141/castle-defense`, commit `1e0db1147e56025d28960f2e059e19bc6212f74a`. The arcade retains its phone landscape HUD adjustment and the upstream Tailwind CDN reference.
 
-The published Pages build provides **Quick hide**: Escape, P, Pause, or the backtick key immediately opens `https://keytrainsecure.com/` in the same tab. The visible arcade-header link and injected in-game Quick hide button are temporarily disabled; keyboard and player-triggered pause behavior remain active. P and backtick remain available for typing in form fields; Escape still hides the page. High Country's Space pause also triggers quick hide while flying. This behavior is added during the Pages build, so standalone source game files retain their original controls.
+The published Pages build provides **Quick hide**: Escape, P, Pause, or the backtick key immediately opens `https://keytrainsecure.com/` in the same tab. The visible arcade-header link and injected in-game Quick hide button are temporarily disabled; keyboard and player-triggered pause behavior remain active. P and backtick remain available for typing in form fields; TrickType keeps P for its typing gameplay. Escape still hides the page. High Country's Space pause also triggers quick hide while flying. This behavior is added during the Pages build, so standalone source game files retain their original controls.
 
 ### GitHub Pages
 
