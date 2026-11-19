@@ -244,6 +244,50 @@ try {
     }
     assert.deepEqual(errors,[]);
     console.log('Shorelife checks passed', {beforeWash:marks, afterWash:washed});
+  } else if (process.argv.includes('--oak')) {
+    await open('?test&seed=412&q=high');
+    await js('DEMO.all(true)');
+    await station(4);
+    assert.equal((await js('DEMO.state()')).oak.generations, 3);
+    assert(await js('(()=>{let b=document.querySelector("button[data-study=oak]");return !b.hidden})()'));
+    await js('document.querySelector("button[data-study=oak]").click()');
+    assert(await js('(()=>{let r=document.getElementById("oakGrowth");return !document.getElementById("oakTools").hidden&&r.getBoundingClientRect().width>80})()'));
+    async function oakStage(value, name) {
+      await js('(()=>{let r=document.getElementById("oakGrowth");r.value='+value+';r.dispatchEvent(new Event("input",{bubbles:true}))})()');
+      await pause(160);
+      const stage = await js('DEMO.state().oak.growth');
+      console.log('Oak stage', value, stage);
+      assert(Math.abs(stage - value) < .011);
+      await js('document.getElementById("hud").style.visibility="hidden"');
+      await screenshot(name);
+      await js('document.getElementById("hud").style.visibility=""');
+      assert.equal(await js('DEMO.inspect().glError'), 0);
+    }
+    await oakStage(.20, 'oak-sapling');
+    await js('document.getElementById("oakGrowth").focus()');
+    await press('ArrowRight', 'ArrowRight');
+    await pause(100);
+    assert((await js('DEMO.state()')).oak.growth > .20);
+    await oakStage(.60, 'oak-young');
+    await oakStage(1, 'oak-mature');
+    const mature = await js('DEMO.inspect().triangles');
+    for (const q of ['low', 'medium', 'high']) {
+      await js('DEMO.quality("' + q + '")');
+      await pause(80);
+      assert.equal((await js('DEMO.state()')).quality, q);
+      assert.equal(await js('DEMO.inspect().glError'), 0);
+    }
+    assert.equal(await js('DEMO.inspect().triangles'), mature);
+    await js('document.querySelector("button[data-study=exit]").click()');
+    assert.equal((await js('DEMO.state()')).station, 4);
+    assert.equal((await js('DEMO.state()')).oak.studying, false);
+    await open('?test&seed=77&q=medium');
+    await station(4);
+    await js('document.querySelector("button[data-study=oak]").click()');
+    assert.equal((await js('DEMO.state()')).oak.segments, 130);
+    assert.equal(await js('DEMO.inspect().glError'), 0);
+    assert.deepEqual(errors, []);
+    console.log('Oak growth study, range control, quality rebuilds and seed coverage passed');
   } else if (process.argv.includes('--surf')) {
     await open('?test&seed=412&q=high');
     await js('DEMO.all(true)');

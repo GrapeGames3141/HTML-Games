@@ -61,6 +61,14 @@ The [camera-matched High comparison](evidence/high-realism-comparison.jpg) shows
 
 Select **High** in the Effects panel or open `Astra-demo.html?q=high` to use these settings. The first selection of High builds the additional geometry and retains it for subsequent quality changes. Run `node verify.mjs --high-realism` to capture the three updated stations and exercise repeated quality changes and the waterfall effect switch.
 
+## L-system oak growth study
+
+The Dappled forest station now includes an **Oak study**. The specimen stands at `(78, -11)`, clear of the path, and the study frames it from the forest edge. Its default is a mature tree. The study range works with touch, mouse and keyboard, rebuilds only the oak batch at most once per animation frame, and keeps its single trunk collision proxy in step with the selected growth.
+
+The tree is a genuine bracketed [L-system](https://en.wikipedia.org/wiki/L-system). The axiom places six branch buds along four short trunk intervals, then three parallel rewrites expand every `X` into `F[+X][-X][&X][^X]`. The expanded word is retained once and supplies all 130 woody intervals during range rebuilds. A stack restores each parent turtle state after a bracket, so child limbs remain anchored at their already-grown parent. The stage range reveals those same intervals and their tapered radii parent-first. It starts with a leafed shoot, then adds scaffold limbs and finally High-only twigs with overlapping three-daub lobed leaf silhouettes.
+
+The retained High captures use the same study camera and sun at **20% Sapling**, **60% Young oak** and **100% Mature**. Run `node verify.mjs --oak` to exercise the visible study button, native range input, keyboard adjustment, return control, quality rebuilds and a second seed while rewriting `oak-sapling.png`, `oak-young.png` and `oak-mature.png`.
+
 ## High coastal surf and rock weathering
 
 The [matched coastal views](evidence/surf-comparison.jpg) compare the previous High build at `a5bc71e` with this pass. The beach and tide-pool stations use their entry cameras. A third camera sits offshore, facing the arch.

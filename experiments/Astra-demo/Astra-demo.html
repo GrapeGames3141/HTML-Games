@@ -404,6 +404,9 @@
       #mistCaption { position:absolute; top:calc(50% + min(31vh,215px) + 14px); padding:7px 11px; border-radius:15px; background:rgba(12,29,28,.64); color:#effff7; font-size:12px; pointer-events:auto; }
       #studies { position:absolute; z-index:5; top:68px; right:14px; display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:min(430px,70vw); }
       #studies button { font-size:12px; padding:7px 9px; }
+      #oakTools { display:flex; align-items:center; gap:7px; padding:6px 9px; border:1px solid rgba(222,246,238,.18); border-radius:15px; background:rgba(12,29,28,.78); color:#effff7; font:11px/1.2 Consolas,'Courier New',monospace; }
+      #oakTools input { width:124px; accent-color:var(--accent); }
+      #oakReadout { min-width:66px; color:var(--accent); }
       #dial {
         position: absolute;
         left: 50%;
@@ -580,7 +583,7 @@
         </div>
       </header>
       <div id="cross" hidden></div>
-      <div id="studies" hidden><button data-study="pane">Pane study</button><button data-study="bottles">Bottle tree</button><button data-study="moss">Moss ledge</button><button data-study="tide">Tide shelf</button><button data-study="exit" hidden>Return to station</button></div>
+      <div id="studies" hidden><button data-study="oak">Oak study</button><button data-study="pane">Pane study</button><button data-study="bottles">Bottle tree</button><button data-study="moss">Moss ledge</button><button data-study="tide">Tide shelf</button><label id="oakTools" hidden>Oak growth <input id="oakGrowth" type="range" min="0" max="1" step=".01" value="1" aria-label="Oak growth stage" /><output id="oakReadout">Mature · 100%</output></label><button data-study="exit" hidden>Return to station</button></div>
       <div id="compare" hidden><span class="chip">Effect on</span><span class="chip">Stand-in</span></div>
       <div id="notice" role="status" hidden></div>
       <section id="welcome" class="card">
@@ -931,8 +934,9 @@
       }
 
       // Geometry is generated once in world coordinates. Transparent meshes share the opaque depth test.
-      const groups = new Map();
-      let layer = 'land';
+      const groups = new Map(),
+        discardedGeometry = { push() {} };
+      let layer = 'land', suppressGeometry = false;
       // Build the more detailed substitutes on first use. The shared world keeps its original random sequence.
       const highBuilders = [];
       function landDetail(draw) {
@@ -957,6 +961,7 @@
         layer = savedLayer;
       }
       function group(kind, p) {
+        if (suppressGeometry) return discardedGeometry;
         const ix = floor(p[0] / 40),
           iz = floor(p[2] / 40),
           key = [layer, kind, ix, iz].join('/');
@@ -1208,6 +1213,141 @@
           );
       }
       const trunks = [];
+      // A parallel bracketed rewrite grammar grows one specimen the visitor can inspect.
+      // F is a woody interval. Every X is replaced simultaneously by a leader and four child leaders.
+      const oakGrammar = Object.freeze({
+        axiom: 'F[+X][-X]F[&X][^X]F[+X][-X]F',
+        rule: 'F[+X][-X][&X][^X]',
+        generations: 3,
+        x: 78,
+        z: -11,
+        camera: [64, -3]
+      });
+      const oakWord = (() => {
+          let word = oakGrammar.axiom;
+          for (let generation = 0; generation < oakGrammar.generations; generation++)
+            word = [...word].map(symbol => symbol === 'X' ? oakGrammar.rule : symbol).join('');
+          return word;
+        })(),
+        oakWoodCount = [...oakWord].filter(symbol => symbol === 'F').length;
+      let oakGrowth = 1,
+        oakUploaded = false,
+        oakBuildQueued = false,
+        oakCollider = null;
+      function rotateAbout(vector, axis, angle) {
+        const normal = unit(axis), c = cos(angle), s = sin(angle);
+        return add(add(scale(vector, c), scale(cross(normal, vector), s)), scale(normal, dot(normal, vector) * (1 - c)));
+      }
+      function oakStageLabel(value) {
+        if (value < 0.13) return 'Seedling';
+        if (value < 0.33) return 'Sapling';
+        if (value < 0.78) return 'Young oak';
+        return 'Mature';
+      }
+      function updateOakReadout() {
+        const value = Math.round(oakGrowth * 100);
+        $('oakGrowth').value = oakGrowth;
+        $('oakReadout').textContent = oakStageLabel(oakGrowth) + ' · ' + value + '%';
+      }
+      function lindenOak(x, z, detailed = false, growth = 1) {
+        const ground = terrain(x, z) - 0.08,
+          trunk = [x, ground, z],
+          barkTones = [rgb('493927'), rgb('5b472d'), rgb('705735')],
+          leafTones = [rgb('426b38'), rgb('5d813d'), rgb('789044'), rgb('365f37')];
+        const word = oakWord;
+        let turtle = { p: trunk, dir: [0.035, 1, -0.02], up: [0, 0, -1], depth: 0 },
+          stack = [],
+          terminal = [],
+          firstOrder = [],
+          trunkIntervals = 0,
+          stemTip = trunk,
+          stemDirection = turtle.dir;
+        const steer = (axis, angle) => {
+          turtle.dir = unit(rotateAbout(turtle.dir, axis, angle));
+          turtle.up = unit(rotateAbout(turtle.up, axis, angle));
+        };
+        const addLeaf = (center, direction, size, tone, twist) => {
+          const side = unit(cross(direction, abs(direction[1]) > 0.88 ? [0, 0, 1] : [0, 1, 0]));
+          const u = scale(unit(rotateAbout(side, direction, twist)), size);
+          const v = scale(unit(cross(direction, u)), size * 0.64);
+          const normal = unit(cross(u, v));
+          daub(center, u, v, tone, 28, normal);
+          for (const sideOffset of [-1, 1])
+            daub(add(center, scale(v, sideOffset * size * 0.28)), scale(u, 0.78), scale(v, 0.53), scale(tone, 0.94), 28, normal);
+        };
+        for (let token = 0; token < word.length; token++) {
+          const symbol = word[token], wobble = sin(token * 1.731 + turtle.depth * 0.83);
+          if (symbol === '[') {
+            stack.push({ p: [...turtle.p], dir: [...turtle.dir], up: [...turtle.up], depth: turtle.depth });
+            turtle = { p: [...turtle.p], dir: [...turtle.dir], up: [...turtle.up], depth: turtle.depth + 1 };
+            continue;
+          }
+          if (symbol === ']') {
+            turtle = stack.pop();
+            continue;
+          }
+          const right = unit(cross(turtle.dir, turtle.up));
+          if (symbol === '+') steer(right, 0.72 + wobble * 0.11);
+          else if (symbol === '-') steer(right, -0.63 + wobble * 0.10);
+          else if (symbol === '&') steer(unit(add(right, scale(turtle.up, 0.52))), 0.67 + wobble * 0.09);
+          else if (symbol === '^') steer(unit(add(right, scale(turtle.up, -0.52))), -0.61 + wobble * 0.09);
+          else if (symbol === 'F') {
+            const start = [...turtle.p],
+              visibleGrowth = 0.07 + growth * 0.93,
+              stemOrder = turtle.depth ? 0 : trunkIntervals++,
+              branchStart = turtle.depth ? 0.12 + (turtle.depth - 1) * 0.18 + 0.018 * sin(token * 0.91) : stemOrder * 0.08,
+              grown = clamp((visibleGrowth - branchStart) / 0.27),
+              nominalLength = turtle.depth ? 4.2 * 0.87 ** (turtle.depth - 1) : 1.48,
+              length = nominalLength * (0.92 + 0.09 * sin(token * 1.91)) * grown,
+              baseRadius = 0.67 * 0.58 ** turtle.depth * (turtle.depth ? 0.95 + 0.08 * sin(token * 0.71) : 1 - min(0.42, token * 0.13)),
+              ageGirth = 0.12 + 0.88 * growth ** 0.8,
+              end = add(turtle.p, scale(turtle.dir, length));
+            if (grown > 0.004)
+              rod(turtle.p, end, baseRadius * ageGirth * (0.22 + 0.78 * grown), max(0.008, baseRadius * 0.68 * ageGirth * (0.14 + 0.86 * grown)), barkTones[turtle.depth % barkTones.length], 3, detailed ? 8 : 6);
+            turtle.p = end;
+            if (turtle.depth === 0) { stemTip = end; stemDirection = [...turtle.dir]; }
+            if (turtle.depth === 1 && grown > 0.04) firstOrder.push({ p:end, dir:[...turtle.dir], n:firstOrder.length, growth:grown });
+            if (turtle.depth >= 2 && grown > 0.04) terminal.push({ start, p: end, dir: [...turtle.dir], n: terminal.length, growth: grown });
+          }
+        }
+        for (const tip of terminal) {
+          const right = unit(cross(tip.dir, abs(tip.dir[1]) > 0.88 ? [0, 0, 1] : [0, 1, 0])),
+            sprayStops = detailed ? [0.42, 0.72, 1] : [1],
+            leaves = detailed ? 10 : 8,
+            leafScale = tip.growth * (detailed ? 0.52 : 0.68);
+          if (detailed && tip.growth > 0.26) {
+            const twig = add(tip.p, scale(tip.dir, 0.56 * tip.growth));
+            rod(tip.p, twig, 0.07 * tip.growth, 0.016, rgb('655139'), 3, 4);
+          }
+          for (const stop of sprayStops)
+            for (let leaf = 0; leaf < leaves; leaf++) {
+              const spin = leaf * 2.399 + tip.n * 0.47 + stop * 1.1,
+                reach = ((detailed ? 0.50 : 0.32) + 0.16 * sin(spin * 1.9)) * tip.growth,
+                rise = (detailed ? 0.34 * sin(spin * 1.7) : 0.16 * sin(spin)) * tip.growth,
+                anchor = blend(tip.start, tip.p, stop),
+                center = add(anchor, add(scale(right, cos(spin) * reach), add(scale(unit(cross(right, tip.dir)), sin(spin) * reach), scale(tip.dir, (0.30 + rise) * tip.growth))));
+              addLeaf(center, unit(add(tip.dir, scale(right, 0.42 * cos(spin)))), leafScale * (0.78 + stop * 0.24), leafTones[(tip.n + leaf) % leafTones.length], spin);
+            }
+        }
+        if (growth < 0.42)
+          for (const side of [-1, 1])
+            addLeaf(add(stemTip, scale(unit(cross(stemDirection, [0, 0, 1])), side * (0.16 + growth * 0.18))), stemDirection, 0.16 + growth * 0.18, leafTones[side > 0 ? 1 : 2], side * 0.35);
+        if (growth < 0.54)
+          for (const tip of firstOrder)
+            for (let leaf = 0; leaf < 5; leaf++) {
+              const spin = leaf * 2.399 + tip.n * 0.73,
+                side = unit(cross(tip.dir, abs(tip.dir[1]) > 0.88 ? [0, 0, 1] : [0, 1, 0])),
+                center = add(tip.p, add(scale(side, cos(spin) * 0.34 * tip.growth), scale(tip.dir, 0.18 + 0.16 * sin(spin))));
+              addLeaf(center, tip.dir, (0.19 + 0.23 * tip.growth) * (0.82 + 0.16 * sin(spin)), leafTones[(tip.n + leaf + 1) % leafTones.length], spin);
+              // A few broad, world-facing juvenile leaves keep the early shoots readable from the study camera.
+              if (leaf < 3) {
+                const size = 0.27 + 0.18 * tip.growth,
+                  u = [0, size * (0.62 + 0.08 * sin(spin)), size * (0.70 + 0.10 * cos(spin))],
+                  v = [0, size * (0.78 + 0.08 * cos(spin)), -size * (0.31 + 0.08 * sin(spin))];
+                daub(add(center, scale(tip.dir, 0.1)), u, v, leafTones[(tip.n + leaf + 2) % leafTones.length], 28, unit(cross(u, v)));
+              }
+            }
+      }
       function crownCore(center, radius, angle, tone) {
         const rings = [
           [0.16, -0.36],
@@ -1233,7 +1373,7 @@
         let p = [x, y, z],
           top = [x + between(-0.7, 0.7), y + h, z + between(-0.8, 0.8)];
         rod(p, top, h * 0.035, h * 0.012, bark, 3, 7);
-        if (!detailed) trunks.push([x, z, h * 0.036, y]);
+        if (!detailed && !suppressGeometry) trunks.push([x, z, h * 0.036, y]);
         let cols = ['496e51', '587e52', '779257', '929c59', '39684f'].map(rgb);
         for (let k = 0; k < 8; k++) {
           let a = k * 2.4 + rand(),
@@ -1541,6 +1681,21 @@
         }
       }
       function woods() {
+        const oakClearance = (x, z) => {
+          const [cx, cz] = oakGrammar.camera,
+            vx = oakGrammar.x - cx,
+            vz = oakGrammar.z - cz,
+            t = clamp(((x - cx) * vx + (z - cz) * vz) / (vx * vx + vz * vz));
+          return hypot(x - oakGrammar.x, z - oakGrammar.z) < 19 || hypot(x - (cx + vx * t), z - (cz + vz * t)) < 10;
+        };
+        const consumeHiddenTree = (x, z, height) => {
+          const retainedBuilders = highBuilders.length;
+          suppressGeometry = true;
+          if (hypot(x - 65, z + 24) < 51) landDetail(detailed => tree(x, z, height, detailed));
+          else tree(x, z, height);
+          suppressGeometry = false;
+          highBuilders.length = retainedBuilders;
+        };
         for (let k = 0; k < 530; k++) {
           let x = between(-136, 131),
             z = between(-129, 54),
@@ -1557,9 +1712,20 @@
           )
             continue;
           const height = between(6.5, 14.5);
+          if (oakClearance(x, z)) {
+            consumeHiddenTree(x, z, height);
+            continue;
+          }
           if (hypot(x - 65, z + 24) < 51) landDetail(detailed => tree(x, z, height, detailed));
           else tree(x, z, height);
         }
+        // It lives in a separate batch so the study can rebuild its growth state without touching the seeded woods.
+        oakCollider = [oakGrammar.x, oakGrammar.z, 0.18 + oakGrowth * 0.64, terrain(oakGrammar.x, oakGrammar.z) - 0.08];
+        trunks.push(oakCollider);
+        const previousLayer = layer;
+        layer = 'oak';
+        lindenOak(oakGrammar.x, oakGrammar.z, S.quality === 'high', oakGrowth);
+        layer = previousLayer;
         for (let i = 0; i < 18500; i++) {
           let x = between(-142, 132),
             z = between(-125, 72),
@@ -3445,6 +3611,45 @@ void main(){
         Object.assign(g, makeVAO(g.kind, new Float32Array(g.data)));
         delete g.data;
       }
+      function refreshStaticStats() {
+        staticStats.splats = 0;
+        staticStats.tris = 0;
+        for (const g of groups.values()) {
+          if (g.layer === 'fallRibbon' && S.quality !== 'high') continue;
+          if ((g.layer === 'landHigh' || g.layer === 'landBase') && g.layer !== activeLand()) continue;
+          if (g.kind === 'splat') staticStats.splats += g.count;
+          else staticStats.tris += g.count / 3;
+        }
+      }
+      function rebuildOak() {
+        if (!oakUploaded) return;
+        for (const [key, g] of groups) {
+          if (g.layer !== 'oak') continue;
+          gl.deleteVertexArray(g.vao);
+          gl.deleteBuffer(g.buf);
+          groups.delete(key);
+        }
+        const previousLayer = layer;
+        layer = 'oak';
+        lindenOak(oakGrammar.x, oakGrammar.z, S.quality === 'high', oakGrowth);
+        layer = previousLayer;
+        for (const g of groups.values()) if (g.layer === 'oak' && g.data) uploadGroup(g);
+        refreshStaticStats();
+        shadowStamp = '';
+        farShadowSun = -1;
+      }
+      function scheduleOakGrowth(value) {
+        oakGrowth = clamp(Number(value) || 0);
+        if (oakCollider) oakCollider[2] = 0.18 + oakGrowth * 0.64;
+        updateOakReadout();
+        if (!oakUploaded || oakBuildQueued) return;
+        oakBuildQueued = true;
+        requestAnimationFrame(() => {
+          oakBuildQueued = false;
+          rebuildOak();
+          render();
+        });
+      }
       const avatarShadow = makeVAO('mesh', new Float32Array(0), true);
       const dynMesh = makeVAO('mesh', new Float32Array(0), true),
         dynSplat = makeVAO('splat', new Float32Array(0), true),
@@ -3527,14 +3732,7 @@ void main(){
         let q = ['low', 'medium', 'high'].indexOf(S.quality);
         if (q === 2) prepareHighLand();
         // Count the selected static geometry, including quality changes after the world has loaded.
-        staticStats.splats = 0;
-        staticStats.tris = 0;
-        for (const g of groups.values()) {
-          if (g.layer === 'fallRibbon' && q !== 2) continue;
-          if ((g.layer === 'landHigh' || g.layer === 'landBase') && g.layer !== activeLand()) continue;
-          if (g.kind === 'splat') staticStats.splats += g.count;
-          else staticStats.tris += g.count / 3;
-        }
+        refreshStaticStats();
         initRipple([64, 96, 128][q]);
         initOcean([32, 64, 128][q]);
         drops = Array.from({ length: [500, 1050, 1800][q] }, (_, i) => spawnDrop(i, true));
@@ -3733,7 +3931,7 @@ void main(){
           gl.uniform1f(shadowProg.u.shadowSpan, 192);
           gl.uniform1f(shadowProg.u.shadowDepth, 280);
           for (const g of groups.values())
-            if (g.layer === 'land' || g.layer === activeLand() || g.layer === 'cave') drawObj(shadowProg, g);
+            if (g.layer === 'land' || g.layer === 'oak' || g.layer === activeLand() || g.layer === 'cave') drawObj(shadowProg, g);
           farShadowSun = S.sun;
         }
         let stamp = [...sunBasis.at, S.sun, Math.floor(S.time * 6), S.station, +enabled(13), crab.spread].join('/');
@@ -3744,7 +3942,7 @@ void main(){
         gl.depthMask(true);
         gl.clear(gl.DEPTH_BUFFER_BIT);
         useProgram(shadowProg);
-        geo(shadowProg, ['land', activeLand(), 'cave'], true);
+        geo(shadowProg, ['land', 'oak', activeLand(), 'cave'], true);
         drawObj(shadowProg, dynMesh);
         drawObj(shadowProg, avatarShadow);
         drawShell(shadowProg);
@@ -3787,7 +3985,7 @@ void main(){
         full();
         gl.enable(gl.DEPTH_TEST);
         useProgram(solidProg);
-        geo(solidProg, ['land', activeLand(), 'cave']);
+        geo(solidProg, ['land', 'oak', activeLand(), 'cave']);
         if (!interior) {
           gl.uniform1f(solidProg.u.caveDraw,0);
           drawShell(solidProg);
@@ -4255,6 +4453,16 @@ void main(){
         rememberStudy(); S.free=true; S.x=-38.9; S.y=terrain(-38.9,-79.8)+2.35; S.z=-79.8;
         lookAt(-41.45,terrain(-41.45,-79.0)+1.12,-79.0); notice('Moss ledge close study'); return state();
       }
+      function focusOak() {
+        rememberStudy();
+        S.free = true;
+        [S.x, S.z] = oakGrammar.camera;
+        S.y = terrain(S.x, S.z) + 4.4;
+        lookAt(oakGrammar.x, terrain(oakGrammar.x, oakGrammar.z) + 8.2, oakGrammar.z);
+        notice('L-system oak study');
+        updateUI();
+        return state();
+      }
       function focusTide() {
         rememberStudy(); S.free=true; S.x=-67; S.y=8.6; S.z=71.5;
         lookAt(-60,-.2,79); $('dial').hidden=false; release(); notice('Intertidal shelf study'); return state();
@@ -4681,6 +4889,7 @@ void main(){
       function quality(q) {
         if (!['low', 'medium', 'high'].includes(q)) throw RangeError('Unknown quality');
         S.quality = q;
+        if (oakUploaded) rebuildOak();
         applyQuality();
         updateUI();
         return q;
@@ -4772,8 +4981,10 @@ void main(){
         studies.hidden=!S.started || S.panel || S.photo;
         for(const b of studies.querySelectorAll('button[data-study]')){
           const kind=b.dataset.study;
-          b.hidden=kind==='exit' ? !studyReturn : !((kind==='pane'||kind==='bottles')&&S.station===4 || kind==='moss'&&S.station===5 || kind==='tide'&&S.station===7);
+          b.hidden=kind==='exit' ? !studyReturn : !(kind==='oak'&&S.station===3 || (kind==='pane'||kind==='bottles')&&S.station===4 || kind==='moss'&&S.station===5 || kind==='tide'&&S.station===7);
         }
+        $('oakTools').hidden = !studyReturn || S.station !== 3;
+        updateOakReadout();
         [...$('route').children].forEach((b, i) => b.setAttribute('aria-current', i === S.station));
         [...$('effects').children].forEach((b, i) => {
           b.setAttribute('aria-pressed', flags[i]);
@@ -4824,6 +5035,7 @@ void main(){
           pebbles: pebbleCount,
           action: nearestUse(),
           sound: S.sound,
+          oak: {x:oakGrammar.x, z:oakGrammar.z, growth:oakGrowth, stage:oakStageLabel(oakGrowth), generations:oakGrammar.generations, segments:oakWoodCount, studying:!!studyReturn},
           panel: S.panel,
           started: S.started,
           fluidParticles: drops.length,
@@ -5081,6 +5293,7 @@ void main(){
           else if(kind==='pane') openMist();
           else if(kind==='bottles') focusBottles();
           else if(kind==='moss') focusMoss();
+          else if(kind==='oak') focusOak();
           else if(kind==='tide') focusTide();
           render();
         };
@@ -5498,6 +5711,8 @@ void main(){
         initUI();
         mistMap=texture(256,256);
         $('shellSpacing').oninput = e => { crab.spread = Number(e.target.value); frameShell(); render(); };
+        $('oakGrowth').oninput = e => scheduleOakGrowth(e.target.value);
+        updateOakReadout();
         $('shellClose').onclick = () => { closeShell(); render(); };
         buildGround();
         beachDecor();
@@ -5515,6 +5730,7 @@ void main(){
         intertidalShelf();
         buildTidePoolLife();
         for (let g of groups.values()) uploadGroup(g);
+        oakUploaded = true;
         gotoStation(1);
         if (!test) {
           S.yaw = 0.57;
@@ -5586,7 +5802,7 @@ void main(){
             return v;
           },
           tide: (v) => { let r=setTide(v);render();return r; },
-          focus: (what) => { if(what==='moss') focusMoss(); else if(what==='tide') focusTide(); else if(what==='pane') openMist(); render(); return state(); },
+          focus: (what) => { if(what==='oak') focusOak(); else if(what==='moss') focusMoss(); else if(what==='tide') focusTide(); else if(what==='pane') openMist(); render(); return state(); },
           wipe: (x,y,r) => { let n=wipeMist(x,y,r);render();return n; },
           closePane: () => { let r=closeMist();render();return r; },
           blow,
