@@ -6,32 +6,69 @@
   let hiding = false;
   let hadPointerLock = false;
 
+  let dialog = null;
+  let previousFocus = null;
+
+  function closeHide() {
+    if (dialog && dialog.open) dialog.close();
+  }
   function hide(event) {
     if (hiding) return;
-    hiding = true;
     if (event) {
       if (event.cancelable) event.preventDefault();
       event.stopImmediatePropagation();
     }
-    const cover = document.createElement('div');
-    cover.id = 'arcade-quick-hide-cover';
-    cover.setAttribute('aria-hidden', 'true');
-    cover.style.cssText = 'position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;background:#fff!important;display:block!important;';
-    document.documentElement.appendChild(cover);
-    window.location.assign(destination);
-  }
-  window.addEventListener('pageshow', event => {
-    if (event.persisted) {
-      document.getElementById('arcade-quick-hide-cover')?.remove();
+    hiding = true;
+    previousFocus = document.activeElement;
+    hadPointerLock = false;
+    if (document.pointerLockElement) document.exitPointerLock();
+
+    dialog = document.createElement('dialog');
+    dialog.id = 'arcade-quick-hide-dialog';
+    dialog.setAttribute('aria-label', 'KeyTrain Secure');
+    dialog.style.cssText = 'position:fixed!important;inset:0!important;margin:auto!important;padding:0!important;width:min(1100px,96vw)!important;height:min(760px,92vh)!important;max-width:96vw!important;max-height:92vh!important;border:1px solid #666!important;border-radius:8px!important;background:#fff!important;color:#111!important;overflow:hidden!important;z-index:2147483647!important;';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = 'Close';
+    close.setAttribute('aria-label', 'Close KeyTrain Secure');
+    close.style.cssText = 'position:absolute!important;right:8px!important;top:8px!important;z-index:1!important;padding:8px 14px!important;border:1px solid #555!important;border-radius:4px!important;background:#fff!important;color:#111!important;font:600 14px Arial,sans-serif!important;cursor:pointer!important;';
+    close.addEventListener('click', closeHide);
+    const frame = document.createElement('iframe');
+    frame.title = 'KeyTrain Secure';
+    frame.src = destination;
+    frame.style.cssText = 'display:block!important;width:100%!important;height:100%!important;border:0!important;background:#fff!important;';
+    dialog.append(close, frame);
+    document.documentElement.appendChild(dialog);
+    dialog.addEventListener('close', () => {
+      dialog.remove();
+      dialog = null;
       hiding = false;
-      hadPointerLock = false;
-    }
-  });
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+      previousFocus = null;
+    }, {once:true});
+    const show = () => {
+      if (!dialog || !hiding) return;
+      dialog.showModal();
+      close.focus();
+    };
+    // A dialog outside the fullscreen element is not visible in fullscreen.
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().then(show, show);
+    } else show();
+  }
   function editing(target) {
     return target instanceof Element && (target.isContentEditable || !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'));
   }
   window.addEventListener('keydown', event => {
-    if (hiding || event.isComposing || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (hiding) {
+      if (event.key === 'Escape' && dialog && dialog.open) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeHide();
+      }
+      return;
+    }
+    if (event.isComposing || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
     const escape = event.key === 'Escape';
     const pause = (event.code === 'KeyP' && game !== 'tricktype') || event.code === 'Backquote' || event.key === 'Pause';
     const eagleSpace = game === 'appalachian-eagle' && event.code === 'Space' && document.body && document.body.classList.contains('play') && !editing(event.target);

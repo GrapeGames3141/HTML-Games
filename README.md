@@ -36,7 +36,7 @@ The root `index.html` is The Arcade Shelf: a screenshot-led hero and card shelf 
 
 Castle Defense / Bastion of the Four Roads is based on `GrapeGames3141/castle-defense`, commit `1e0db1147e56025d28960f2e059e19bc6212f74a`. The arcade retains its phone landscape HUD adjustment and the upstream Tailwind CDN reference.
 
-The published Pages build provides **Quick hide**: Escape, P, Pause, or the backtick key immediately opens `https://keytrainsecure.com/` in the same tab. The visible arcade-header link and injected in-game Quick hide button are temporarily disabled; keyboard and player-triggered pause behavior remain active. P and backtick remain available for typing in form fields; TrickType keeps P for its typing gameplay. Escape still hides the page. High Country's Space pause also triggers quick hide while flying. This behavior is added during the Pages build, so standalone source game files retain their original controls.
+The published Pages build provides **Quick hide**: Escape, P, Pause, or the backtick key opens `https://keytrainsecure.com/` in a closable in-page dialog. Close it with the button or Escape when focus is in the parent page. The game may continue running underneath; fullscreen is exited when needed. The visible arcade-header link and injected in-game Quick hide button are temporarily disabled; keyboard and player-triggered pause behavior remain active. P and backtick remain available for typing in form fields; TrickType keeps P for its typing gameplay. Escape still hides the page. High Country's Space pause also triggers quick hide while flying. This behavior is added during the Pages build, so standalone source game files retain their original controls.
 
 ### GitHub Pages
 
