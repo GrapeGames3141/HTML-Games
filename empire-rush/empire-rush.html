@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Hearthfall</title>
+<title>Empire Rush</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="description" content="Hearthfall: raise a clan from cavemen to townsfolk through the Ember, Kiln and Forge ages, survive the wolves of the night and the hunger of winter, and burn your rival's Hearth Hall.">
+<meta name="description" content="Empire Rush: raise a clan from cavemen to townsfolk through the Ember, Kiln and Forge ages, survive the wolves of the night and the hunger of winter, and burn your rival's Hearth Hall.">
 <style>
   :root { --ink:#f4ead6; --dim:rgba(244,234,214,.6); --panel:rgba(24,19,14,.86); --edge:rgba(255,224,165,.17); --gold:#e8c46c; --bad:#ff7d5e; --good:#a8e391; --blue:#7fb2ff; }
   * { box-sizing:border-box; }
@@ -142,7 +142,7 @@
 
 <div id="menu" class="ov">
   <div class="card pn">
-    <h1>HEARTHFALL</h1>
+    <h1>EMPIRE RUSH</h1>
     <div class="sub">Raise a clan from cave to town. Keep the fires lit. Burn your rival's hall.</div>
     <ul>
       <li><b>Gather</b> food, wood, stone and gold with your people. Build dwellings to grow the clan.</li>
@@ -177,7 +177,7 @@
 <script>
 "use strict";
 // ============================================================================
-// Hearthfall — era strategy meets survival. One file, Canvas 2D, no dependencies.
+// Empire Rush — era strategy meets survival. One file, Canvas 2D, no dependencies.
 // ============================================================================
 const Q = new URLSearchParams(location.search);
 const TEST = Q.has('test');
@@ -3093,7 +3093,7 @@ function sfx(name, x, y) {
 // Shell: menus, loop, test API
 // ============================================================================
 let paused = false, diff = 1;
-try { diff = +(localStorage.getItem('hearthfall.diff') ?? 1); muted = localStorage.getItem('hearthfall.mute') === '1'; } catch (err) { /* storage unavailable */ }
+try { diff = +(localStorage.getItem('empire-rush.diff') ?? 1); muted = localStorage.getItem('empire-rush.mute') === '1'; } catch (err) { /* storage unavailable */ }
 function endGame(win) {
   G.over = true; updVision(); updFog(); setSel([]);
   const tm = G.teams[0], s = tm.stats, mins = Math.floor(G.clock / 60);
@@ -3122,7 +3122,7 @@ function menuWorld() {
   G.dayT = .5; G.dark = 0;
   cam.z = Math.min(1.2, Math.max(.8, VW / 1400)); centerOn(BASES[0].x * T + 120, BASES[0].y * T - 160);
 }
-$('diffRow').addEventListener('click', e => { const b = e.target.closest('.choice'); if (!b) return; diff = +b.dataset.d; document.querySelectorAll('#diffRow .choice').forEach(x => x.classList.toggle('on', x === b)); try { localStorage.setItem('hearthfall.diff', diff); } catch (err) { /* ignore */ } });
+$('diffRow').addEventListener('click', e => { const b = e.target.closest('.choice'); if (!b) return; diff = +b.dataset.d; document.querySelectorAll('#diffRow .choice').forEach(x => x.classList.toggle('on', x === b)); try { localStorage.setItem('empire-rush.diff', diff); } catch (err) { /* ignore */ } });
 document.querySelectorAll('#diffRow .choice').forEach(x => x.classList.toggle('on', +x.dataset.d === diff));
 $('bStart').onclick = startGame;
 $('bAgain').onclick = () => { $('end').hidden = true; $('menu').hidden = false; menuWorld(); G.started = false; };
@@ -3132,7 +3132,7 @@ $('bResume').onclick = () => { paused = false; $('pause').hidden = true; };
 $('bRestart').onclick = () => { $('pause').hidden = true; $('menu').hidden = false; menuWorld(); G.started = false; paused = false; };
 $('bHelp').onclick = () => { const h = $('helpText'); h.hidden = !h.hidden; h.innerHTML = $('menu').querySelector('ul').outerHTML + '<p>' + $('ctlHint').textContent + '</p>'; };
 $('bSpeed').onclick = () => { if (!G) return; G.speed = G.speed === 1 ? 1.5 : G.speed === 1.5 ? 2 : 1; $('bSpeed').textContent = G.speed + '×'; };
-$('bSound').onclick = () => { muted = !muted; $('bSound').style.opacity = muted ? .45 : 1; try { localStorage.setItem('hearthfall.mute', muted ? '1' : '0'); } catch (err) { /* ignore */ } };
+$('bSound').onclick = () => { muted = !muted; $('bSound').style.opacity = muted ? .45 : 1; try { localStorage.setItem('empire-rush.mute', muted ? '1' : '0'); } catch (err) { /* ignore */ } };
 $('bSound').style.opacity = muted ? .45 : 1;
 $('bBox').onclick = () => { UI.boxMode = !UI.boxMode; $('bBox').classList.toggle('on', UI.boxMode); $('bBox').style.borderColor = UI.boxMode ? 'var(--gold)' : ''; };
 $('bIdle').onclick = () => G.started && nextIdle();
