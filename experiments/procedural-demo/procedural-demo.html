@@ -101,7 +101,9 @@
     background: #123;
     color: #fff;
     font: 16px system-ui;
+    z-index: 4;
   }
+  #loading { position:fixed; inset:0; display:grid; place-items:center; color:#f7f2e8; background:#286779; font:14px system-ui; letter-spacing:.12em; z-index:3; }
   @media (max-width: 560px), (pointer: coarse) {
     p {
       bottom: 76px;
@@ -134,13 +136,15 @@
   </nav>
   <div id="touch"><div class="pad" id="movePad">MOVE</div><div class="pad" id="lookPad">LOOK</div></div>
 </div>
-<div id="error">This island needs WebGL 2.</div>
+<div id="loading">Generating island…</div><div id="error">This island needs WebGL 2.</div>
 <script>
   (() => {
+    requestAnimationFrame(() => setTimeout(() => { try {
     const canvas = document.querySelector("canvas"),
       gl = canvas.getContext("webgl2", { antialias: true, depth: true }),
       error = document.querySelector("#error");
     if (!gl) {
+      document.querySelector("#loading").style.display = "none";
       error.style.display = "grid";
       return;
     }
@@ -199,11 +203,13 @@ layout(location=0)in vec3 p;layout(location=1)in vec2 uv;uniform mat4 lightM;out
     const shadowLeafF = `#version 300 es
 precision highp float;in vec2 vuv;uniform sampler2D atlas;void main(){if(texture(atlas,vuv).a<.35)discard;}`;
     const flowV = `#version 300 es
-precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 uv;uniform mat4 m;out vec3 v;void main(){v=uv;gl_Position=m*vec4(p,1.);}`;
+precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 uv;uniform mat4 m;out vec3 v;out vec3 world;void main(){v=uv;world=p;gl_Position=m*vec4(p,1.);}`;
     const flowF = `#version 300 es
-precision highp float;in vec3 v;uniform float t;out vec4 o;float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}void main(){float edge=smoothstep(0.,.12,v.y)*smoothstep(1.,.84,v.y);if(v.z<.5){float r=n(vec2(v.x*8.-t*1.8,v.y*13.+t*.35));vec3 c=mix(vec3(.05,.22,.26),vec3(.72,.95,1.),r*.75);o=vec4(c,edge*(.38+.48*r));}else{float plate=n(vec2(v.x*5.-t*.16,v.y*8.+t*.08));float crack=smoothstep(.63,.82,n(vec2(v.x*14.-t*.6,v.y*11.+t*.28)));vec3 crust=mix(vec3(.035,.018,.01),vec3(.18,.055,.018),plate);vec3 fire=mix(vec3(.9,.045,.005),vec3(1.,.72,.08),n(vec2(v.x*31.-t*1.6,v.y*17.)));o=vec4(mix(crust,fire,crack),edge);}}`;
+precision highp float;in vec3 v;in vec3 world;uniform float t;out vec4 o;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
+void main(){float edge=smoothstep(0.,.10,v.y)*smoothstep(1.,.90,v.y);float vein=n(vec2(v.x*8.-t*1.7,v.y*18.+t*.35));if(v.z<.5){vec3 c=mix(vec3(.025,.17,.18),vec3(.72,.94,.91),vein);o=vec4(c,edge*(.30+.42*vein));}else if(v.z<1.5){float plate=n(vec2(v.x*5.-t*.16,v.y*8.+t*.08));float crack=smoothstep(.67,.87,n(vec2(v.x*14.-t*.6,v.y*11.+t*.28)));vec3 crust=mix(vec3(.035,.018,.01),vec3(.18,.055,.018),plate);vec3 fire=mix(vec3(.9,.045,.005),vec3(1.,.72,.08),n(vec2(v.x*31.-t*1.6,v.y*17.)));o=vec4(mix(crust,fire,crack),edge);}else if(v.z<2.5){float thread=n(vec2(v.x*11.-t*2.6,v.y*31.+t*.45));float holes=smoothstep(.18,.38,n(vec2(v.x*5.+t*.12,v.y*9.)));vec3 c=mix(vec3(.34,.62,.63),vec3(.93,1.,.96),thread);o=vec4(c,edge*holes*(.18+.68*thread));}else if(v.z<3.5){vec2 impact=world.xz-vec2(-65.414,-47.414);float d=length(impact);float ripple=n(world.xz*2.7+vec2(t*.08,-t*.05));float foam=exp(-d*d*1.6)*smoothstep(.44,.71,n(impact*5.+t*.18));vec3 jade=mix(vec3(.012,.11,.105),vec3(.09,.31,.27),ripple);o=vec4(jade+vec3(.65,.78,.72)*foam,.80);}else{float a=n(world.xz*.55),b=n(world.xz*1.35+3.);float ropes=.55+.45*sin(world.x*4.2+world.z*1.8+6.*a)+.22*sin(world.z*8.-world.x*2.+b*5.);float crest=smoothstep(.64,.88,ropes);float crack=smoothstep(.90,.975,n(world.xz*1.7+vec2(t*.03,0.))+.18*ropes);vec3 rock=mix(vec3(.075,.075,.07),vec3(.34,.33,.30),crest*.72);rock+=vec3(.10)*pow(max(ropes,0.),9.);o=vec4(mix(rock,vec3(1.,.20,.018),crack*.48),1.);}}`;
     const spriteV = `#version 300 es
-precision highp float;layout(location=0)in vec4 p;layout(location=1)in vec3 c;uniform mat4 m;out vec3 col;void main(){col=c;gl_Position=m*vec4(p.xyz,1.);gl_PointSize=p.w;}`;
+precision highp float;layout(location=0)in vec4 p;layout(location=1)in vec3 c;uniform mat4 m;uniform vec2 viewport;uniform float tanHalfFov;out vec3 col;void main(){col=c;gl_Position=m*vec4(p.xyz,1.);gl_PointSize=p.w*viewport.y/(2.*tanHalfFov*max(.01,gl_Position.w));}`;
     const spriteF = `#version 300 es
 precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-1.;float r=dot(q,q);float a=smoothstep(1.,.12,r)*(1.-.22*sin(q.x*13.+q.y*9.));if(a<.03)discard;o=vec4(col,a*.22);}`;
     let S, M, Q, F, PZ, SD, SDL;
@@ -217,6 +223,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       SDL = program(shadowLeafV, shadowLeafF);
     } catch (e) {
       error.textContent = "Shader error: " + e;
+      document.querySelector("#loading").style.display = "none";
       error.style.display = "grid";
       return;
     }
@@ -686,18 +693,6 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       gl.LINEAR_MIPMAP_LINEAR,
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    const shadowCanvas = document.createElement("canvas");
-    shadowCanvas.width = 512;
-    shadowCanvas.height = 512;
-    const shadowInk = shadowCanvas.getContext("2d");
-    shadowInk.fillStyle = "#fff";
-    shadowInk.fillRect(0, 0, 512, 512);
-    const shadowTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     let leafP = [],
       leafUV = [],
       leafC = [];
@@ -740,13 +735,14 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       }
     }
     function lowForestSprays(x, y, z, h, seed, tint) {
-      // Four forked limbs and sixteen small atlas clusters replace a single whole-tree card.
-      for (let branch = 0; branch < 4; branch++) {
-        let a = seed * .31 + branch * 1.57 + noise(seed, branch) * .45,
-          root = [x, y + h * (.35 + .045 * (branch & 1)), z],
-          tip = [x + Math.cos(a) * h * .20, y + h * (.62 + .07 * (branch % 3)), z + Math.sin(a) * h * .20];
+      // Five radial anchors across three layers form a continuous lowland canopy, not isolated gloves.
+      for (let branch = 0; branch < 5; branch++) {
+        let a = seed * .31 + branch * 1.257 + noise(seed, branch) * .32,
+          layer = branch % 3,
+          root = [x, y + h * (.31 + .10 * layer), z],
+          tip = [x + Math.cos(a) * h * (.23 + .04 * layer), y + h * (.59 + .08 * layer), z + Math.sin(a) * h * (.23 + .04 * layer)];
         woodSegment(root, tip, h * .022, h * .009, [.11,.063,.025]);
-        leafSpray(tip, h * (.82 + .08 * (branch & 1)), seed + branch * 19, tint);
+        leafSpray(tip, h * (.72 + .08 * layer), seed + branch * 19, tint);
       }
     }
     function broadleafTrunk(x, y, z, h) {
@@ -782,7 +778,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
           tri(b, c, d);
         }
     }
-    let leafRoots = [], localTreeCount = 0;
+    let leafRoots = [], localTreeCount = 0, lowForestCount = 0;
     for (let i = 0; i < 14000 && leafRoots.length < 2200; i++) {
       let x = (R() - 0.5) * 245,
         z = (R() - 0.5) * 158,
@@ -806,7 +802,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       if (walkingForest) {
         localTreeCount++;
         oakWord(x, y, z, h, i);
-      } else if (y < 28) {
+      } else if (y < 28 && lowForestCount++ < 650) {
         lowForestSprays(x, y, z, h, i, c);
       } else {
         // Only the non-walkable/distant canopy keeps larger generated atlas impostors.
@@ -829,45 +825,6 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       let y = gridHeight(x,z);
       if (y > 1.5) oakWord(x,y,z,h,seed);
     }
-    for (const root of leafRoots) {
-      let x = (root[0] / 300 + 0.5) * 512 + root[3] * 0.42,
-        z = (root[1] / 200 + 0.5) * 512 + root[3] * 0.28;
-      shadowInk.save();
-      shadowInk.translate(x, z);
-      shadowInk.rotate(-0.55);
-      shadowInk.fillStyle = "rgba(18,37,21,.25)";
-      shadowInk.beginPath();
-      shadowInk.ellipse(0, 0, root[2] * 3.0, root[2] * 1.0, 0, 0, 6.283);
-      shadowInk.fill();
-      shadowInk.restore();
-    }
-    shadowInk.fillStyle = "rgba(19,30,16,.54)";
-    shadowInk.beginPath();
-    for (let i = 0; i < pP.length; i += 9) {
-      for (let k = 0; k < 3; k++) {
-        let x = pP[i + k * 3],
-          y = pP[i + k * 3 + 1],
-          z = pP[i + k * 3 + 2],
-          ground = H(x, z),
-          sx = x + ((y - ground) * 0.55) / 0.77,
-          sz = z + ((y - ground) * 0.33) / 0.77,
-          px = (sx / 300 + 0.5) * 512,
-          pz = (sz / 200 + 0.5) * 512;
-        if (k === 0) shadowInk.moveTo(px, pz);
-        else shadowInk.lineTo(px, pz);
-      }
-      shadowInk.closePath();
-    }
-    shadowInk.fill();
-    gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      shadowCanvas,
-    );
     let boulderGroups = 0,
       boulderCount = 0,
       stoneRoots = [];
@@ -938,11 +895,24 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         boulderCount++;
       }
     }
-    // Wet basalt makes the fall read as a small grotto rather than a floating sheet.
-    for (const [x, z, rx, ry, rz] of [[-62.8,-45.0,1.7,1.25,1.15],[-66.9,-46.7,1.25,.9,1.45],[-65.4,-49.8,1.65,1.1,1.0],[-68.6,-48.6,.9,.75,1.1]]) {
-      boulder(x, z, H(x,z) - .12, rx, ry, rz, -.055);
-      stoneRoots.push([x,z,Math.max(rx,rz)+.22]); boulderCount++;
+    function basaltBlock(x,z,y,rx,ry,rz,seed) {
+      let first=pP.length/3,sides=6+(seed%2),turn=seed*.73;
+      for(let ring=0;ring<2;ring++)for(let i=0;i<sides;i++){
+        let a=turn+i*6.283/sides,w=.78+.22*noise(seed+i*3,ring+5),r=ring?1.:.92;
+        let px=x+Math.cos(a)*rx*w*r+(ring?.16*Math.sin(seed+i):0),pz=z+Math.sin(a)*rz*w*r+(ring?.13*Math.cos(seed+i*2):0),py=y+(ring?ry*(.84+.16*noise(seed,i)):0);
+        let col=ring?[.22+.08*noise(px,pz),.23+.08*noise(pz,px),.20+.055*noise(px+7,pz)]:[.11,.12,.11];
+        pv([px,py,pz],norm([Math.cos(a),ring?.32:.04,Math.sin(a)]),col);
+      }
+      for(let i=0;i<sides;i++){let j=(i+1)%sides,a=first+i,b=first+j,c=first+sides+i,d=first+sides+j;tri(a,c,b);tri(b,c,d);}
     }
+    function fernSpray(x,y,z,seed) {
+      for(let i=0;i<9;i++){let a=seed+i*.698,len=.28+.12*Math.sin(seed+i*3),rise=.10+.10*(i%3),base=[x,y+.02,z],mid=[x+Math.cos(a)*len*.46,y+rise,z+Math.sin(a)*len*.46],tip=[x+Math.cos(a)*len,y+rise*.35,z+Math.sin(a)*len],sx=-Math.sin(a)*len*.13,sz=Math.cos(a)*len*.13;let a0=pv(base,[0,1,0],[.05,.22,.035]),a1=pv([mid[0]+sx,mid[1],mid[2]+sz],[0,.8,0],[.08,.35,.05]),a2=pv([mid[0]-sx,mid[1]-.025,mid[2]-sz],[0,.7,0],[.04,.18,.025]),a3=pv(tip,[0,.6,0],[.07,.31,.04]);tri(a0,a1,a2);tri(a1,a3,a2);}
+    }
+    // Fractured basalt headwall in the falls' D/A frame, leaving the curtain against real blocks.
+    for (const [s,k,w,h] of [[-.45,-3.3,1.15,4.0],[-.30,-2.15,1.05,4.8],[-.22,-1.05,.9,3.7],[-.34,1.05,.95,4.4],[-.25,2.15,1.08,4.9],[-.42,3.35,1.25,3.8]]) {
+      let x=-64-.7071*s+.7071*k,z=-46-.7071*s-.7071*k; basaltBlock(x,z,3.64,w,h,w*.72,Math.round((s+6)*17+(k+5)*9)); stoneRoots.push([x,z,w+.2]); boulderCount++;
+    }
+    for(let i=0;i<8;i++){let a=i*.785,x=-66.97+Math.cos(a)*3.0,z=-48.97+Math.sin(a)*2.05,ground=gridHeight(x,z);if(ground>3.98)fernSpray(x,ground,z,i*3.1);}
     // A charcoal, folded apron contains the narrow lava outlet at the exposed beach.
     for (const [x, z, rx, ry, rz] of [[-17,76,2.8,.42,1.45],[-22,80,3.1,.38,1.6],[-18,83,2.5,.32,1.35],[-23,84,2.0,.28,1.2]]) {
       boulder(x, z, H(x,z) - .13, rx, ry, rz, -.12);
@@ -962,6 +932,10 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       let x = v[0] * Math.cos(yaw) - v[2] * Math.sin(yaw), z = v[0] * Math.sin(yaw) + v[2] * Math.cos(yaw);
       return norm([x, v[1] * Math.cos(tilt) - z * Math.sin(tilt), v[1] * Math.sin(tilt) + z * Math.cos(tilt)]);
     }
+    function forkDirection(v, azimuth, lift) {
+      let reference = Math.abs(v[1]) > .8 ? [1,0,0] : [0,1,0], side = norm(cross(v, reference)), up = norm(cross(side, v));
+      return norm([v[0]*.58 + (side[0]*Math.cos(azimuth)+up[0]*Math.sin(azimuth))*lift, v[1]*.58 + (side[1]*Math.cos(azimuth)+up[1]*Math.sin(azimuth))*lift, v[2]*.58 + (side[2]*Math.cos(azimuth)+up[2]*Math.sin(azimuth))*lift]);
+    }
     function oakWord(x, y, z, h, seed) {
       let buds = [{ p: [x, y + h * .42, z], v: [0, 1, 0], l: h * .30, d: h * .022 }];
       // Tropical adaptation of the Astra bracket grammar: F[+X][-X][&X][^X], three rewrites.
@@ -970,7 +944,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         for (let k = 0; k < buds.length; k++) {
           let bud = buds[k], end = [bud.p[0] + bud.v[0] * bud.l, bud.p[1] + bud.v[1] * bud.l, bud.p[2] + bud.v[2] * bud.l];
           woodSegment(bud.p, end, bud.d, bud.d * .56, [.13, .075, .028]);
-          for (let turn of [-.72,.72,-1.58,1.58]) next.push({ p: end, v: rotateAbout(bud.v, turn + .16 * noise(seed + k * 3, generation + 2), .28 + .18 * noise(seed + 8, k + turn)), l: bud.l * .55, d: bud.d * .51 });
+          for (let turn of [-.72,.72,-1.58,1.58]) next.push({ p: end, v: forkDirection(bud.v, turn + .16 * noise(seed + k * 3, generation + 2), .52 + .14 * noise(seed + 8, k + turn)), l: bud.l * .55, d: bud.d * .51 });
           if (generation === 2) {
             let tint = [.44 + .20 * noise(seed, k), .52 + .22 * noise(seed + 4, k), .27 + .13 * noise(seed + 7, k)];
             leafSpray(end, h, seed + k * 13, tint);
@@ -979,56 +953,30 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         buds = next;
       }
     }
-    function downhill(start, count, stride) {
-      let path = [[start[0], H(start[0], start[1]) + .08, start[1]]], x = start[0], z = start[1];
-      for (let step = 0; step < count; step++) {
-        let best = null;
-        for (let k = 0; k < 12; k++) {
-          let a = k * Math.PI / 6, nx = x + Math.cos(a) * stride, nz = z + Math.sin(a) * stride, h = H(nx, nz);
-          if (!best || h < best.h) best = { x: nx, z: nz, h };
-        }
-        if (best.h > H(x, z) - .05) break;
-        x = best.x; z = best.z; path.push([x, best.h + .08, z]);
-        if (best.h < -.15) break;
-      }
-      return path;
-    }
-    function pathRibbon(path, width, color, lift = .04) {
-      for (let i = 0; i < path.length - 1; i++) {
-        let a = path[i], b = path[i + 1], dx = b[0] - a[0], dz = b[2] - a[2], l = Math.hypot(dx, dz) || 1, sx = -dz / l * width, sz = dx / l * width;
-        let v = [
-          pv([a[0] + sx, a[1] + lift, a[2] + sz], [0,1,0], color), pv([a[0] - sx, a[1] + lift, a[2] - sz], [0,1,0], color),
-          pv([b[0] + sx, b[1] + lift, b[2] + sz], [0,1,0], color), pv([b[0] - sx, b[1] + lift, b[2] - sz], [0,1,0], color),
-        ]; tri(v[0],v[2],v[1]); tri(v[1],v[2],v[3]);
-      }
-    }
-    function toSea(start, end, count) {
-      let path = [];
-      for (let i = 0; i <= count; i++) {
-        let t = i / count, x = start[0] * (1-t) + end[0] * t, z = start[1] * (1-t) + end[1] * t;
-        path.push([x, gridHeight(x,z) + .10, z]);
-      }
-      return path;
-    }
     const lavaPath = [[-10,8],[-10,16],[-10,24],[-10,32],[-12,40],[-14,48],[-14,56],[-18,64],[-20,72],[-20,80],[-20,84]].map(([x,z])=>[x,gridHeight(x,z)+.10,z]),
       fallsPath = [[-42,-14],[-48,-30],[-56,-38],[-64,-46],[-66,-48],[-69,-51],[-72,-54]].map(([x,z])=>[x,gridHeight(x,z)+.10,z]);
     let flowP=[],flowUV=[],flowI=[];
     function flowVertex(p,u,v,id){flowP.push(...p);flowUV.push(u,v,id);return flowP.length/3-1;}
     function flowStrip(path,width,id){let last=[],distance=0;for(let s=0;s<path.length-1;s++){let a=path[s],b=path[s+1],dx=b[0]-a[0],dz=b[2]-a[2],len=Math.hypot(dx,dz),count=Math.max(2,Math.ceil(len/.42));for(let k=0;k<=count;k++){if(s&&k===0)continue;let f=k/count,x=a[0]*(1-f)+b[0]*f,z=a[2]*(1-f)+b[2]*f,y=gridHeight(x,z)+.13,w=width*(.76+.18*Math.sin((distance+len*f)*.43));let sx=-dz/len*w,sz=dx/len*w, row=[flowVertex([x+sx,y,z+sz],distance+len*f,0,id),flowVertex([x-sx,y,z-sz],distance+len*f,1,id)];if(last.length){flowI.push(last[0],row[0],last[1],last[1],row[0],row[1]);}last=row;}distance+=len;}}
-    flowStrip(lavaPath,.95,1);
     flowStrip(fallsPath.slice(0,4),.82,0);
-    let lip=fallsPath[3],pool=[lip[0]-1.0,3.0,lip[2]-1.0],start=flowP.length/3,rows=18,cols=8;
+    // A continuous, rough pāhoehoe apron widens across the last 18m of the shore.
+    let apronStart=flowP.length/3,apronRows=18,apronRails=15;
+    for(let r=0;r<=apronRows;r++)for(let c=0;c<=apronRails;c++){let f=r/apronRows,u=c/apronRails,w=1.0+4.6*f,side=(u-.5)*2*w,cz=66+18.5*f,cx=-18.2-2.0*f+side+.42*Math.sin(f*9.+u*5.);let heave=.11+.27*Math.max(0,1-Math.abs(u-.5)*2)*(.35+.65*noise(cx*.35,cz*.35));flowVertex([cx,gridHeight(cx,cz)+heave,cz],f,u,4);}
+    for(let r=0;r<apronRows;r++)for(let c=0;c<apronRails;c++){let a=apronStart+r*(apronRails+1)+c,b=a+1,d=a+apronRails+1,e=d+1;flowI.push(a,d,b,b,d,e);}
+    // Drape the brighter upstream channel after its cooled apron.
+    flowStrip(lavaPath,.95,1);
+    let lip=fallsPath[3],pool=[-64-.7071*4.2,3.9,-46-.7071*4.2],start=flowP.length/3,rows=18,cols=8;
     for(let r=0;r<=rows;r++)for(let c=0;c<=cols;c++){
       let v=r/rows,u=c/cols,w=2.2*(.78+.22*Math.sin(v*7.));
       // D=(-.707,-.707), A=(.707,-.707): a compact 1.4m forward plunge.
       let forward=1.42*v,x=lip[0]-.7071*forward+(u-.5)*w*.7071,z=lip[2]-.7071*forward-(u-.5)*w*.7071,y=lip[1]+(pool[1]-lip[1])*v*v;
-      flowVertex([x,y,z],v,u,0);
+      flowVertex([x,y,z],v,u,2);
     }
     for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){let a=start+r*(cols+1)+c,b=a+1,d=a+cols+1,e=d+1;flowI.push(a,d,b,b,d,e);}
-    // Local jade plunge pool.  It is an actual triangulated surface, not a particle disc.
-    let poolCenter=flowVertex([pool[0],pool[1]+.025,pool[2]],0,.5,0), poolRing=[];
-    for(let i=0;i<18;i++){let a=i*Math.PI*2/18,rr=1+.12*Math.sin(a*3);poolRing.push(flowVertex([pool[0]+Math.cos(a)*2.15*rr,pool[1]+.02,pool[2]+Math.sin(a)*1.4*rr],a/6.283,.5,0));}
-    for(let i=0;i<18;i++)flowI.push(poolCenter,poolRing[i],poolRing[(i+1)%18]);
+    // A raised visible jade pool, aligned to the same downhill D/A frame as the grotto.
+    let poolCenter=flowVertex([pool[0],pool[1]+.025,pool[2]],0,.5,3), poolRing=[];
+    for(let i=0;i<24;i++){let a=i*Math.PI*2/24,rr=1+.12*Math.sin(a*3.);let ds=Math.cos(a)*3.4*rr,dk=Math.sin(a)*2.35*rr;poolRing.push(flowVertex([pool[0]-.7071*ds+.7071*dk,pool[1]+.02,pool[2]-.7071*ds-.7071*dk],a/6.283,.5,3));}
+    for(let i=0;i<poolRing.length;i++)flowI.push(poolCenter,poolRing[i],poolRing[(i+1)%poolRing.length]);
     const flowVAO=gl.createVertexArray();gl.bindVertexArray(flowVAO);
     for(const [data,loc,size] of [[flowP,0,3],[flowUV,1,3]]){let b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,0,0);}
     const flowIndex=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,flowIndex);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(flowI),gl.STATIC_DRAW);
@@ -1204,7 +1152,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       },
       qU = { m: U(Q, "m"), atlas: U(Q, "atlas") },
       fU = { m: U(F, "m"), t: U(F, "t") },
-      zU = { m: U(PZ, "m") };
+      zU = { m: U(PZ, "m"), viewport: U(PZ,"viewport"), tanHalfFov: U(PZ,"tanHalfFov") };
     let V = [
         { T: [-4, 25, 0], a: -0.88, e: 0.18, d: 285 },
         { T: [-67, 4, -28], a: -2.78, e: 0.02, d: 102 },
@@ -1240,11 +1188,11 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
     function enableSound() {
       if (!audio.ctx) {
         audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        audio.master = audio.ctx.createGain(); audio.master.gain.value = .23; audio.master.connect(audio.ctx.destination);
-        for (const [pan, gain, cut, seed] of [[-.55,.018,420,331],[.5,.014,760,919]]) {
+        audio.master = audio.ctx.createGain(); audio.master.gain.value = .9; audio.master.connect(audio.ctx.destination);
+        for (const [pan, gain, cut, seed] of [[-.55,.060,420,331],[.5,.046,760,919]]) {
           let loop = noiseNode(2.4, gain, pan, cut, seed); loop.source.loop = true; loop.source.start();
         }
-        for (const [x,z,gain,cut,seed] of [[-64,-46,.075,1100,1741],[-20,84,.038,520,601]]) {
+        for (const [x,z,gain,cut,seed] of [[-64,-46,.20,1100,1741],[-20,84,.10,520,601]]) {
           let loop = noiseNode(1.8, 0, 0, cut, seed); loop.source.loop = true; loop.source.start();
           audio.spatial.push({ x, z, gain, amp: loop.amp, pan: loop.stereo });
         }
@@ -1258,7 +1206,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       burst.source.start(now); burst.source.stop(now + .36); audio.events++;
     }
     function toggleSound() {
-      let first = !audio.ctx; enableSound(); audio.muted = first ? false : !audio.muted; audio.master.gain.setTargetAtTime(audio.muted ? 0 : .23, audio.ctx.currentTime, .04);
+      let first = !audio.ctx; enableSound(); audio.muted = first ? false : !audio.muted; audio.master.gain.setTargetAtTime(audio.muted ? 0 : .9, audio.ctx.currentTime, .04);
       document.querySelector('[data-view="mute"]').setAttribute("aria-pressed", String(!audio.muted));
     }
     function updateAudio() {
@@ -1444,11 +1392,11 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       gl.useProgram(F); gl.uniformMatrix4fv(fU.m,false,m); gl.uniform1f(fU.t,t*.001); gl.bindVertexArray(flowVAO); gl.drawElements(gl.TRIANGLES,flowI.length,gl.UNSIGNED_INT,0);
       let sp=[],sc=[],time=t*.001,vent=lavaPath[lavaPath.length-1],lipNow=lip,poolNow=pool;
       // Steam begins at the real sea-level contact and disperses in a low onshore drift.
-      for(let i=0;i<54;i++){let p=(time*.16+i*.173)%1,x=vent[0]+Math.sin(i*4.7+p*5)*(.18+p*.65),z=vent[2]+Math.cos(i*3.1+p*4)*(.16+p*.48),y=Math.max(.04,vent[1])+.12+p*2.15;sp.push(x,y,z,5+p*10);sc.push(.70,.72,.66);}
+      for(let i=0;i<82;i++){let p=(time*.13+i*.173)%1,x=vent[0]+Math.sin(i*4.7+p*5)*(.18+p*1.05),z=vent[2]+.12+p*1.35+Math.cos(i*3.1+p*4)*(.16+p*.62),y=Math.max(.04,vent[1])+.08+p*(1.1+p*.9);sp.push(x,y,z,.18+p*.72);sc.push(.70,.72,.66);}
       // Spray is tied to the short curtain and its pool: no elevated column above the lip.
-      for(let i=0;i<38;i++){let p=(time*.82+i*.23)%1,side=Math.sin(i*2.1)*(.15+.25*p),forward=1.42*p,x=lipNow[0]-.7071*forward+side*.7071,z=lipNow[2]-.7071*forward-side*.7071,y=lipNow[1]+(poolNow[1]-lipNow[1])*p*p + Math.sin((p+i)*9.)*.04;sp.push(x,y,z,5+(i%4)*2);sc.push(.68,.89,.92);}
-      for(let i=0;i<22;i++){let p=(time*.48+i*.37)%1,a=i*2.4,x=poolNow[0]+Math.cos(a)*(.35+p*1.35),z=poolNow[2]+Math.sin(a)*(.3+p*.9),y=poolNow[1]+.08+p*(.45-p*.28);sp.push(x,y,z,6+p*9);sc.push(.78,.93,.94);}
-      gl.bindVertexArray(spriteVAO);gl.bindBuffer(gl.ARRAY_BUFFER,spritePos);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(sp),gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,spriteCol);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(sc),gl.DYNAMIC_DRAW);gl.useProgram(PZ);gl.uniformMatrix4fv(zU.m,false,m);gl.drawArrays(gl.POINTS,0,sp.length/4);
+      for(let i=0;i<52;i++){let p=(time*.82+i*.23)%1,side=Math.sin(i*2.1)*(.12+.32*p),forward=1.42*p,x=lipNow[0]-.7071*forward+side*.7071,z=lipNow[2]-.7071*forward-side*.7071,y=lipNow[1]+(poolNow[1]-lipNow[1])*p*p + Math.sin((p+i)*9.)*.04;sp.push(x,y,z,.10+(i%4)*.045);sc.push(.68,.89,.92);}
+      for(let i=0;i<38;i++){let p=(time*.62+i*.173)%1,seed=Math.sin(i*91.7)*43758.5,u=seed-Math.floor(seed),a=(seed*7.3-Math.floor(seed*7.3))*6.283,r=Math.sqrt(u)*(.12+.55*p),ix=-65.414,iz=-47.414,x=ix+Math.cos(a)*r,z=iz+Math.sin(a)*r,y=poolNow[1]+.05+p*(.36-p*.22);sp.push(x,y,z,.025+(i%5)*.011);sc.push(.78,.93,.94);}
+      gl.bindVertexArray(spriteVAO);gl.bindBuffer(gl.ARRAY_BUFFER,spritePos);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(sp),gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,spriteCol);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(sc),gl.DYNAMIC_DRAW);gl.useProgram(PZ);gl.uniformMatrix4fv(zU.m,false,m);gl.uniform2f(zU.viewport,canvas.width,canvas.height);gl.uniform1f(zU.tanHalfFov,tanHalfFov);gl.drawArrays(gl.POINTS,0,sp.length/4);
       gl.depthMask(true);gl.disable(gl.BLEND);
       gl.useProgram(Q);
       gl.uniformMatrix4fv(qU.m, false, m);
@@ -1457,6 +1405,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       gl.uniform1i(qU.atlas, 0);
       gl.bindVertexArray(leafVAO);
       gl.drawArrays(gl.TRIANGLES, 0, leafCount);
+      document.querySelector("#loading").style.display = "none";
       requestAnimationFrame(draw);
     }
     requestAnimationFrame(draw);
@@ -1575,5 +1524,6 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         setWalk();
       },
     };
+    } catch (e) { const panel=document.querySelector("#error"); panel.textContent="Island failed to generate: "+e; panel.style.display="grid"; document.querySelector("#loading").style.display="none"; console.error(e); } }, 0));
   })();
 </script>
