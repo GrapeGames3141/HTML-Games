@@ -2901,11 +2901,10 @@ function unitGap(u, wx, wy) { // how far a point is outside the unit's drawn bod
 }
 function pickAt(wx, wy, rad = 10) {
   const list = drawList.filter(e => !e.dead && !(e.ent === 'u' && (e.hidden || (e.team !== 0 && !visAt(e.x, e.y)))));
-  const near = rad * .35;
-  // exact: the topmost thing under the pointer (a person gets a little slack so a finger can find them)
+  // exact: the topmost thing actually under the pointer
   for (let i = list.length - 1; i >= 0; i--) {
     const e = list[i];
-    if (e.ent === 'u') { if (unitGap(e, wx, wy) <= near) return e; continue; }
+    if (e.ent === 'u') { if (unitGap(e, wx, wy) <= 0) return e; continue; }
     const bl = blitOf(e);
     if (bl ? spriteHit(bl, wx, wy, 0) : e.kind === 'carcass' && dist(wx, wy, e.x, e.y - 2) < 10) return e;
   }
