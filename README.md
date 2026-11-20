@@ -23,6 +23,7 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Spearfish | `spearfish/spearfish.html` | `http://127.0.0.1:8000/spearfish/spearfish.html` |
 | Slingshot | `slingshot/slingshot.html` | `http://127.0.0.1:8000/slingshot/slingshot.html` |
 | Heroes Sold Separately | `guildmaster/guildmaster.html` | `http://127.0.0.1:8000/guildmaster/guildmaster.html` |
+| Hearthfall | `hearthfall/hearthfall.html` | `http://127.0.0.1:8000/hearthfall/hearthfall.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
 
