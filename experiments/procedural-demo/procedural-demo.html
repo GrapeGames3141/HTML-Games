@@ -1,0 +1,912 @@
+<!doctype html><meta charset="utf-8" /><meta
+  name="viewport"
+  content="width=device-width,initial-scale=1"
+/>
+<title>Motunui — Procedural Island</title>
+<style>
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body,
+  canvas {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #88c9dd;
+  }
+  canvas {
+    display: block;
+    touch-action: none;
+  }
+  #ui {
+    position: fixed;
+    inset: 0;
+    color: #f7f2e8;
+    pointer-events: none;
+    font: 11px system-ui;
+    letter-spacing: 0.12em;
+    text-shadow: 0 1px 3px #123;
+  }
+  h1 {
+    position: absolute;
+    left: 29px;
+    top: 24px;
+    margin: 0;
+    font: 500 22px Georgia;
+    letter-spacing: 0.18em;
+  }
+  p {
+    position: absolute;
+    left: 30px;
+    bottom: 19px;
+    margin: 0;
+    font-size: 10px;
+  }
+  nav {
+    position: absolute;
+    right: 22px;
+    bottom: 20px;
+    display: flex;
+    gap: 6px;
+    pointer-events: auto;
+  }
+  button {
+    min-width: 40px;
+    min-height: 40px;
+    border: 1px solid #dce9d6aa;
+    border-radius: 16px;
+    padding: 7px 12px;
+    background: #174b57b8;
+    color: #fff;
+    font: 10px system-ui;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  button[aria-pressed="true"],
+  button:focus-visible {
+    background: #2a7484;
+    border-color: #fff;
+    outline: 2px solid #e9f3d5;
+    outline-offset: 2px;
+  }
+  #error {
+    display: none;
+    place-items: center;
+    position: fixed;
+    inset: 0;
+    background: #123;
+    color: #fff;
+    font: 16px system-ui;
+  }
+  @media (max-width: 560px) {
+    p {
+      bottom: 76px;
+      left: 20px;
+    }
+    nav {
+      right: 12px;
+      bottom: 14px;
+      gap: 4px;
+    }
+    button {
+      padding: 6px 9px;
+      font-size: 9px;
+    }
+  }</style
+><canvas></canvas>
+<div id="ui">
+  <h1>MOTUNUI</h1>
+  <p>drag to orbit · scroll to approach</p>
+  <nav>
+    <button data-view="0" aria-pressed="true">AERIAL</button
+    ><button data-view="1" aria-pressed="false">STRAND</button
+    ><button data-view="2" aria-pressed="false">REEF</button>
+  </nav>
+</div>
+<div id="error">This island needs WebGL 2.</div>
+<script>
+  (() => {
+    const canvas = document.querySelector("canvas"),
+      gl = canvas.getContext("webgl2", { antialias: true, depth: true }),
+      error = document.querySelector("#error");
+    if (!gl) {
+      error.style.display = "grid";
+      return;
+    }
+    function program(v, f) {
+      const p = gl.createProgram();
+      for (const [type, s] of [
+        [gl.VERTEX_SHADER, v],
+        [gl.FRAGMENT_SHADER, f],
+      ]) {
+        const q = gl.createShader(type);
+        gl.shaderSource(q, s);
+        gl.compileShader(q);
+        if (!gl.getShaderParameter(q, gl.COMPILE_STATUS))
+          throw Error(gl.getShaderInfoLog(q));
+        gl.attachShader(p, q);
+      }
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS))
+        throw Error(gl.getProgramInfoLog(p));
+      return p;
+    }
+    const skyV = `#version 300 es
+in vec2 p;out vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0,1);}`;
+    const skyF = `#version 300 es
+precision highp float;
+in vec2 uv; out vec4 o;
+uniform float t, aspect;
+uniform vec3 eye, forward, right, up;
+uniform sampler2D bathy;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
+float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
+float fb(vec2 p){return .516*(n(p)+.5*n(p*2.02)+.25*n(p*4.1)+.125*n(p*8.2)+.0625*n(p*16.4));}
+float field(vec2 p){return fb(p+1.5*vec2(fb(p*.55+8.),fb(p*.55-12.)));}
+vec3 sky(vec3 d){vec3 sun=normalize(vec3(-.64,.48,.55));float hi=max(d.y,0.);vec3 c=mix(vec3(.70,.83,.87),vec3(.10,.34,.61),pow(hi,.55));vec2 p=d.xz/max(.065,d.y+.065)*2.4+vec2(.0009*t,0.);float den=smoothstep(.55,.72,field(p)+.07*fb(p*2.7));float light=clamp(.52+3.8*(field(p)-field(p+.18*sun.xz)),.15,1.);vec3 cloud=mix(vec3(.55,.64,.70),vec3(.99,.98,.91),light);c=mix(c,cloud,den*.74);float disk=pow(max(dot(d,sun),0.),700.);c+=vec3(1.,.79,.48)*(disk*5.+pow(max(dot(d,sun),0.),18.)*.18);return mix(vec3(.60,.76,.81),c,smoothstep(.012,.105,max(d.y,0.)));}
+void main(){vec2 screen=uv*2.-1.;vec3 ray=normalize(forward+right*screen.x*aspect*.3594+up*screen.y*.3594);if(ray.y>=0.){o=vec4(sky(ray),1.);return;}float hit=-eye.y/ray.y;vec2 xz=eye.xz+ray.xz*hit;vec2 map=xz/vec2(300.,200.)+.5;float border=1.-max(abs(map.x*2.-1.),abs(map.y*2.-1.));float inMap=smoothstep(-.14,.20,border);float depth=mix(24.,texture(bathy,map).r*22.,inMap);mat2 swizz=mat2(.82,.57,-.57,.82);vec2 q=swizz*xz;float warp=2.8*n(xz*.055)+.7*n(xz*.23);float pixel=max(length(dFdx(xz)),length(dFdy(xz)));float fine=1.-smoothstep(.18,.9,pixel);vec2 g=q*vec2(.125,.19)+vec2(t*.032,-t*.021);vec2 slope=.17*vec2(n(g+vec2(.09,0))-n(g-vec2(.09,0)),n(g+vec2(0,.09))-n(g-vec2(0,.09)))/.18*(1.-smoothstep(1.,6.,pixel));slope+=vec2(.93,.36)*.13*cos(dot(q,vec2(.93,.36))*3.3+warp*4.-t*2.2)*fine;slope+=vec2(-.35,.94)*.10*cos(dot(q,vec2(-.35,.94))*2.1-warp*3.+t*1.7)*fine;slope+=vec2(.71,-.70)*.08*cos(dot(q,vec2(.71,-.70))*6.6+warp*5.-t*2.9)*fine;slope+=vec2(.14,.99)*.055*cos(dot(q,vec2(.14,.99))*11.8-warp*7.+t*3.5)*fine;vec3 N=normalize(vec3(-slope.x,1.,-slope.y));vec2 floorXZ=xz+N.xz*min(depth,5.)*.75;float reef=fb(floorXZ*.11+vec2(warp*.22,-warp*.17));float detail=fb(floorXZ*.68);vec3 sand=vec3(.82,.77,.56);vec3 coral=mix(vec3(.20,.33,.26),vec3(.05,.43,.36),detail);vec3 seabed=mix(sand,coral,smoothstep(.43,.65,reef));vec3 deep=vec3(.025,.20,.34);vec3 trans=exp(-depth/max(.38,-ray.y)*vec3(.50,.19,.12));vec3 body=mix(deep,seabed,trans);float veins=abs(sin(floorXZ.x*3.8+warp*4.)*sin(floorXZ.y*4.6-warp*3.));body+=vec3(.17,.16,.08)*smoothstep(.78,.96,veins)*exp(-depth*.6);float fres=.04+.90*pow(1.-max(dot(-ray,N),0.),4.);vec3 sun=normalize(vec3(-.64,.48,.55));vec3 refl=reflect(ray,N);vec3 roughSky=mix(sky(refl),mix(vec3(.60,.76,.81),vec3(.21,.49,.69),clamp(refl.y,0.,1.)),.45+.45*smoothstep(150.,750.,hit));vec3 c=mix(body,roughSky,fres);c+=vec3(1.,.80,.46)*pow(max(dot(normalize(-ray+sun),N),0.),240.)*(.25+.75*fine);float phase=fract((depth*.42-t*.16+fb(floorXZ*.35))*1.7);float lace=fb(floorXZ*1.1+vec2(t*.05,-t*.03));float foam=smoothstep(.08,1.4,depth)*(1.-smoothstep(1.4,3.5,depth))*smoothstep(.92,.985,phase)*smoothstep(.42,.70,lace);c=mix(c,vec3(.94,.97,.89),foam*.72);c=mix(c,vec3(.60,.76,.81),1.-exp(-hit*.0009));o=vec4(c,1.);}`;
+    const meshV = `#version 300 es
+precision highp float;in vec3 p,n,c;uniform mat4 m;out vec3 albedo,world,normal;void main(){world=p;normal=n;albedo=c;gl_Position=m*vec4(p,1);}`;
+    const meshF = `#version 300 es
+precision highp float;in vec3 albedo,world,normal;out vec4 o;uniform sampler2D shade;uniform vec3 sun;uniform bool landPass;float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}float fb(vec2 p){return n(p)+.5*n(p*2.03)+.25*n(p*4.1);}
+void main(){if(world.y<0.)discard;vec3 N=normalize(normal);float steep=1.-N.y,rock=landPass?smoothstep(.18,.52,steep):0.;vec2 face=vec2(world.x+.57*world.z,world.y);float joint=face.x*.175+face.y*.094+.49*n(face*.21)+.15*n(face*.87);float bed=world.y+.21*world.x-.105*world.z+.22*floor(joint+.5)+.66*fb(world.xz*.42)+.20*sin(face.x*.61);float silt=fb(vec2(face.x*.26,bed*1.65)),seam=abs(fract(bed*.49+.13*sin(bed*1.21))-.5),chips=fb(vec2(face.x*1.13,bed*2.75));vec3 basalt=mix(vec3(.23,.24,.22),vec3(.46,.39,.30),silt*.48);basalt*=.80+.20*chips;basalt*=1.-.10*smoothstep(.03,.11,seam);float grain=.94+.06*sin(world.x*2.1+sin(world.z*1.3))*sin(world.z*1.7),occlusion=landPass?texture(shade,world.xz/vec2(300.,200.)+.5).r:1.;vec3 base=mix(albedo*grain,basalt,rock);float direct=max(dot(N,normalize(sun)),0.);vec3 lit=base*(.34+.66*direct)*occlusion;o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
+    const leafV = `#version 300 es
+precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec2 uv;layout(location=2)in vec3 c;uniform mat4 m;out vec2 vuv;out vec3 col;void main(){vuv=uv;col=c;gl_Position=m*vec4(p,1);}`;
+    const leafF = `#version 300 es
+precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o;void main(){vec4 a=texture(atlas,vuv);if(a.a<.32)discard;o=vec4(a.rgb*col,1);}`;
+    let S, M, Q;
+    try {
+      S = program(skyV, skyF);
+      M = program(meshV, meshF);
+      Q = program(leafV, leafF);
+    } catch (e) {
+      error.textContent = "Shader error: " + e;
+      error.style.display = "grid";
+      return;
+    }
+    function mul(a, b) {
+      const r = new Float32Array(16);
+      for (let y = 0; y < 4; y++)
+        for (let x = 0; x < 4; x++)
+          r[x * 4 + y] =
+            a[y] * b[x * 4] +
+            a[4 + y] * b[x * 4 + 1] +
+            a[8 + y] * b[x * 4 + 2] +
+            a[12 + y] * b[x * 4 + 3];
+      return r;
+    }
+    function norm(a) {
+      let l = Math.hypot(...a);
+      return a.map((x) => x / l);
+    }
+    function cross(a, b) {
+      return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+      ];
+    }
+    function perspective(a, n, f) {
+      let q = 1 / (n - f),
+        s = 1 / Math.tan(0.345);
+      return new Float32Array([
+        s / a,
+        0,
+        0,
+        0,
+        0,
+        s,
+        0,
+        0,
+        0,
+        0,
+        (f + n) * q,
+        -1,
+        0,
+        0,
+        2 * f * n * q,
+        0,
+      ]);
+    }
+    function look(e, t) {
+      let z = norm([e[0] - t[0], e[1] - t[1], e[2] - t[2]]),
+        x = norm(cross([0, 1, 0], z)),
+        y = cross(z, x);
+      return new Float32Array([
+        x[0],
+        y[0],
+        z[0],
+        0,
+        x[1],
+        y[1],
+        z[1],
+        0,
+        x[2],
+        y[2],
+        z[2],
+        0,
+        -x[0] * e[0] - x[1] * e[1] - x[2] * e[2],
+        -y[0] * e[0] - y[1] * e[1] - y[2] * e[2],
+        -z[0] * e[0] - z[1] * e[1] - z[2] * e[2],
+        1,
+      ]);
+    }
+    function noise(x, z) {
+      let a = Math.floor(x),
+        b = Math.floor(z),
+        u = x - a,
+        v = z - b,
+        r = (i, j) => {
+          let k = Math.sin(i * 127.1 + j * 311.7) * 43758.5;
+          return k - Math.floor(k);
+        };
+      u = u * u * (3 - 2 * u);
+      v = v * v * (3 - 2 * v);
+      return (
+        (r(a, b) * (1 - u) + r(a + 1, b) * u) * (1 - v) +
+        (r(a, b + 1) * (1 - u) + r(a + 1, b + 1) * u) * v
+      );
+    }
+    function H(x, z) {
+      let wx = x + (noise(x * 0.018, z * 0.018) - 0.5) * 13,
+        wz = z + (noise(x * 0.018 + 7, z * 0.018 - 4) - 0.5) * 11,
+        coast = Math.max(-8, 10 * (1 - Math.hypot(x / 130, z / 84))),
+        g = (a, b, s, h) =>
+          h * Math.exp(-(((wx - a) / s) ** 2) - ((wz - b) / (s * 0.72)) ** 2),
+        peaks = Math.max(
+          g(-61, -14, 32, 36),
+          g(-10, -4, 28, 60),
+          g(40, 12, 25, 27),
+        ),
+        ridge = Math.abs(noise(wx * 0.075, wz * 0.075) - 0.5),
+        gully = Math.abs(noise(wx * 0.19, wz * 0.19) - 0.5);
+      return (
+        coast +
+        peaks -
+        g(64, 8, 34, 23) +
+        (ridge * 8 + gully * 3 + (noise(wx * 0.38, wz * 0.38) - 0.5) * 1.5) *
+          Math.max(0, 1 - Math.hypot(x / 142, z / 94))
+      );
+    }
+    const bathy = gl.createTexture(),
+      bathyPixels = new Uint8Array(256 * 256);
+    for (let j = 0; j < 256; j++)
+      for (let i = 0; i < 256; i++) {
+        let x = -150 + (300 * i) / 255,
+          z = -100 + (200 * j) / 255,
+          depth = Math.max(0.15, Math.min(22, -H(x, z)));
+        bathyPixels[j * 256 + i] = (depth / 22) * 255;
+      }
+    gl.bindTexture(gl.TEXTURE_2D, bathy);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8,
+      256,
+      256,
+      0,
+      gl.RED,
+      gl.UNSIGNED_BYTE,
+      bathyPixels,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    function normal(x, z) {
+      let e = 0.4;
+      return norm([
+        H(x - e, z) - H(x + e, z),
+        2 * e,
+        H(x, z - e) - H(x, z + e),
+      ]);
+    }
+    function makeMesh(P, N, C, I) {
+      let v = gl.createVertexArray();
+      gl.bindVertexArray(v);
+      [
+        [P, 0],
+        [N, 1],
+        [C, 2],
+      ].forEach(([d, i]) => {
+        let b = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, b);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(i);
+        gl.vertexAttribPointer(i, 3, gl.FLOAT, false, 0, 0);
+      });
+      let b = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b);
+      gl.bufferData(
+        gl.ELEMENT_ARRAY_BUFFER,
+        new Uint32Array(I),
+        gl.STATIC_DRAW,
+      );
+      return { v, n: I.length };
+    }
+    let P = [],
+      N = [],
+      C = [],
+      L = [],
+      nx = 181,
+      nz = 121;
+    for (let z = 0; z < nz; z++)
+      for (let x = 0; x < nx; x++) {
+        let a = -150 + (300 * x) / (nx - 1),
+          b = -100 + (200 * z) / (nz - 1),
+          y = H(a, b),
+          q = normal(a, b),
+          beach = y < 5,
+          rock = q[1] < 0.76 && y > 8,
+          g = noise(a * 0.19, b * 0.19),
+          submerged = y <= 0,
+          fade = Math.max(
+            0,
+            Math.min(1, (Math.hypot(a / 150, b / 100) - 0.54) / 0.43),
+          ),
+          c = submerged
+            ? [
+                0.42 * (1 - fade) + 0.025 * fade,
+                0.49 * (1 - fade) + 0.18 * fade,
+                0.34 * (1 - fade) + 0.3 * fade,
+              ]
+            : beach
+              ? [0.78 + 0.12 * g, 0.66 + 0.11 * g, 0.39 + 0.07 * g]
+              : rock
+                ? [0.18 + 0.16 * g, 0.19 + 0.14 * g, 0.17 + 0.11 * g]
+                : [0.055 + 0.07 * g, 0.22 + 0.15 * g, 0.045 + 0.06 * g];
+        P.push(a, y, b);
+        N.push(...q);
+        C.push(...c);
+      }
+    for (let z = 0; z < nz - 1; z++)
+      for (let x = 0; x < nx - 1; x++) {
+        let a = z * nx + x,
+          b = a + 1,
+          c = a + nx,
+          d = c + 1;
+        L.push(a, c, b, b, c, d);
+      }
+    const island = makeMesh(P, N, C, L);
+    let seed = 18407,
+      R = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296,
+      pP = [],
+      pN = [],
+      pC = [],
+      pI = [];
+    function pv(a, n, c) {
+      pP.push(...a);
+      pN.push(...n);
+      pC.push(...c);
+      return pP.length / 3 - 1;
+    }
+    function tri(a, b, c) {
+      pI.push(a, b, c);
+    }
+    function crown(x, y, z, r, c) {
+      let T = pv([x, y + r * 0.72, z], [0, 1, 0], c),
+        D = pv([x, y - r * 0.55, z], [0, -1, 0], c),
+        q = [];
+      for (let i = 0; i < 8; i++) {
+        let a = (i * Math.PI) / 4;
+        q.push(
+          pv(
+            [
+              x + Math.cos(a) * r,
+              y + (R() - 0.5) * r * 0.24,
+              z + Math.sin(a) * r,
+            ],
+            [Math.cos(a), 0.25, Math.sin(a)],
+            c,
+          ),
+        );
+      }
+      for (let i = 0; i < 8; i++) {
+        tri(T, q[i], q[(i + 1) % 8]);
+        tri(D, q[(i + 1) % 8], q[i]);
+      }
+    }
+    for (let i = 0; i < 0; i++) {
+      let x = (R() - 0.5) * 240,
+        z = (R() - 0.5) * 155,
+        y = H(x, z),
+        n = normal(x, z);
+      if (y < 5 || y > 48 || n[1] < 0.76) continue;
+      let r = 2 + R() * 3.6,
+        c = [0.025 + R() * 0.035, 0.18 + R() * 0.17, 0.03 + R() * 0.05];
+      crown(x, y + r * 0.45, z, r, c);
+      if (R() > 0.3)
+        crown(
+          x + (R() - 0.5) * r,
+          y + r * 0.95,
+          z + (R() - 0.5) * r,
+          r * 0.72,
+          c,
+        );
+    }
+    function palm(x, z, y, h) {
+      let q = [x, y, z];
+      for (let s = 1; s < 10; s++) {
+        let t = s / 9,
+          w = [
+            x + Math.sin(t * 1.8) * 0.6,
+            y + h * t,
+            z + Math.cos(t * 1.4) * 0.42,
+          ],
+          a = [],
+          b = [];
+        for (let i = 0; i < 7; i++) {
+          let k = (i * Math.PI * 2) / 7,
+            r = 0.34 * (1 - t * 0.78);
+          a.push(
+            pv(
+              [q[0] + Math.cos(k) * r, q[1], q[2] + Math.sin(k) * r],
+              [Math.cos(k), 0.2, Math.sin(k)],
+              [0.22, 0.12, 0.04],
+            ),
+          );
+          b.push(
+            pv(
+              [
+                w[0] + Math.cos(k) * r * 0.84,
+                w[1],
+                w[2] + Math.sin(k) * r * 0.84,
+              ],
+              [Math.cos(k), 0.2, Math.sin(k)],
+              [0.26, 0.15, 0.05],
+            ),
+          );
+        }
+        for (let i = 0; i < 7; i++) {
+          tri(a[i], b[i], a[(i + 1) % 7]);
+          tri(a[(i + 1) % 7], b[i], b[(i + 1) % 7]);
+        }
+        q = w;
+      }
+      for (let i = 0; i < 14; i++) {
+        let a = (i * Math.PI * 2) / 14 + R() * 0.12,
+          dx = Math.cos(a),
+          dz = Math.sin(a),
+          sideX = -dz,
+          sideZ = dx,
+          l = h * (0.42 + R() * 0.18),
+          lift = h * (0.16 + R() * 0.14),
+          fall = h * (0.18 + R() * 0.17),
+          tip = [q[0] + dx * l, q[1] + lift - fall, q[2] + dz * l];
+        tri(
+          pv(q, [0, 1, 0], [0.03, 0.31, 0.06]),
+          pv(tip, [0, 0.3, 0], [0.04, 0.4, 0.08]),
+          pv(
+            [q[0] + sideX * 0.3, q[1], q[2] + sideZ * 0.3],
+            [0, 1, 0],
+            [0.03, 0.35, 0.06],
+          ),
+        );
+        for (let j = 1; j < 12; j++) {
+          let u = j / 12,
+            base = [
+              q[0] + dx * l * u,
+              q[1] + lift * Math.sin(u * Math.PI) - fall * u * u,
+              q[2] + dz * l * u,
+            ],
+            reach = (0.16 + 0.85 * Math.sin(u * Math.PI)) * h * 0.13;
+          for (let sign of [-1, 1]) {
+            let leaf = [
+              base[0] + sideX * sign * reach + dx * l * 0.11,
+              base[1] - reach * 0.52,
+              base[2] + sideZ * sign * reach + dz * l * 0.11,
+            ];
+            tri(
+              pv(base, [0, 1, 0], [0.04, 0.36, 0.07]),
+              pv(leaf, [0, 0.4, 0], [0.05, 0.44, 0.09]),
+              pv(
+                [
+                  base[0] + dx * l * 0.1,
+                  base[1] - 0.03,
+                  base[2] + dz * l * 0.1,
+                ],
+                [0, 1, 0],
+                [0.04, 0.33, 0.06],
+              ),
+            );
+          }
+        }
+      }
+    }
+    let palmRoots = [];
+    for (let i = 0; i < 220; i++) {
+      let a = R() * Math.PI * 2,
+        r = 80 + R() * 43,
+        x = Math.cos(a) * r,
+        z = Math.sin(a) * r,
+        y = H(x, z),
+        n = normal(x, z);
+      if (y > 1 && y < 8 && n[1] > 0.84) {
+        palmRoots.push([x, z]);
+        palm(x, z, y, 6 + R() * 5);
+      }
+    }
+    const vegetation = makeMesh(pP, pN, pC, pI);
+    const leafCanvas = document.createElement("canvas");
+    leafCanvas.width = 512;
+    leafCanvas.height = 128;
+    const leafInk = leafCanvas.getContext("2d");
+    const leafPixels = leafInk.createImageData(512, 128);
+    for (let frame = 0; frame < 4; frame++) {
+      let lobes = [];
+      for (let i = 0; i < 42; i++) {
+        let angle = R() * 6.283,
+          r = Math.sqrt(R()) * 43;
+        lobes.push([
+          64 + Math.cos(angle) * r,
+          64 + Math.sin(angle) * r * 0.7,
+          12 + R() * 18,
+          9 + R() * 15,
+          0.18 + R() * 0.26,
+        ]);
+      }
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          let top = -9,
+            base = [0, 0, 0];
+          for (let k = 0; k < lobes.length; k++) {
+            let l = lobes[k],
+              dx = (x - l[0]) / l[2],
+              dy = (y - l[1]) / l[3],
+              rad = dx * dx + dy * dy;
+            if (rad < 1) {
+              let rough =
+                0.08 * Math.sin(x * 0.31 + y * 0.17 + k) +
+                0.05 * Math.sin(x * 0.12 - y * 0.23);
+              if (rad > 1 + rough) continue;
+              let depth = Math.sqrt(Math.max(0, 1 - rad));
+              if (depth > top) {
+                top = depth;
+                let sun = Math.max(0, -dx * 0.35 - dy * 0.48 + depth * 0.82);
+                let tone =
+                  0.24 +
+                  0.55 * sun +
+                  l[4] +
+                  0.05 * Math.sin(x * 1.9 + y * 0.73 + k * 5);
+                base = [24 + 38 * tone, 55 + 88 * tone, 13 + 28 * tone];
+              }
+            }
+          }
+          if (top > -8) {
+            let id = (y * 512 + frame * 128 + x) * 4;
+            leafPixels.data[id] = base[0];
+            leafPixels.data[id + 1] = base[1];
+            leafPixels.data[id + 2] = base[2];
+            leafPixels.data[id + 3] = Math.min(255, 155 + top * 100);
+          }
+        }
+    }
+    leafInk.putImageData(leafPixels, 0, 0);
+    const atlasAlpha = [];
+    for (let frame = 0; frame < 4; frame++) {
+      let count = 0;
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++)
+          if (leafPixels.data[(y * 512 + frame * 128 + x) * 4 + 3] > 0) count++;
+      atlasAlpha.push(count);
+    }
+    const leafTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, leafTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      leafCanvas,
+    );
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(
+      gl.TEXTURE_2D,
+      gl.TEXTURE_MIN_FILTER,
+      gl.LINEAR_MIPMAP_LINEAR,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const shadowCanvas = document.createElement("canvas");
+    shadowCanvas.width = 512;
+    shadowCanvas.height = 512;
+    const shadowInk = shadowCanvas.getContext("2d");
+    shadowInk.fillStyle = "#fff";
+    shadowInk.fillRect(0, 0, 512, 512);
+    const shadowTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    let leafP = [],
+      leafUV = [],
+      leafC = [];
+    function leafVertex(p, u, c) {
+      leafP.push(...p);
+      leafUV.push(...u);
+      leafC.push(...c);
+    }
+    function leafQuad(x, y, z, w, h, turn, variant, c) {
+      let dx = Math.cos(turn) * w,
+        dz = Math.sin(turn) * w,
+        u0 = variant * 0.25,
+        u1 = u0 + 0.25,
+        a = [x - dx, y - h * 0.45, z - dz],
+        b = [x + dx, y - h * 0.45, z + dz],
+        d = [x - dx, y + h * 0.55, z - dz],
+        e = [x + dx, y + h * 0.55, z + dz];
+      leafVertex(a, [u0, 1], c);
+      leafVertex(b, [u1, 1], c);
+      leafVertex(d, [u0, 0], c);
+      leafVertex(d, [u0, 0], c);
+      leafVertex(b, [u1, 1], c);
+      leafVertex(e, [u1, 0], c);
+    }
+    let leafRoots = [];
+    for (let i = 0; i < 14000 && leafRoots.length < 2200; i++) {
+      let x = (R() - 0.5) * 245,
+        z = (R() - 0.5) * 158,
+        y = H(x, z),
+        n = normal(x, z);
+      if (y < 5 || y > 68 || n[1] < 0.48) continue;
+      let h = 2.3 + R() * 3.5,
+        w = h * (0.31 + R() * 0.13),
+        c = [0.56 + R() * 0.2, 0.58 + R() * 0.17, 0.48 + R() * 0.14],
+        v = i % 4;
+      leafRoots.push([x, z, w, h]);
+      leafQuad(x, y + h * 0.5, z, w, h, R() * 6.28, v, c);
+      leafQuad(x, y + h * 0.5, z, w, h, R() * 6.28, v, c);
+      if (R() > 0.22)
+        leafQuad(
+          x + (R() - 0.5) * w,
+          y + h * 0.55,
+          z + (R() - 0.5) * w,
+          w * 0.72,
+          h * 0.74,
+          R() * 6.28,
+          (v + 1) % 4,
+          c,
+        );
+    }
+    for (const root of leafRoots) {
+      let x = (root[0] / 300 + 0.5) * 512 + root[3] * 0.42,
+        z = (root[1] / 200 + 0.5) * 512 + root[3] * 0.28;
+      shadowInk.save();
+      shadowInk.translate(x, z);
+      shadowInk.rotate(-0.55);
+      shadowInk.fillStyle = "rgba(18,37,21,.12)";
+      shadowInk.beginPath();
+      shadowInk.ellipse(0, 0, root[2] * 3.0, root[2] * 1.0, 0, 0, 6.283);
+      shadowInk.fill();
+      shadowInk.restore();
+    }
+    shadowInk.fillStyle = "rgba(19,30,16,.54)";
+    shadowInk.beginPath();
+    for (let i = 0; i < pP.length; i += 9) {
+      for (let k = 0; k < 3; k++) {
+        let x = pP[i + k * 3],
+          y = pP[i + k * 3 + 1],
+          z = pP[i + k * 3 + 2],
+          ground = H(x, z),
+          sx = x + ((y - ground) * 0.55) / 0.77,
+          sz = z + ((y - ground) * 0.33) / 0.77,
+          px = (sx / 300 + 0.5) * 512,
+          pz = (sz / 200 + 0.5) * 512;
+        if (k === 0) shadowInk.moveTo(px, pz);
+        else shadowInk.lineTo(px, pz);
+      }
+      shadowInk.closePath();
+    }
+    shadowInk.fill();
+    gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      shadowCanvas,
+    );
+    const leafVAO = gl.createVertexArray();
+    gl.bindVertexArray(leafVAO);
+    for (const [data, location, size] of [
+      [leafP, 0, 3],
+      [leafUV, 1, 2],
+      [leafC, 2, 3],
+    ]) {
+      let b = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(location);
+      gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+    }
+    const leafCount = leafP.length / 3;
+    function arrayVAO(data, size) {
+      let v = gl.createVertexArray();
+      gl.bindVertexArray(v);
+      let b = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, size, gl.FLOAT, false, 0, 0);
+      return v;
+    }
+    const screen = arrayVAO([-1, -1, 3, -1, -1, 3], 2),
+      U = (p, n) => gl.getUniformLocation(p, n),
+      mU = {
+        m: U(M, "m"),
+        sun: U(M, "sun"),
+        shade: U(M, "shade"),
+        landPass: U(M, "landPass"),
+      },
+      sU = {
+        t: U(S, "t"),
+        eye: U(S, "eye"),
+        forward: U(S, "forward"),
+        right: U(S, "right"),
+        up: U(S, "up"),
+        aspect: U(S, "aspect"),
+        bathy: U(S, "bathy"),
+      },
+      qU = { m: U(Q, "m"), atlas: U(Q, "atlas") };
+    let V = [
+        { T: [-4, 25, 0], a: -0.88, e: 0.18, d: 285 },
+        { T: [-67, 4, -28], a: -2.78, e: 0.02, d: 102 },
+        { T: [25, 12, 8], a: -1.48, e: 0.12, d: 190 },
+      ],
+      query = +new URLSearchParams(location.search).get("view"),
+      view = Number.isInteger(query) && query >= 0 && query < 3 ? query : 0,
+      a = V[view].a,
+      e = V[view].e,
+      d = V[view].d,
+      T = V[view].T.slice(),
+      down = false,
+      last;
+    function setView(i) {
+      view = i;
+      a = V[i].a;
+      e = V[i].e;
+      d = V[i].d;
+      T = V[i].T.slice();
+      document
+        .querySelectorAll("button")
+        .forEach((b) =>
+          b.setAttribute("aria-pressed", String(+b.dataset.view === view)),
+        );
+    }
+    function resize() {
+      let r = Math.min(devicePixelRatio, 1.4);
+      canvas.width = innerWidth * r;
+      canvas.height = innerHeight * r;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    addEventListener("resize", resize);
+    resize();
+    setView(view);
+    function draw(t) {
+      let eye = [
+          T[0] + Math.cos(a) * Math.cos(e) * d,
+          T[1] + Math.sin(e) * d,
+          T[2] + Math.sin(a) * Math.cos(e) * d,
+        ],
+        terrainClearance = H(eye[0], eye[2]) + 1.5;
+      eye[1] = Math.max(eye[1], terrainClearance, 1.5);
+      let fwd = norm([T[0] - eye[0], T[1] - eye[1], T[2] - eye[2]]),
+        right = norm(cross(fwd, [0, 1, 0])),
+        up = cross(right, fwd),
+        m = mul(
+          perspective(canvas.width / canvas.height, 0.3, 1500),
+          look(eye, T),
+        );
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.BLEND);
+      gl.useProgram(S);
+      gl.bindVertexArray(screen);
+      gl.uniform1f(sU.t, t * 0.001);
+      gl.uniform3fv(sU.eye, eye);
+      gl.uniform3fv(sU.forward, fwd);
+      gl.uniform3fv(sU.right, right);
+      gl.uniform3fv(sU.up, up);
+      gl.uniform1f(sU.aspect, canvas.width / canvas.height);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, bathy);
+      gl.uniform1i(sU.bathy, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.enable(gl.DEPTH_TEST);
+      gl.useProgram(M);
+      gl.uniformMatrix4fv(mU.m, false, m);
+      gl.uniform3f(mU.sun, -0.55, 0.77, -0.33);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, shadowTexture);
+      gl.uniform1i(mU.shade, 1);
+      gl.uniform1i(mU.landPass, 1);
+      gl.bindVertexArray(island.v);
+      gl.drawElements(gl.TRIANGLES, island.n, gl.UNSIGNED_INT, 0);
+      gl.uniform1i(mU.landPass, 0);
+      gl.bindVertexArray(vegetation.v);
+      gl.drawElements(gl.TRIANGLES, vegetation.n, gl.UNSIGNED_INT, 0);
+      gl.useProgram(Q);
+      gl.uniformMatrix4fv(qU.m, false, m);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, leafTexture);
+      gl.uniform1i(qU.atlas, 0);
+      gl.bindVertexArray(leafVAO);
+      gl.drawArrays(gl.TRIANGLES, 0, leafCount);
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+    const pointers = new Map();
+    let pinch = 0;
+    canvas.onpointerdown = (x) => {
+      pointers.set(x.pointerId, x);
+      down = true;
+      last = x;
+      canvas.setPointerCapture(x.pointerId);
+      if (pointers.size === 2) {
+        let q = [...pointers.values()];
+        pinch = Math.hypot(
+          q[0].clientX - q[1].clientX,
+          q[0].clientY - q[1].clientY,
+        );
+      }
+    };
+    canvas.onpointermove = (x) => {
+      if (!pointers.has(x.pointerId)) return;
+      pointers.set(x.pointerId, x);
+      if (pointers.size === 2) {
+        let q = [...pointers.values()],
+          next = Math.hypot(
+            q[0].clientX - q[1].clientX,
+            q[0].clientY - q[1].clientY,
+          );
+        d = Math.max(70, Math.min(330, d - (next - pinch) * 0.45));
+        pinch = next;
+        return;
+      }
+      if (down) {
+        a -= (x.clientX - last.clientX) * 0.006;
+        e = Math.max(
+          -0.05,
+          Math.min(0.72, e + (x.clientY - last.clientY) * 0.005),
+        );
+        last = x;
+      }
+    };
+    canvas.onpointerup = (x) => {
+      pointers.delete(x.pointerId);
+      down = pointers.size > 0;
+    };
+    canvas.onpointercancel = canvas.onpointerup;
+    canvas.addEventListener(
+      "wheel",
+      (x) => {
+        d = Math.max(70, Math.min(330, d + x.deltaY * 0.13));
+        x.preventDefault();
+      },
+      { passive: false },
+    );
+    document
+      .querySelectorAll("button")
+      .forEach((b) => (b.onclick = () => setView(+b.dataset.view)));
+    addEventListener("keydown", (x) => {
+      if ("123".includes(x.key)) setView(+x.key - 1);
+      if (x.key.toLowerCase() === "r") setView(0);
+    });
+    window.ISLAND = {
+      ready: true,
+      state: () => ({
+        view,
+        a,
+        e,
+        d,
+        broadleafRoots: leafRoots.length,
+        palmRoots: palmRoots.length,
+        atlasAlpha,
+      }),
+      view: setView,
+    };
+  })();
+</script>
