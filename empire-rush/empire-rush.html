@@ -2706,7 +2706,7 @@ function buildCmds(force) {
     for (const c of list) {
       const el = document.createElement('button'); el.className = 'btn'; el.dataset.id = c.id;
       el.innerHTML = `<img src="${c.icon}" alt=""><span class="ql"></span><i class="bar" style="width:0"></i>`;
-      el.addEventListener('click', e => { e.stopPropagation(); const cur = cmdList().find(x => x.id === c.id); if (!cur) return; if (cur.lock) { sfx('bad'); return; } cur.act(); updCmdState(); });
+      el.addEventListener('click', e => { e.stopPropagation(); if (ghostClick()) return; const cur = cmdList().find(x => x.id === c.id); if (!cur) return; if (cur.lock) { sfx('bad'); return; } cur.act(); updCmdState(); });
       el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') showTip(el, c.id); });
       el.addEventListener('pointerleave', hideTip);
       el.addEventListener('touchstart', () => { showTip(el, c.id); clearTimeout(UI.tipT); UI.tipT = setTimeout(hideTip, 1800); }, { passive: true });
@@ -2745,8 +2745,11 @@ function updPlacebar() {
 function hideTip() { $('tip').style.display = 'none'; }
 // Info panel ------------------------------------------------------------------
 const portrait = document.createElement('canvas'); portrait.width = portrait.height = 128; portrait.id = 'portrait';
+// A tap on the map is followed by the browser's own click; panels that pop up under the finger must ignore it.
+let mapTapAt = -1e9;
+const ghostClick = () => performance.now() - mapTapAt < 450;
 const CLOSE_X = '<button id="infoX" title="Clear selection (Esc)" aria-label="Clear selection">✕</button>';
-$('info').addEventListener('click', e => { if (e.target.id === 'infoX') { e.stopPropagation(); setSel([]); sfx('click'); } });
+$('info').addEventListener('click', e => { if (ghostClick()) return; if (e.target.id === 'infoX') { e.stopPropagation(); setSel([]); sfx('click'); } });
 function updInfo() {
   const sel = selected(), box = $('info');
   if (!sel.length) { box.classList.add('empty'); box.innerHTML = ''; UI.infoKey = ''; return; }
@@ -2792,7 +2795,7 @@ function updInfo() {
   } else {
     const d = box.querySelector('#idesc'); if (d) d.outerHTML = html;
   }
-  box.querySelectorAll('.qi').forEach(el => el.onpointerdown = ev => { ev.stopPropagation(); cancelQueue(e, +el.dataset.i); sfx('click'); });
+  box.querySelectorAll('.qi').forEach(el => el.onpointerdown = ev => { ev.stopPropagation(); if (ghostClick()) return; cancelQueue(e, +el.dataset.i); sfx('click'); });
 }
 function drawPortrait(e) {
   const g = portrait.getContext('2d'); g.clearRect(0, 0, 128, 128);
@@ -3020,6 +3023,7 @@ cv.addEventListener('pointermove', e => {
 });
 function endPointer(e) {
   const p = pts.get(e.pointerId); pts.delete(e.pointerId);
+  if (e.pointerType !== 'mouse') mapTapAt = performance.now();
   if (!p || !G.started) return;
   selbox.style.display = 'none';
   const w = toWorld(e.clientX, e.clientY);
@@ -3230,8 +3234,8 @@ $('bIdle').onclick = () => G.started && nextIdle();
 $('bHome').onclick = () => { const tc = G.started && G.teams[0].tc; if (tc) { setSel([tc]); centerOn(tc.x, tc.y); } };
 document.addEventListener('visibilitychange', () => { if (document.hidden && G && G.started && !G.over && !TEST) { paused = true; $('pause').hidden = false; } });
 for (const id of ['top', 'bottom', 'topR', 'touchbar', 'placebar']) $(id).addEventListener('pointerdown', e => e.stopPropagation());
-$('bPlaceOk').onclick = e => { e.stopPropagation(); confirmPlace(); };
-$('bPlaceNo').onclick = e => { e.stopPropagation(); cancelPlace(); };
+$('bPlaceOk').onclick = e => { e.stopPropagation(); if (!ghostClick()) confirmPlace(); };
+$('bPlaceNo').onclick = e => { e.stopPropagation(); if (!ghostClick()) cancelPlace(); };
 window.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') document.body.classList.add('touch'); }, { capture: true });
 if (matchMedia('(pointer: coarse)').matches) { document.body.classList.add('touch'); $('ctlHint').textContent = 'Tap to select · Tap the ground or a target to give orders · Drag to pan · Pinch to zoom · ▢ toggles box select · Tap a placed building outline twice to build'; }
 window.addEventListener('resize', resize);
