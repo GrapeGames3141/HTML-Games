@@ -232,21 +232,21 @@ float bottomRipple=sin(dot(refr,vec2(17.5,6.1))+.92*sin(refr.y*1.4)+1.8*n(refr*1
     const meshV = `#version 300 es
 precision highp float;
 layout(location=0)in vec3 p;layout(location=1)in vec3 n;layout(location=2)in vec3 c;layout(location=3)in vec2 wind;
-uniform mat4 m;uniform float time;uniform bool landPass;
-out vec3 albedo,world,normal;out float routeS;
+layout(location=4)in vec4 treeRoot;layout(location=5)in vec4 treeData;
+uniform mat4 m;uniform float time;uniform bool landPass,instancedTree;
+out vec3 albedo,world,normal;out float routeS,treeTone,leafFlag;out vec2 leafCoord;
 void main(){
-  world=p;normal=n;albedo=c;routeS=wind.y;
+  leafFlag=instancedTree&&wind.y<=-100.?1.:0.;float bladeCode=-wind.y-100.;leafCoord=leafFlag>.5?vec2(mod(bladeCode,3.)-1.,floor(bladeCode/3.)*.2):vec2(0.);world=p;normal=n;albedo=c;routeS=leafFlag>.5?0.:wind.y;treeTone=0.;
+  if(instancedTree){float sn=treeData.x,cs=treeData.y;vec3 q=p*treeRoot.w;world=treeRoot.xyz+vec3(q.x*cs-q.z*sn,q.y,q.x*sn+q.z*cs);normal=vec3(n.x*cs-n.z*sn,n.y,n.x*sn+n.z*cs);routeS+=treeData.z;treeTone=treeData.w;}
   if(!landPass&&wind.x>0.){
-    float broad=.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y*.37);
-    float gust=.15+.34*broad+.14*sin(dot(p.xz,vec2(.19,-.13))-time*.9+wind.y);
-    world.xz+=vec2(.87,.49)*gust*wind.x*wind.x;
-    world.y+=.065*sin(wind.y+time*3.)*wind.x;
+    if(instancedTree){float broad=.5+.5*sin(dot(world.xz,vec2(.035,.021))-time*.22+routeS*.37);float gust=.035+.055*broad+.018*sin(dot(world.xz,vec2(.19,-.13))-time*.9+routeS);world.xz+=vec2(.87,.49)*gust*wind.x*wind.x;world.y+=.018*sin(routeS+time*3.)*wind.x;}
+    else{float broad=.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y*.37);float gust=.15+.34*broad+.14*sin(dot(p.xz,vec2(.19,-.13))-time*.9+wind.y);world.xz+=vec2(.87,.49)*gust*wind.x*wind.x;world.y+=.065*sin(wind.y+time*3.)*wind.x;}
   }
   gl_Position=m*vec4(world,1.);
 }`;
     const meshF = `#version 300 es
 precision highp float;
-in vec3 albedo,world,normal;in float routeS;out vec4 o;
+in vec3 albedo,world,normal;in float routeS,treeTone,leafFlag;in vec2 leafCoord;out vec4 o;
 uniform highp sampler2DShadow shadowMap,nearShadowMap;uniform sampler2D dappleMap,contactMap,grainField;uniform mat4 lightM,nearLightM;uniform vec3 sun,eye;uniform bool landPass;uniform float time;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
 float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
@@ -298,7 +298,9 @@ if(landPass){
   vec3 bankTint=mix(base*vec3(.24,.18,.13),vec3(.19,.070,.018),.22+.28*n(source*8.));base=mix(base,bankTint,bank*.62);vec3 splitFire=mix(vec3(.42,.018,.001),vec3(1.,.38,.025),n(world.xz*17.+vec2(0.,-time*.28)));
   base=mix(base,splitFire,seam);lavaGlow=max(lavaGlow,seam*.82);
 }
-float direct=max(dot(N,normalize(sun)),0.),hemi=.34+.66*max(N.y,0.);vec2 cloudP=(world.xz-vec2(101.,-40.)+normalize(sun).xz*(170./normalize(sun).y))*.014117647-vec2(.87,.49)*time*.018;float cloudShade=smoothstep(.55,.72,weatherField(cloudP));direct*=mix(1.,.54,cloudShade);vec2 map=world.xz/vec2(300.,200.)+.5;float gust=.5+.5*sin(dot(world.xz,vec2(.035,.021))-time*.22+fb(world.xz*.09)*4.);vec2 drift=vec2(.87,.49)*(.0015+.0012*gust)*sin(time*.7+gust*3.);float canopy=texture(dappleMap,map+drift).r;float dapple=mix(.68,1.,canopy);float contact=texture(contactMap,map).r;vec3 lit=base*(.15+.38*hemi+.58*direct)*mix(1.,mix(.57,1.,contact),landPass?1.:0.)*sunShadow(.00025+.00065*(1.-max(N.y,0.)))*mix(1.,dapple,landPass?1.:0.);lit+=vec3(1.45,.27+.13*lavaGlow,.013)*lavaGlow;o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
+if(leafFlag>.5){float aa=max(fwidth(leafCoord.x)*1.7,.025),rib=1.-smoothstep(.025,.025+aa,abs(leafCoord.x));float curve=abs(abs(leafCoord.x)-(.18+.66*leafCoord.y));float vein=(1.-smoothstep(.026,.026+aa,curve))*(.35+.65*sin(leafCoord.y*37.+leafCoord.x*4.)*.5+.5);float underside=(gl_FrontFacing?0.:1.)*(.45+.55*smoothstep(.20,.88,leafCoord.y));base=mix(base,base*vec3(1.22,1.14,.72)+vec3(.020,.018,.002),rib*.48);base=mix(base,base*vec3(.94,1.03,.78),vein*.11);base=mix(base,base*vec3(1.06,1.10,.86),underside*.14);}
+if(treeTone>.001&&leafFlag<.5&&!landPass){float bark=.91+.09*sin(world.y*27.+world.x*4.1-world.z*2.7)+.045*n(world.xz*19.);base*=vec3(bark,bark*.94,bark*.83);}
+float direct=max(dot(N,normalize(sun)),0.),hemi=.34+.66*max(N.y,0.);vec2 cloudP=(world.xz-vec2(101.,-40.)+normalize(sun).xz*(170./normalize(sun).y))*.014117647-vec2(.87,.49)*time*.018;float cloudShade=smoothstep(.55,.72,weatherField(cloudP));direct*=mix(1.,.54,cloudShade);vec2 map=world.xz/vec2(300.,200.)+.5;float gust=.5+.5*sin(dot(world.xz,vec2(.035,.021))-time*.22+fb(world.xz*.09)*4.);vec2 drift=vec2(.87,.49)*(.0015+.0012*gust)*sin(time*.7+gust*3.);float canopy=texture(dappleMap,map+drift).r;float dapple=mix(.68,1.,canopy);float contact=texture(contactMap,map).r;float leafMaterial=(landPass?0.:1.)*smoothstep(.055,.15,albedo.g-albedo.r),instancedLeaf=leafFlag;vec3 treePalette=mix(vec3(1.),vec3(.95,1.045,.84),treeTone);base=mix(base,base*treePalette,instancedLeaf);float back=max(dot(-N,normalize(sun)),0.)*leafMaterial;vec3 lit=base*(.15+.38*hemi+.58*direct)*mix(1.,mix(.57,1.,contact),landPass?1.:0.)*sunShadow(.00025+.00065*(1.-max(N.y,0.)))*mix(1.,dapple,landPass?1.:0.);float leafSky=instancedLeaf*(.10+.13*hemi);float leafGloss=instancedLeaf*pow(max(dot(reflect(-normalize(sun),N),normalize(eye-world)),0.),18.);lit+=base*leafSky+vec3(.18,.25,.075)*leafGloss;lit+=base*vec3(.20,.62,.18)*back*.52;lit+=vec3(1.45,.27+.13*lavaGlow,.013)*lavaGlow;o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
     // Footprints are a dedicated ground pass.  This exact water function is
     // shared with waterV and the CPU walk state, so no print survives a crest.
     const markV = `#version 300 es
@@ -331,15 +333,18 @@ void main(){float bed=texture(ground,world.xz/vec2(300.,200.)+.5).r*4.-2.;if(wav
     const leafV = `#version 300 es
 precision highp float;
 layout(location=0)in vec3 p;layout(location=1)in vec2 uv;layout(location=2)in vec3 c;layout(location=3)in vec2 wind;
-uniform mat4 m;uniform float time;out vec2 vuv;out vec3 col;out vec3 wp;out float windLight;
+layout(location=4)in vec4 crownRoot;layout(location=5)in vec4 crownData;
+uniform mat4 m;uniform float time;uniform bool instancedFar;out vec2 vuv;out vec3 col;out vec3 wp;out float windLight,treeTone;
 void main(){
-  float broad=.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y*.41);
-  float gust=.13+.38*broad+.12*sin(dot(p.xz,vec2(.19,-.13))-time*.9+wind.y);
-  wp=p;wp.xz+=vec2(.87,.49)*gust*wind.x*wind.x;wp.y+=.055*sin(wind.y+time*3.1)*wind.x;
-  windLight=.92+.08*broad*wind.x;vuv=uv;col=c;gl_Position=m*vec4(wp,1.);
+  vec3 base=p;float phase=wind.y;
+  if(instancedFar){float sn=sin(crownData.y),cs=cos(crownData.y);vec3 q=vec3(p.x*crownRoot.w,p.y*crownData.x,p.z*crownRoot.w);base=crownRoot.xyz+vec3(q.x*cs-q.z*sn,q.y,q.x*sn+q.z*cs);phase+=crownData.w;}
+  float broad=.5+.5*sin(dot(base.xz,vec2(.035,.021))-time*.22+phase*.41);
+  float gust=.13+.38*broad+.12*sin(dot(base.xz,vec2(.19,-.13))-time*.9+phase);
+  wp=base;wp.xz+=vec2(.87,.49)*gust*wind.x*wind.x;wp.y+=.055*sin(phase+time*3.1)*wind.x;
+  windLight=.92+.08*broad*wind.x;vuv=instancedFar?vec2((crownData.z+uv.x)*.25,uv.y):uv;treeTone=instancedFar?fract(sin(crownData.w*91.719+17.13)*43758.5453):0.;col=c;gl_Position=m*vec4(wp,1.);
 }`;
     const leafF = `#version 300 es
-precision highp float;in vec2 vuv;in vec3 col;in vec3 wp;in float windLight;uniform sampler2D atlas;out vec4 o;void main(){vec4 a=texture(atlas,vuv);if(a.a<.32)discard;float breakup=.92+.08*sin(wp.x*2.7+wp.z*1.9)*sin(wp.y*1.4);vec3 pseudo=normalize(vec3(sin(wp.z*1.7),.65+fract(wp.y*.17),cos(wp.x*1.3)));float sun=max(dot(pseudo,normalize(vec3(-.64,.48,.55))),0.);vec3 light=(vec3(.34,.48,.42)+vec3(1.0,.82,.46)*sun)*windLight;vec3 eco=mix(vec3(.72,.90,.80),vec3(1.08,.95,.62),clamp(.25+.4*wp.y/48.-.08*wp.x/120.,0.,1.));vec2 uv=vec2(fract(vuv.x*4.)*2.-1.,1.-vuv.y*2.);
+precision highp float;in vec2 vuv;in vec3 col;in vec3 wp;in float windLight,treeTone;uniform sampler2D atlas;out vec4 o;void main(){vec4 a=texture(atlas,vuv);if(a.a<.32)discard;float breakup=.92+.08*sin(wp.x*2.7+wp.z*1.9)*sin(wp.y*1.4);vec3 pseudo=normalize(vec3(sin(wp.z*1.7),.65+fract(wp.y*.17),cos(wp.x*1.3)));float sun=max(dot(pseudo,normalize(vec3(-.64,.48,.55))),0.);vec3 light=(vec3(.34,.48,.42)+vec3(1.0,.82,.46)*sun)*windLight;vec3 eco=mix(vec3(.72,.90,.80),vec3(1.08,.95,.62),clamp(.25+.4*wp.y/48.-.08*wp.x/120.,0.,1.));eco*=mix(vec3(.88,.95,.75),vec3(.98,1.04,.86),treeTone);vec2 uv=vec2(fract(vuv.x*4.)*2.-1.,1.-vuv.y*2.);
 vec3 cardN=normalize(cross(dFdx(wp),dFdy(wp)));vec3 tang=normalize(cross(vec3(0.,1.,0.),cardN)+vec3(.0001));
 vec3 direction=normalize(vec3(-.64,.48,.55)),roundN=normalize(tang*uv.x+vec3(0.,uv.y+.3,0.)+cardN*(gl_FrontFacing?1.:-1.)*sqrt(max(.02,1.-dot(uv,uv))));
 float face=.5+.5*dot(roundN,direction),rim=pow(max(0.,1.-face),3.)*.06;
@@ -366,9 +371,9 @@ precision highp float;in vec3 world,N,col;in float fade;uniform vec3 sun,eye;uni
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float sh(highp sampler2DShadow sm,mat4 lm){vec4 q=lm*vec4(world,1.);q.xyz=q.xyz/q.w*.5+.5;if(q.x<.002||q.x>.998||q.y<.002||q.y>.998||q.z>1.)return 1.;return texture(sm,vec3(q.xy,q.z-.00055));}
 void main(){if(h(floor(world.xz*19.))>fade)discard;vec3 nn=normalize(N),L=normalize(sun);float direct=max(dot(nn,L),0.),hemi=.38+.62*max(nn.y,0.);float near=sh(nearShadowMap,nearLightM),far=sh(shadowMap,lightM),shadow=mix(far,near,1.-smoothstep(20.,27.,length(world.xz-eye.xz)));vec3 lit=col*(.19+.34*hemi+.48*direct*shadow);o=vec4(pow(max(lit,0.),vec3(.64)),1.);}`;
     const shadowV = `#version 300 es
-layout(location=0)in vec3 p;layout(location=3)in vec2 wind;uniform mat4 lightM;uniform float time;void main(){vec3 q=p;if(wind.x>0.){float g=.22+.42*(.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y));q.xz+=vec2(.87,.49)*g*wind.x*wind.x;q.y+=.065*sin(wind.y+time*3.)*wind.x;}gl_Position=lightM*vec4(q,1.);}`;
+layout(location=0)in vec3 p;layout(location=3)in vec2 wind;layout(location=4)in vec4 treeRoot;layout(location=5)in vec4 treeData;uniform mat4 lightM;uniform float time;uniform bool instancedTree;void main(){vec3 q=p;float phase=instancedTree&&wind.y<=-100.?0.:wind.y;if(instancedTree){float sn=treeData.x,cs=treeData.y;vec3 a=p*treeRoot.w;q=treeRoot.xyz+vec3(a.x*cs-a.z*sn,a.y,a.x*sn+a.z*cs);phase+=treeData.z;}if(wind.x>0.){if(instancedTree){float broad=.5+.5*sin(dot(q.xz,vec2(.035,.021))-time*.22+phase*.37);float g=.035+.055*broad+.018*sin(dot(q.xz,vec2(.19,-.13))-time*.9+phase);q.xz+=vec2(.87,.49)*g*wind.x*wind.x;q.y+=.018*sin(phase+time*3.)*wind.x;}else{float g=.22+.42*(.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y));q.xz+=vec2(.87,.49)*g*wind.x*wind.x;q.y+=.065*sin(wind.y+time*3.)*wind.x;}}gl_Position=lightM*vec4(q,1.);}`;
     const shadowLeafV = `#version 300 es
-layout(location=0)in vec3 p;layout(location=1)in vec2 uv;layout(location=3)in vec2 wind;uniform mat4 lightM;uniform float time;out vec2 vuv;void main(){vec3 q=p;float g=.18+.42*(.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y));q.xz+=vec2(.87,.49)*g*wind.x*wind.x;q.y+=.055*sin(wind.y+time*3.1)*wind.x;vuv=uv;gl_Position=lightM*vec4(q,1.);}`;
+layout(location=0)in vec3 p;layout(location=1)in vec2 uv;layout(location=3)in vec2 wind;layout(location=4)in vec4 crownRoot;layout(location=5)in vec4 crownData;uniform mat4 lightM;uniform float time;uniform bool instancedFar;out vec2 vuv;void main(){vec3 q=p;float phase=wind.y;if(instancedFar){float sn=sin(crownData.y),cs=cos(crownData.y);vec3 a=vec3(p.x*crownRoot.w,p.y*crownData.x,p.z*crownRoot.w);q=crownRoot.xyz+vec3(a.x*cs-a.z*sn,a.y,a.x*sn+a.z*cs);phase+=crownData.w;}float g=.18+.42*(.5+.5*sin(dot(q.xz,vec2(.035,.021))-time*.22+phase));q.xz+=vec2(.87,.49)*g*wind.x*wind.x;q.y+=.055*sin(phase+time*3.1)*wind.x;vuv=instancedFar?vec2((crownData.z+uv.x)*.25,uv.y):uv;gl_Position=lightM*vec4(q,1.);}`;
     const shadowLeafF = `#version 300 es
 precision highp float;in vec2 vuv;uniform sampler2D atlas;void main(){if(texture(atlas,vuv).a<.35)discard;}`;
     const flowV = `#version 300 es
@@ -962,97 +967,125 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       gl.LINEAR_MIPMAP_LINEAR,
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    let leafP = [],
-      leafUV = [],
-      leafC = [], leafW = [];
-    function leafVertex(p, u, c, bend, phase) {
-      leafP.push(...p);
-      leafUV.push(...u);
-      leafC.push(...c);
-      leafW.push(bend, phase);
-    }
-    function leafQuad(x, y, z, w, h, turn, variant, c) {
-      let dx = Math.cos(turn) * w,
-        dz = Math.sin(turn) * w,
-        u0 = variant * 0.25,
-        u1 = u0 + 0.25,
-        a = [x - dx, y - h * 0.45, z - dz],
-        b = [x + dx, y - h * 0.45, z + dz],
-        d = [x - dx, y + h * 0.55, z - dz],
-        e = [x + dx, y + h * 0.55, z + dz];
-      // The bottom edge is a twig pivot; the top edge alone catches the gust.
-      let phase = turn * 1.73 + x * .13 + z * .17;
-      leafVertex(a, [u0, 1], c, .12, phase);
-      leafVertex(b, [u1, 1], c, .12, phase + .17);
-      leafVertex(d, [u0, 0], c, 1, phase + .31);
-      leafVertex(d, [u0, 0], c, 1, phase + .31);
-      leafVertex(b, [u1, 1], c, .12, phase + .17);
-      leafVertex(e, [u1, 0], c, 1, phase + .48);
-    }
-    // Three short atlas planes make one curved, twig-attached branchlet. They
-    // retain the hand-painted leaf silhouettes between the larger solid leaves.
-    function atlasBranchlet(p, growth, scale, seed, tint) {
-      const axis=norm(growth),flat=Math.hypot(axis[0],axis[2])<.02?[1,0,0]:norm([axis[2],0,-axis[0]]),phase=seed*.31+p[0]*.11+p[2]*.07;
-      for(let k=0;k<3;k++){
-        const roll=(noise(seed,k*3)-.5)*1.45,travel=scale*(.045+.105*k),curl=(noise(seed+4,k)-.5)*scale*.16,
-          centre=[p[0]+axis[0]*travel+flat[0]*curl,p[1]+axis[1]*travel+.035*scale*k,p[2]+axis[2]*travel+flat[2]*curl],
-          tilt=norm([axis[0]+flat[0]*Math.sin(roll)*.22,axis[1]+.12+.09*Math.cos(roll),axis[2]+flat[2]*Math.sin(roll)*.22]),
-          side=Math.hypot(tilt[0],tilt[2])<.02?[1,0,0]:norm(cross(tilt,[0,1,0])),w=scale*(.115+.055*noise(seed,k+11)),h=scale*(.20+.10*noise(seed+7,k+19)),
-          u0=((seed+k)%4)*.25,u1=u0+.25,a=[centre[0]-side[0]*w-tilt[0]*h*.30,centre[1]-side[1]*w-tilt[1]*h*.30,centre[2]-side[2]*w-tilt[2]*h*.30],
-          b=[centre[0]+side[0]*w-tilt[0]*h*.30,centre[1]+side[1]*w-tilt[1]*h*.30,centre[2]+side[2]*w-tilt[2]*h*.30],
-          d=[centre[0]-side[0]*w+tilt[0]*h*.70,centre[1]-side[1]*w+tilt[1]*h*.70,centre[2]-side[2]*w+tilt[2]*h*.70],
-          e=[centre[0]+side[0]*w+tilt[0]*h*.70,centre[1]+side[1]*w+tilt[1]*h*.70,centre[2]+side[2]*w+tilt[2]*h*.70];
-        leafVertex(a,[u0,1],tint,.12,phase+k*.09);leafVertex(b,[u1,1],tint,.12,phase+k*.09+.13);leafVertex(d,[u0,0],tint,.88,phase+k*.09+.27);
-        leafVertex(d,[u0,0],tint,.88,phase+k*.09+.27);leafVertex(b,[u1,1],tint,.12,phase+k*.09+.13);leafVertex(e,[u1,0],tint,.88,phase+k*.09+.40);
-      }
-    }
     // Terminal sprays use individual folded leaves hinged to their twig. This
     // replaces near-field crossed rectangles while retaining atlas shadows.
-    function leafBlade(root, azimuth, length, width, tint, phase) {
-      const side=[-Math.sin(azimuth),.035,Math.cos(azimuth)],forward=[Math.cos(azimuth),0,Math.sin(azimuth)],
-        rise=.035+.23*noise(root[0]*.47+phase,root[2]*.41-phase),roll=.34*Math.sin(phase*1.71);
+    function leafBlade(root, azimuth, length, width, tint, phase, pitch = 0, rollBias = 0, broad = false) {
+      // A small attached and cambered blade; pitch/roll come from its shoot.
+      const side=[-Math.sin(azimuth),.035+rollBias*.08,Math.cos(azimuth)],forward=[Math.cos(azimuth)*Math.cos(pitch),Math.sin(pitch),Math.sin(azimuth)*Math.cos(pitch)],
+        rise=.035+.23*noise(root[0]*.47+phase,root[2]*.41-phase),roll=rollBias+.34*Math.sin(phase*1.71);
       let previous;
-      // Four profile stations give each leaf a rounded shoulder and tapered
+      // Six outline stations round the shoulders and keep the tapered
       // tip; its raised centre line is the visibly attached midrib.
-      for(let station=0;station<4;station++){
-        const t=station/3,shoulder=Math.sin(Math.PI*t)*(.78+.22*Math.sin(t*Math.PI*.5)),span=width*shoulder,
-          reach=length*t,drop=length*(.10+.14*noise(phase,3))*t*t,
-          centre=[root[0]+forward[0]*reach,root[1]+rise*length*Math.sin(t*Math.PI*.72)-drop,root[2]+forward[2]*reach],
+      for(let station=0;station<6;station++){
+        const t=station/5,shoulder=Math.sin(Math.PI*t)*(broad?1.12:.78+.22*Math.sin(t*Math.PI*.5)),span=width*shoulder,
+          reach=length*t,drop=length*(.13+.18*noise(phase,3))*t*t,
+          centre=[root[0]+forward[0]*reach,root[1]+forward[1]*reach+rise*length*Math.sin(t*Math.PI*.72)-drop,root[2]+forward[2]*reach],
           fold=span*(.30+.20*Math.cos(t*Math.PI)+roll*.16),left=[centre[0]+side[0]*span,centre[1]-roll*span*.34,centre[2]+side[2]*span],
           ridge=[centre[0],centre[1]+fold,centre[2]],right=[centre[0]-side[0]*span,centre[1]+roll*span*.34,centre[2]-side[2]*span],
           shade=.78+.16*(1-t),row=[
-            pv(left,norm([-side[0],.54,-side[2]]),tint.map(v=>v*.70*shade),t*.72,phase),
-            pv(ridge,[0,.97,0],tint.map((v,i)=>v*(i===1?1.12:.92)*shade),t*.78,phase+.08),
-            pv(right,norm([side[0],.54,side[2]]),tint.map((v,i)=>v*(i===1?.78:.68)*shade),t*.72,phase+.16)
+            pv(left,norm([-side[0],.54,-side[2]]),tint.map(v=>v*.70*shade),t*.72,-100-station*3),
+            // Raised pale centre strip reads as a midrib; the alternating
+            // station shade gives economical secondary-vein relief.
+            pv(ridge,[0,.97,0],tint.map((v,i)=>(i===1?v*1.30+.055:v*.82)*shade),t*.78,-101-station*3),
+            pv(right,norm([side[0],.54,side[2]]),tint.map((v,i)=>v*(i===1?.78:.68)*shade),t*.72,-102-station*3)
           ];
         if(previous){tri(previous[0],row[0],previous[1]);tri(previous[1],row[0],row[1]);tri(previous[1],row[1],previous[2]);tri(previous[2],row[1],row[2]);}previous=row;
       }
     }
-    function leafSpray(p, scale, seed, tint) {
-      const count = scale > 4 ? 9 : 7,twigCount=scale>4?3:2,parentPhase=seed*.31+p[0]*.11+p[2]*.07,twigs=[];
-      for(let twig=0;twig<twigCount;twig++){
-        const a=seed*.91+twig*6.283/twigCount+.18*Math.sin(seed+twig*4.1),reach=scale*(.12+.055*noise(seed,twig+29)),lift=scale*(.028+.045*noise(seed+7,twig)),end=[p[0]+Math.cos(a)*reach,p[1]+lift,p[2]+Math.sin(a)*reach];
-        woodSegment(p,end,scale*.010,scale*.0038,[.095,.054,.020],.17,parentPhase+twig*.19);twigs.push({a,end});
+    // Two tropical growth habits use continuous curved internodes, unequal
+    // forks, and a square-area radius budget (r_parent^2 ~= sum r_child^2).
+    // They are botanical inspirations, not exact species reconstructions.
+    const canopyStats = { trees:0, woodyInternodes:0, terminalShoots:0, leaves:0, full:0, compact:0 };
+    // Filled from actual built specimens, rather than estimated formulas.
+    const canopyModels = { seaAlmondMature:null, roundedMature:null, compactForest:null };
+    const vadd=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]], vmul=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+    // Leonardo/Bentley-style area budget: the incoming section covers the
+    // unequal daughter sections (with a small bark/safety margin).
+    const forkRadius=(children,margin=1.06)=>Math.sqrt(children.reduce((sum,r)=>sum+r*r,0))*margin;
+    function limbPath(start, direction, length, r0, r1, seed, bend, tint) {
+      // Three attached internodes make a bent limb instead of one straight fork.
+      const points=[start]; let p=start,d=norm(direction);
+      for(let k=0;k<3;k++){
+        const side=norm([-d[2],0,d[0]]), sway=(noise(seed,k*7.1)-.5)*bend;
+        d=norm([d[0]+side[0]*sway+.025*Math.sin(seed+k),d[1]+.035+.055*noise(seed+9,k),d[2]+side[2]*sway+.025*Math.cos(seed-k)]);
+        const next=vadd(p,vmul(d,length/3)), a=k/3,b=(k+1)/3;
+        woodSegment(p,next,Math.sqrt(r0*r0*(1-a)+r1*r1*a),Math.sqrt(r0*r0*(1-b)+r1*r1*b),tint,.055,seed+k*.19);
+        canopyStats.woodyInternodes++; points.push(next); p=next;
       }
-      for (let i = 0; i < count; i++) {
-        const twig=twigs[i%twigCount],attach=.24+.64*((i/twigCount|0)+.5)/Math.ceil(count/twigCount),a=twig.a+[-.70,.14,.62][i%3]+.16*Math.sin(seed*3.1+i*4.7),
-          root = [p[0]+(twig.end[0]-p[0])*attach,p[1]+(twig.end[1]-p[1])*attach,p[2]+(twig.end[2]-p[2])*attach],
-          length = scale * (.115 + .050 * noise(seed + i * 5.3, i + 3)), width = length * (.16 + .050 * noise(seed + 11, i * 3)),
-          tint2 = tint.map((v, c) => v * (.80 + .16 * noise(seed + i * 3, c + 9)) + (c === 1 ? .025 : 0));
-        leafBlade(root, a, length, width, tint2, parentPhase+i*.83);
+      return {end:p,direction:d,points};
+    }
+    function pathPoint(path,t) {
+      const u=Math.max(0,Math.min(.999,t))*3,i=Math.floor(u),f=u-i,a=path.points[i],b=path.points[i+1];
+      return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];
+    }
+    function terminalShoot(anchor,direction,size,seed,tint,leafCount,twigCount,habit="oval") {
+      // Individual petioled leaves are distributed along each fine shoot.
+      canopyStats.terminalShoots++; const base=Math.atan2(direction[2],direction[0]);
+      for(let twig=0;twig<twigCount;twig++){
+        const az=base+(twigCount===1?0:(twig/(twigCount-1)-.5)*1.22)+.20*Math.sin(seed+twig*3.7),
+          v=norm([Math.cos(az)*(.76+.12*noise(seed,twig)),.26+.16*noise(seed+3,twig),Math.sin(az)*(.76+.12*noise(seed,twig))]),
+          // Terminal wood is deliberately fine and short: foliage gathers at
+          // the distal crown instead of reading as a rack of thick sticks.
+          shoot=limbPath(anchor,v,size*(.085+.018*noise(seed+4,twig)),size*.0022,size*.0011,seed+twig*29,.10,[.105,.061,.024]), per=Math.ceil(leafCount/twigCount),young=noise(seed+twig*37,71)>.82;
+        for(let i=0;i<per && twig*per+i<leafCount;i++){
+          // Rounded habit makes true opposite pairs at a node; almond leaves
+          // tighten into a distal rosette while retaining separate petioles.
+          const pair=Math.floor(i/2), f=habit==="almond"?.43+.47*(i+.45)/per:.15+.76*(pair+.45)/Math.ceil(per/2), socket=pathPoint(shoot,f), side=i%2?1:-1,
+            la=habit==="almond"?az+i*Math.PI*2/per+.20*Math.sin(seed+i*3.7):az+side*(.48+.22*noise(seed+i*7,twig+3)), petioleLength=.018+.024*noise(seed,i), petiole=vadd(socket,[Math.cos(la)*petioleLength,(.010+.020*noise(seed,i))*petioleLength,Math.sin(la)*petioleLength]),
+            length=(habit==="almond"?.145:.095)+(habit==="almond"?.085:.065)*noise(seed+i*5.3,i+11), width=length*((habit==="almond"?.38:.27)+.07*noise(seed+17,i*2));
+          woodSegment(socket,petiole,.0018,.0007,[.11,.065,.026],.06,seed+i*.41);
+          const mature=tint.map((c,k)=>c*(.74+.32*noise(seed+i*3,k+9))+(k===1?.018:0)),olive=.82+.28*noise(seed+twig*19,i+41),leafTint=young?[mature[0]*1.30+.020,mature[1]*1.14+.030,mature[2]*.64+.004]:[mature[0]*(1.06-.16*olive),mature[1]*olive,mature[2]*(.78+.20*olive)];
+          leafBlade(petiole,la,length,width,leafTint,seed*.31+i*.83,.17*Math.sin(seed+i*1.9),.34*side,habit==="almond");
+          canopyStats.leaves++;
+        }
       }
     }
-    function lowForestSprays(x, y, z, h, seed, tint) {
-      // Five radial anchors across three layers form a continuous lowland canopy, not isolated gloves.
-      for (let branch = 0; branch < 5; branch++) {
-        let a = seed * .31 + branch * 1.257 + noise(seed, branch) * .32,
-          layer = branch % 3,
-          root = [x, y + h * (.31 + .10 * layer), z],
-          tip = [x + Math.cos(a) * h * (.23 + .04 * layer), y + h * (.59 + .08 * layer), z + Math.sin(a) * h * (.23 + .04 * layer)];
-        woodSegment(root, tip, h * .022, h * .009, [.11,.063,.025]);
-        leafSpray(tip, h * (.72 + .08 * layer), seed + branch * 19, tint);
-        atlasBranchlet(tip,[tip[0]-root[0],tip[1]-root[1],tip[2]-root[2]],h*(.62+.06*layer),seed+branch*37,[.39+.05*noise(seed,branch),.53+.06*noise(seed+4,branch),.23+.04*noise(seed+7,branch)]);
+    function seaAlmondTree(x,y,z,h,seed,full,tint) {
+      const tiers=full?4:3, limbs=full?[6,5,5,4]:[4,3,2], secondary=full?2:1;
+      // Tier roots attach to a continuing leader, never to empty air above the trunk.
+      const leader=limbPath([x,y+h*.36,z],[.025,.995,-.018],h*.55,h*.029,h*.014,seed+909,.07,[.13,.075,.029]);
+      for(let tier=0;tier<tiers;tier++) for(let j=0;j<limbs[tier];j++){
+        const az=seed*.73+j*Math.PI*2/limbs[tier]+tier*.47+(noise(seed+tier*11,j)-.5)*.34,reach=h*(.34-.031*tier),child=h*(full?.012:.010),
+          rA=child*(.78+.15*noise(seed+tier,j)),rB=child*(.72+.19*noise(seed+7+tier,j)),rTip=child*(.66+.14*noise(seed+15+tier,j)),jointR=forkRadius([rA,rB,rTip]),
+          main=limbPath(pathPoint(leader,tier*(full?.125:.155)/.55),[Math.cos(az),.26+.05*tier,Math.sin(az)],reach*.58,jointR*1.13,jointR,seed+tier*47+j,.23,[.125,.071,.028]);
+        for(let q=0;q<secondary;q++){
+          const a=az+(q?1:-1)*(.60+.14*noise(seed,j+q)),radius=q?rB:rA,sub=limbPath(main.end,[Math.cos(a),.24+.10*noise(seed,q),Math.sin(a)],reach*(.42+.10*noise(seed+3,q)),radius,radius*.39,seed+113+tier*31+j*7+q,.20,[.105,.059,.022]);
+          terminalShoot(sub.end,sub.direction,h,seed+271+tier*43+j*11+q,tint,full?30:15,full?3:2,"almond");
+        }
+        const continuation=limbPath(main.end,norm([main.direction[0],main.direction[1]+.24,main.direction[2]]),reach*.42,rTip,rTip*.36,seed+617+tier*17+j,.12,[.105,.059,.022]);
+        terminalShoot(continuation.end,continuation.direction,h*.82,seed+701+tier*37+j,tint,full?16:8,full?2:1,"almond");
+        const outer=limbPath(pathPoint(main,.61),[Math.cos(az+(j&1?.64:-.64)),.13,Math.sin(az+(j&1?.64:-.64))],reach*.22,child*.48,child*.14,seed+887+tier*31+j,.10,[.105,.059,.022]);
+        terminalShoot(outer.end,outer.direction,h*.62,seed+941+tier*29+j,tint,full?15:10,full?2:1,"almond");
       }
+    }
+    function roundedTree(x,y,z,h,seed,full,tint) {
+      const levels=full?4:3,laterals=full?3:2,secondary=full?2:1; let leader=[x,y+h*.39,z];
+      for(let level=0;level<levels;level++){
+        const next=vadd(leader,[h*(noise(seed,level)-.5)*.035,h*(.13-.012*level),h*(noise(seed+9,level)-.5)*.035]);
+        woodSegment(leader,next,h*(.026-level*.003),h*(.022-level*.003),[.13,.075,.029],.025,seed+level); canopyStats.woodyInternodes++;
+        for(let j=0;j<laterals;j++){
+          const az=seed*.61+level*1.17+j*Math.PI*2/laterals+(noise(seed+level,j)-.5)*.38, child=h*(full?.0105:.009),
+            rA=child*(.76+.18*noise(seed+3,j)),rB=child*(.69+.20*noise(seed+11,j)),rTip=child*(.62+.15*noise(seed+19,j)),jointR=forkRadius([rA,rB,rTip]),
+            main=limbPath(next,[Math.cos(az),.27+.12*noise(seed,j),Math.sin(az)],h*(.27-.025*level),jointR*1.12,jointR,seed+level*61+j,.22,[.12,.068,.026]);
+          for(let q=0;q<secondary;q++){
+            const a=az+(q?1:-1)*(.58+.12*noise(seed+5,q)),radius=q?rB:rA,sub=limbPath(main.points[q+1],[Math.cos(a),.22+.12*noise(seed,q),Math.sin(a)],h*(.15+.025*noise(seed+7,q)),radius,radius*.39,seed+199+level*23+j*5+q,.19,[.10,.057,.021]);
+            terminalShoot(sub.end,sub.direction,h,seed+379+level*47+j*13+q,tint,full?30:15,full?3:2);
+          }
+          // Retained distal shoot is the third, unequal child in the area budget.
+          terminalShoot(main.end,main.direction,h*.72,seed+593+level*29+j,tint,full?16:8,full?2:1);
+          const outer=limbPath(main.points[1],[Math.cos(az+(j&1?.71:-.71)),.12,Math.sin(az+(j&1?.71:-.71))],h*.11,child*.42,child*.13,seed+733+level*31+j,.09,[.10,.057,.021]);
+          terminalShoot(outer.end,outer.direction,h*.57,seed+769+level*37+j,tint,full?15:10,full?2:1);
+        }
+        leader=next;
+      }
+      terminalShoot(leader,[.08,1,.05],h*.78,seed+811,tint,full?20:10,full?2:1);
+    }
+    function coastalTree(x,y,z,h,seed,full,tint) {
+      canopyStats.trees++; canopyStats[full?"full":"compact"]++;
+      const before={w:canopyStats.woodyInternodes,t:canopyStats.terminalShoots,l:canopyStats.leaves},rounded=!!((seed*17|0)%2);
+      if(rounded) roundedTree(x,y,z,h,seed,full,tint); else seaAlmondTree(x,y,z,h,seed,full,tint);
+      const key=full?(rounded?"roundedMature":"seaAlmondMature"):"compactForest";
+      if(!canopyModels[key]) canopyModels[key]={woodyInternodes:canopyStats.woodyInternodes-before.w,terminalShoots:canopyStats.terminalShoots-before.t,leaves:canopyStats.leaves-before.l};
     }
     function broadleafTrunk(x, y, z, h) {
       let first = pP.length / 3,
@@ -1087,7 +1120,27 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
           tri(b, c, d);
         }
     }
-    let leafRoots = [], localTreeCount = 0, lowForestCount = 0;
+    // Shared local trees are authored once.  Per-root data is only a compact
+    // transform, so walking through a new grove never allocates a new mesh.
+    const canopyPrototypes=[];
+    function instanceTreeMesh(P,N,C,I,W,kind,variant,full){
+      const mesh=makeMesh(P,N,C,I,W);gl.bindVertexArray(mesh.v);
+      for(const [loc,key] of [[4,"rootBuffer"],[5,"dataBuffer"]]){const b=gl.createBuffer();mesh[key]=b;gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,4,gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,4,gl.FLOAT,false,0,0);gl.vertexAttribDivisor(loc,1);}
+      mesh.kind=kind;mesh.variant=variant;mesh.full=full;mesh.instanceCount=0;return mesh;
+    }
+    function buildCanopyPrototype(kind,variant,full){
+      const save=[pP,pN,pC,pI,pW];pP=[];pN=[];pC=[];pI=[];pW=[];
+      const seed=(kind?201:200)+variant*2,tint=kind?[.072+.008*variant,.205+.012*variant,.034]:[.065+.009*variant,.190+.014*variant,.028];
+      broadleafTrunk(0,0,0,4);coastalTree(0,0,0,4,seed,full,tint);
+      canopyPrototypes.push(instanceTreeMesh(pP,pN,pC,pI,pW,kind,variant,full));
+      [pP,pN,pC,pI,pW]=save;
+    }
+    for(let kind=0;kind<2;kind++)for(let variant=0;variant<2;variant++){buildCanopyPrototype(kind,variant,true);buildCanopyPrototype(kind,variant,false);}
+    // Far crowns retain a grounded trunk and a few load-bearing sticks; they
+    // are still one shared mesh, not a per-root allocation.
+    function buildFarStructure(){const save=[pP,pN,pC,pI,pW];pP=[];pN=[];pC=[];pI=[];pW=[];broadleafTrunk(0,0,0,4);for(const a of [.25,2.34,4.43])woodSegment([0,2.25,0],[Math.cos(a)*1.05,3.02,Math.sin(a)*1.05],.055,.018,[.105,.060,.023],.04,a);const mesh=instanceTreeMesh(pP,pN,pC,pI,pW,2,0,false);[pP,pN,pC,pI,pW]=save;return mesh;}
+    const farStructure=buildFarStructure();
+    let leafRoots = [], treeRoots = [], localTreeCount = 0, lowForestCount = 0;
     for (let i = 0; i < 14000 && leafRoots.length < 2200; i++) {
       let x = (R() - 0.5) * 245,
         z = (R() - 0.5) * 158,
@@ -1107,25 +1160,27 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         solidC = [.055 + R() * .04, .16 + R() * .085, .018 + R() * .030],
         v = i % 4;
       leafRoots.push([x, z, w, h]);
-      broadleafTrunk(x, y, z, h);
+      // Retain the historical PRNG consumption so the island's later scatter
+      // remains stable while this root becomes an instance instead of a mesh.
       let walkingForest = y < 30 && Math.hypot(x - 91, z + 32) < 78 && localTreeCount < 230;
       if (walkingForest) {
         localTreeCount++;
-        oakWord(x, y, z, h, i);
       } else if (y < 31 && lowForestCount++ < 980) {
-        lowForestSprays(x, y, z, h, i, solidC);
       } else {
-        // Distant crowns use short crossed sprays, avoiding trunk-height walls.
-        for(let spray=0;spray<3;spray++){
-          const turn=R()*6.28,reach=w*(.20+.30*R());
-          leafQuad(x+Math.cos(turn)*reach,y+h*(.57+.10*R()),z+Math.sin(turn)*reach,w*(.72+.14*R()),h*(.42+.15*R()),turn+.55*spray,v,c);
-        }
+        // Preserve the former far-crown PRNG stride without allocating cards.
+        for(let skip=0;skip<15;skip++)R();
       }
+      treeRoots.push({x,y,z,h,w,seed:i,kind:(i*17|0)&1,variant:(i>>1)&1,lod:0});
     }
     for (const [x,z,h,seed] of [[83,-25,6.4,701],[75,-20,5.7,709],[92,-18,5.1,719]]) {
       let y = gridHeight(x,z);
-      if (y > 1.5) oakWord(x,y,z,h,seed);
+      if (y > 1.5) {
+        // Registered root makes these prominent grove trees collidable.
+        leafRoots.push([x,z,h*.43,h]);
+        treeRoots.push({x,y,z,h,w:h*.43,seed,kind:(seed*17|0)&1,variant:(seed>>1)&1,lod:0});
+      }
     }
+    canopyStats.candidates=treeRoots.length;canopyStats.prototypes=canopyPrototypes.length;
     let boulderGroups = 0,
       boulderCount = 0,
       stoneRoots = [];
@@ -1238,32 +1293,6 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         pv([q[0] + nx * radius, q[1] + ny * radius, q[2] + nz * radius], [nx, ny, nz], tint, ring ? tipBend : Math.max(0, tipBend - .07), phase);
       }
       for (let i = 0; i < sides; i++) { let j = (i + 1) % sides; tri(first + i, first + sides + i, first + j); tri(first + j, first + sides + i, first + sides + j); }
-    }
-    function rotateAbout(v, yaw, tilt) {
-      let x = v[0] * Math.cos(yaw) - v[2] * Math.sin(yaw), z = v[0] * Math.sin(yaw) + v[2] * Math.cos(yaw);
-      return norm([x, v[1] * Math.cos(tilt) - z * Math.sin(tilt), v[1] * Math.sin(tilt) + z * Math.cos(tilt)]);
-    }
-    function forkDirection(v, azimuth, lift) {
-      let reference = Math.abs(v[1]) > .8 ? [1,0,0] : [0,1,0], side = norm(cross(v, reference)), up = norm(cross(side, v));
-      return norm([v[0]*.58 + (side[0]*Math.cos(azimuth)+up[0]*Math.sin(azimuth))*lift, v[1]*.58 + (side[1]*Math.cos(azimuth)+up[1]*Math.sin(azimuth))*lift, v[2]*.58 + (side[2]*Math.cos(azimuth)+up[2]*Math.sin(azimuth))*lift]);
-    }
-    function oakWord(x, y, z, h, seed) {
-      let buds = [{ p: [x, y + h * .42, z], v: [0, 1, 0], l: h * .30, d: h * .022 }];
-      // Tropical adaptation of the Astra bracket grammar: F[+X][-X][&X][^X], three rewrites.
-      for (let generation = 0; generation < 3; generation++) {
-        let next = [];
-        for (let k = 0; k < buds.length; k++) {
-          let bud = buds[k], end = [bud.p[0] + bud.v[0] * bud.l, bud.p[1] + bud.v[1] * bud.l, bud.p[2] + bud.v[2] * bud.l];
-          woodSegment(bud.p, end, bud.d, bud.d * .56, [.13, .075, .028], .07 + generation * .09, seed * .41 + k * .73);
-          for (let turn of [-.72,.72,-1.58,1.58]) next.push({ p: end, v: forkDirection(bud.v, turn + .16 * noise(seed + k * 3, generation + 2), .52 + .14 * noise(seed + 8, k + turn)), l: bud.l * .55, d: bud.d * .51 });
-          if (generation === 2) {
-            let tint = [.055 + .040 * noise(seed, k), .16 + .095 * noise(seed + 4, k), .020 + .032 * noise(seed + 7, k)];
-            leafSpray(end, h, seed + k * 13, tint);
-            if ((seed + k) % 3 === 0) atlasBranchlet(end,bud.v,h*.62,seed+k*17,[.38,.52,.24]);
-          }
-        }
-        buds = next;
-      }
     }
     // The route is computed above from the triangulated terrain.  These draped
     // meshes keep the magma physically continuous from its fissure to the sea.
@@ -1457,21 +1486,44 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
     const contactTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,contactTexture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,contactCanvas);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     const contactPixels=contactInk.getImageData(0,0,512,512).data;let contactMin=255,contactMax=0;for(let i=0;i<contactPixels.length;i+=4){contactMin=Math.min(contactMin,contactPixels[i]);contactMax=Math.max(contactMax,contactPixels[i]);}
     const vegetation = makeMesh(pP, pN, pC, pI, pW);
-    const leafVAO = gl.createVertexArray();
-    gl.bindVertexArray(leafVAO);
-    for (const [data, location, size] of [
-      [leafP, 0, 3],
-      [leafUV, 1, 2],
-      [leafC, 2, 3],
-      [leafW, 3, 2],
-    ]) {
-      let b = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, b);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(location);
-      gl.vertexAttribPointer(location, size, gl.FLOAT, false, 0, 0);
+    // Three crossed atlas planes preserve a broad, irregular cheap crown
+    // beyond the local mesh ring.  The planes and their two instance streams
+    // are shared by every one of the 2k+ recorded roots.
+    const farP=[],farUV=[],farC=[],farW=[];
+    function farVertex(p,uv,bend){farP.push(...p);farUV.push(...uv);farC.push(.58,.72,.31);farW.push(bend,0);}
+    for(let plane=0;plane<3;plane++){
+      const a=plane*Math.PI/3+.19,dx=Math.cos(a),dz=Math.sin(a),lo=[-dx,-.48,-dz],hi=[dx,-.48,dz],topL=[-dx,.52,-dz],topR=[dx,.52,dz];
+      farVertex(lo,[0,1],.12);farVertex(hi,[1,1],.12);farVertex(topL,[0,0],.92);farVertex(topL,[0,0],.92);farVertex(hi,[1,1],.12);farVertex(topR,[1,0],.92);
     }
-    const leafCount = leafP.length / 3;
+    const farVAO=gl.createVertexArray();gl.bindVertexArray(farVAO);
+    for(const [data,location,size] of [[farP,0,3],[farUV,1,2],[farC,2,3],[farW,3,2]]){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,0,0);}
+    const farRootBuffer=gl.createBuffer(),farDataBuffer=gl.createBuffer();
+    for(const [loc,b] of [[4,farRootBuffer],[5,farDataBuffer]]){gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,4,gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,4,gl.FLOAT,false,0,0);gl.vertexAttribDivisor(loc,1);}
+    let farInstanceCount=0,canopySelectX=NaN,canopySelectZ=NaN;
+    const canopyLod={near:0,mid:0,far:0,updates:0,nearCap:28,midCap:96,prototypes:canopyPrototypes.length};
+    function uploadCanopyInstances(mesh,roots){
+      const rootData=[],variation=[];
+      for(const r of roots){const yaw=(r.seed*.61803398875)%6.283,scale=r.h/4;rootData.push(r.x,r.y,r.z,scale);variation.push(Math.sin(yaw),Math.cos(yaw),r.seed*.371,fractSeed(r.seed));}
+      gl.bindBuffer(gl.ARRAY_BUFFER,mesh.rootBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(rootData),gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER,mesh.dataBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(variation),gl.DYNAMIC_DRAW);mesh.instanceCount=roots.length;
+    }
+    function fractSeed(seed){const q=Math.sin(seed*91.719+17.13)*43758.5453;return q-Math.floor(q);}
+    function updateCanopyInstances(x,z,stamp=0,force=false){
+      if(!force&&Math.hypot(x-canopySelectX,z-canopySelectZ)<1.35)return;
+      canopySelectX=x;canopySelectZ=z;const near=[],mid=[];
+      for(const r of treeRoots){const d=Math.hypot(r.x-x,r.z-z);r.distance=d;const target=r.lod===2?(d<30?2:d<55?1:0):r.lod===1?(d<24?2:d<55?1:0):(d<24?2:d<48?1:0);r.targetLod=target;if(target===2)near.push(r);}
+      near.sort((a,b)=>a.distance-b.distance);const nearSet=new Set(near.slice(0,canopyLod.nearCap));
+      for(const r of treeRoots)if(!nearSet.has(r)&&(r.targetLod===1||r.targetLod===2))mid.push(r);
+      mid.sort((a,b)=>a.distance-b.distance);const midSet=new Set(mid.slice(0,canopyLod.midCap));
+      const buckets=Array.from({length:canopyPrototypes.length},()=>[]),farTrees=[],farRoots=[],farData=[];
+      for(const r of treeRoots){r.lod=nearSet.has(r)?2:midSet.has(r)?1:0;if(r.lod){const index=r.kind*4+r.variant*2+(r.lod===2?0:1);buckets[index].push(r);}else{const yaw=(r.seed*.61803398875)%6.283;farTrees.push(r);farRoots.push(r.x,r.y+r.h*.64,r.z,Math.max(r.w*1.28,r.h*.40));farData.push(r.h*.72,yaw,(r.seed>>>0)%4,r.seed);}}
+      for(let i=0;i<canopyPrototypes.length;i++)uploadCanopyInstances(canopyPrototypes[i],buckets[i]);
+      uploadCanopyInstances(farStructure,farTrees);
+      gl.bindBuffer(gl.ARRAY_BUFFER,farRootBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(farRoots),gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,farDataBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(farData),gl.DYNAMIC_DRAW);farInstanceCount=farRoots.length/4;
+      canopyLod.near=nearSet.size;canopyLod.mid=midSet.size;canopyLod.far=farInstanceCount;canopyLod.updates++;
+    }
+    // Establish a valid stream before the once-only broad sun map is baked.
+    updateCanopyInstances(101,-40,0,true);
     // A one-time 2048px orthographic sun map gives actual palm/branch silhouettes on the sand.
     const SUN = [-.64, .48, .55], shadowSize = Math.min(4096, gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)),
       shadowDepth = gl.createTexture(), shadowFbo = gl.createFramebuffer(),
@@ -1491,16 +1543,20 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
     const nearShadowSize=1024,nearShadowDepth=gl.createTexture(),nearShadowFbo=gl.createFramebuffer();
     let nearLightM=lightM,nearShadowStamp=-1;
     gl.bindTexture(gl.TEXTURE_2D,nearShadowDepth);gl.texImage2D(gl.TEXTURE_2D,0,gl.DEPTH_COMPONENT24,nearShadowSize,nearShadowSize,0,gl.DEPTH_COMPONENT,gl.UNSIGNED_INT,null);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);gl.bindFramebuffer(gl.FRAMEBUFFER,nearShadowFbo);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,nearShadowDepth,0);gl.drawBuffers([gl.NONE]);gl.readBuffer(gl.NONE);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error("near sun shadow framebuffer unavailable");gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+    function drawInstancedCanopyShadow(matrix,time){
+      gl.useProgram(SD);gl.uniformMatrix4fv(gl.getUniformLocation(SD,"lightM"),false,matrix);gl.uniform1f(gl.getUniformLocation(SD,"time"),time);gl.uniform1i(gl.getUniformLocation(SD,"instancedTree"),1);
+      for(const mesh of canopyPrototypes)if(mesh.instanceCount){gl.bindVertexArray(mesh.v);gl.drawElementsInstanced(gl.TRIANGLES,mesh.n,gl.UNSIGNED_INT,0,mesh.instanceCount);}
+      if(farStructure.instanceCount){gl.bindVertexArray(farStructure.v);gl.drawElementsInstanced(gl.TRIANGLES,farStructure.n,gl.UNSIGNED_INT,0,farStructure.instanceCount);}
+      gl.uniform1i(gl.getUniformLocation(SD,"instancedTree"),0);
+      if(farInstanceCount){gl.useProgram(SDL);gl.uniformMatrix4fv(gl.getUniformLocation(SDL,"lightM"),false,matrix);gl.uniform1f(gl.getUniformLocation(SDL,"time"),time);gl.uniform1i(gl.getUniformLocation(SDL,"instancedFar"),1);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,leafTexture);gl.uniform1i(gl.getUniformLocation(SDL,"atlas"),0);gl.bindVertexArray(farVAO);gl.drawArraysInstanced(gl.TRIANGLES,0,farP.length/3,farInstanceCount);gl.uniform1i(gl.getUniformLocation(SDL,"instancedFar"),0);}
+    }
     function bakeSunShadow() {
       gl.bindFramebuffer(gl.FRAMEBUFFER,shadowFbo); gl.viewport(0,0,shadowSize,shadowSize);
       gl.clearDepth(1); gl.clear(gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
-      gl.useProgram(SD); gl.uniformMatrix4fv(gl.getUniformLocation(SD,"lightM"),false,lightM);
+      gl.useProgram(SD); gl.uniformMatrix4fv(gl.getUniformLocation(SD,"lightM"),false,lightM);gl.uniform1i(gl.getUniformLocation(SD,"instancedTree"),0);
       gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(2.4,4);gl.bindVertexArray(island.v); gl.drawElements(gl.TRIANGLES,island.n,gl.UNSIGNED_INT,0);gl.disable(gl.POLYGON_OFFSET_FILL);
       gl.bindVertexArray(vegetation.v); gl.drawElements(gl.TRIANGLES,vegetation.n,gl.UNSIGNED_INT,0);
-      // Alpha-tested branch sprays provide the foliage silhouette without aliasing long palm blade strips.
-      gl.useProgram(SDL); gl.uniformMatrix4fv(gl.getUniformLocation(SDL,"lightM"),false,lightM);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,leafTexture); gl.uniform1i(gl.getUniformLocation(SDL,"atlas"),0);
-      gl.bindVertexArray(leafVAO); gl.drawArrays(gl.TRIANGLES,0,leafCount);
+      drawInstancedCanopyShadow(lightM,0);
       gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     }
     bakeSunShadow();
@@ -1674,6 +1730,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         nearLightM: U(M, "nearLightM"),
         eye: U(M, "eye"),
         landPass: U(M, "landPass"),
+        instancedTree: U(M, "instancedTree"),
       },
       sU = {
         t: U(S, "t"),
@@ -1687,7 +1744,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       },
       wU = { m: U(W,"m"), t: U(W,"t"), eye: U(W,"eye"), ground: U(W,"ground"), bathy: U(W,"bathy") },
       kU = { m: U(K,"m"), t: U(K,"t"), ground: U(K,"ground") },
-      qU = { m: U(Q, "m"), atlas: U(Q, "atlas"), time: U(Q,"time") },
+      qU = { m: U(Q, "m"), atlas: U(Q, "atlas"), time: U(Q,"time"), instancedFar: U(Q,"instancedFar") },
       gU = { m: U(G,"m"), time: U(G,"time"), eye: U(G,"eye"), sun: U(G,"sun"), shadowMap: U(G,"shadowMap"), nearShadowMap: U(G,"nearShadowMap"), lightM: U(G,"lightM"), nearLightM: U(G,"nearLightM") },
       fU = { m: U(F, "m"), eye: U(F,"eye"), t: U(F, "t"), fallDensity: U(F, "fallDensity") },
       zU = { m: U(PZ, "m"), viewport: U(PZ,"viewport"), tanHalfFov: U(PZ,"tanHalfFov") };
@@ -1893,6 +1950,8 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       waterClock = t * .001;
       updatePlayer(dt);
       updateGrassNeighborhood(player.x,player.z);
+      const canopyEye=mode === "walk"?player:{x:T[0]+Math.cos(a)*Math.cos(e)*d,z:T[2]+Math.sin(a)*Math.cos(e)*d};
+      updateCanopyInstances(canopyEye.x,canopyEye.z,t);
       updateEffects(dt);
       // Texel-snapped 52m foreground depth map; static far map remains intact.
       if (t - nearShadowStamp > 125) {
@@ -1900,8 +1959,8 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         const sx=Math.round(player.x*2)/2,sz=Math.round(player.z*2)/2;
         nearLightM=mul(ortho(-26,26,-26,26,1,180),look([sx+SUN[0]*72,72*SUN[1],sz+SUN[2]*72],[sx,4,sz]));
         gl.bindFramebuffer(gl.FRAMEBUFFER,nearShadowFbo);gl.viewport(0,0,nearShadowSize,nearShadowSize);gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.disable(gl.BLEND);
-        gl.useProgram(SD);gl.uniformMatrix4fv(gl.getUniformLocation(SD,"lightM"),false,nearLightM);gl.uniform1f(gl.getUniformLocation(SD,"time"),t*.001);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(2.4,4);gl.bindVertexArray(island.v);gl.drawElements(gl.TRIANGLES,island.n,gl.UNSIGNED_INT,0);gl.disable(gl.POLYGON_OFFSET_FILL);gl.bindVertexArray(vegetation.v);gl.drawElements(gl.TRIANGLES,vegetation.n,gl.UNSIGNED_INT,0);
-        gl.useProgram(SDL);gl.uniformMatrix4fv(gl.getUniformLocation(SDL,"lightM"),false,nearLightM);gl.uniform1f(gl.getUniformLocation(SDL,"time"),t*.001);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,leafTexture);gl.uniform1i(gl.getUniformLocation(SDL,"atlas"),0);gl.bindVertexArray(leafVAO);gl.drawArrays(gl.TRIANGLES,0,leafCount);
+        gl.useProgram(SD);gl.uniformMatrix4fv(gl.getUniformLocation(SD,"lightM"),false,nearLightM);gl.uniform1f(gl.getUniformLocation(SD,"time"),t*.001);gl.uniform1i(gl.getUniformLocation(SD,"instancedTree"),0);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(2.4,4);gl.bindVertexArray(island.v);gl.drawElements(gl.TRIANGLES,island.n,gl.UNSIGNED_INT,0);gl.disable(gl.POLYGON_OFFSET_FILL);gl.bindVertexArray(vegetation.v);gl.drawElements(gl.TRIANGLES,vegetation.n,gl.UNSIGNED_INT,0);
+        drawInstancedCanopyShadow(nearLightM,t*.001);
         gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);
       }
       let eye, fwd, tanHalfFov, terrainClearance;
@@ -1966,12 +2025,17 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       gl.activeTexture(gl.TEXTURE7);
       gl.bindTexture(gl.TEXTURE_2D, contactTexture);
       gl.uniform1i(mU.contactMap, 7);gl.activeTexture(gl.TEXTURE8);gl.bindTexture(gl.TEXTURE_2D,grainTile);gl.uniform1i(mU.grainField,8);
+      gl.uniform1i(mU.instancedTree,0);
       gl.uniform1i(mU.landPass, 1);
       gl.bindVertexArray(island.v);
       gl.drawElements(gl.TRIANGLES, island.n, gl.UNSIGNED_INT, 0);
       gl.uniform1i(mU.landPass, 0);
       gl.bindVertexArray(vegetation.v);
       gl.drawElements(gl.TRIANGLES, vegetation.n, gl.UNSIGNED_INT, 0);
+      gl.uniform1i(mU.instancedTree,1);
+      for(const mesh of canopyPrototypes)if(mesh.instanceCount){gl.bindVertexArray(mesh.v);gl.drawElementsInstanced(gl.TRIANGLES,mesh.n,gl.UNSIGNED_INT,0,mesh.instanceCount);}
+      if(farStructure.instanceCount){gl.bindVertexArray(farStructure.v);gl.drawElementsInstanced(gl.TRIANGLES,farStructure.n,gl.UNSIGNED_INT,0,farStructure.instanceCount);}
+      gl.uniform1i(mU.instancedTree,0);
       if(grassInstanceCount){
         gl.useProgram(G);gl.uniformMatrix4fv(gU.m,false,m);gl.uniform1f(gU.time,t*.001);gl.uniform3fv(gU.eye,eye);gl.uniform3fv(gU.sun,SUN);gl.uniformMatrix4fv(gU.lightM,false,lightM);gl.uniformMatrix4fv(gU.nearLightM,false,nearLightM);
         gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,shadowDepth);gl.uniform1i(gU.shadowMap,1);gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,nearShadowDepth);gl.uniform1i(gU.nearShadowMap,6);
@@ -2018,8 +2082,9 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, leafTexture);
       gl.uniform1i(qU.atlas, 0);
-      gl.bindVertexArray(leafVAO);
-      gl.drawArrays(gl.TRIANGLES, 0, leafCount);
+      gl.uniform1i(qU.instancedFar,1);
+      if(farInstanceCount){gl.bindVertexArray(farVAO);gl.drawArraysInstanced(gl.TRIANGLES,0,farP.length/3,farInstanceCount);}
+      gl.uniform1i(qU.instancedFar,0);
       document.querySelector("#loading").style.display = "none";
       requestAnimationFrame(draw);
     }
@@ -2128,6 +2193,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         e,
         d,
         broadleafRoots: leafRoots.length,
+        canopy: { generated: { ...canopyStats }, representative: canopyModels, lod: { ...canopyLod, roots: treeRoots.length, farCards: farInstanceCount } },
         palmRoots: palmRoots.length,
         boulderGroups,
         boulderCount,
