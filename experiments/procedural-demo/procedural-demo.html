@@ -131,7 +131,9 @@
     <button data-view="1" aria-pressed="false">STRAND</button>
     <button data-view="2" aria-pressed="false">REEF</button>
     <button data-view="falls" aria-pressed="false">FALLS</button>
+    <button data-view="grove" aria-pressed="false">GROVE</button>
     <button data-view="lava" aria-pressed="false">LAVA</button>
+    <button data-view="vent" aria-pressed="false">VENT</button>
     <button data-view="mute" aria-pressed="false">SOUND</button>
   </nav>
   <div id="touch"><div class="pad" id="movePad">MOVE</div><div class="pad" id="lookPad">LOOK</div></div>
@@ -231,9 +233,9 @@ float bottomRipple=sin(dot(refr,vec2(17.5,6.1))+.92*sin(refr.y*1.4)+1.8*n(refr*1
 precision highp float;
 layout(location=0)in vec3 p;layout(location=1)in vec3 n;layout(location=2)in vec3 c;layout(location=3)in vec2 wind;
 uniform mat4 m;uniform float time;uniform bool landPass;
-out vec3 albedo,world,normal;
+out vec3 albedo,world,normal;out float routeS;
 void main(){
-  world=p;normal=n;albedo=c;
+  world=p;normal=n;albedo=c;routeS=wind.y;
   if(!landPass&&wind.x>0.){
     float broad=.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y*.37);
     float gust=.15+.34*broad+.14*sin(dot(p.xz,vec2(.19,-.13))-time*.9+wind.y);
@@ -244,7 +246,7 @@ void main(){
 }`;
     const meshF = `#version 300 es
 precision highp float;
-in vec3 albedo,world,normal;out vec4 o;
+in vec3 albedo,world,normal;in float routeS;out vec4 o;
 uniform highp sampler2DShadow shadowMap,nearShadowMap;uniform sampler2D dappleMap,contactMap,grainField;uniform mat4 lightM,nearLightM;uniform vec3 sun,eye;uniform bool landPass;uniform float time;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
 float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
@@ -252,7 +254,7 @@ float fb(vec2 p){return n(p)+.5*n(p*2.03)+.25*n(p*4.1);}
 float weatherField(vec2 p){float a=(n(p)+.5*n(p*2.02)+.25*n(p*4.1)+.125*n(p*8.2)+.0625*n(p*16.4))*.516;return (n(p+1.5*vec2((n(p*.55+8.)+.5*n(p*1.11+8.))*.516,(n(p*.55-12.)+.5*n(p*1.11-12.))*.516))+.5*n((p+1.5)*2.02)+.25*n((p+1.5)*4.1))*.516+a*.08;}
 float shadowAt(highp sampler2DShadow map,mat4 lm,float bias){vec4 q=lm*vec4(world,1.);q.xyz=q.xyz/q.w*.5+.5;if(q.x<.002||q.x>.998||q.y<.002||q.y>.998||q.z>1.)return 1.;vec2 texel=1./vec2(textureSize(map,0));float s=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++)s+=texture(map,vec3(q.xy+vec2(float(x),float(y))*texel,q.z-bias));return mix(.62,1.,s/9.);}float sunShadow(float bias){float slope=bias*(.35+.65*(1.-max(normalize(normal).y,0.)));float far=shadowAt(shadowMap,lightM,slope);float near=shadowAt(nearShadowMap,nearLightM,slope*.55);float blend=1.-smoothstep(21.,26.,length(world.xz-eye.xz));return mix(far,near,blend);}
 void main(){if(world.y<-.70)discard;vec3 N=normalize(normal);float microX=fb(world.xz*4.2+vec2(.07,0.))-fb(world.xz*4.2-vec2(.07,0.));float microZ=fb(world.xz*4.2+vec2(0.,.07))-fb(world.xz*4.2-vec2(0.,.07));N=normalize(N+vec3(microX,0.,microZ)*.24*(landPass?1.:0.));float steep=1.-N.y,rock=landPass?smoothstep(.18,.52,steep):0.;vec2 face=vec2(world.x+.57*world.z,world.y);float joint=face.x*.175+face.y*.094+.49*n(face*.21)+.15*n(face*.87);float bed=world.y+.21*world.x-.105*world.z+.22*floor(joint+.5)+.66*fb(world.xz*.42)+.20*sin(face.x*.61);float silt=fb(vec2(face.x*.26,bed*1.65)),seam=abs(fract(bed*.49+.13*sin(bed*1.21))-.5),chips=fb(vec2(face.x*1.13,bed*2.75));vec3 basalt=mix(vec3(.23,.24,.22),vec3(.46,.39,.30),silt*.48);basalt*=.80+.20*chips;basalt*=1.-.18*smoothstep(.03,.11,seam);float ripple=.5+.5*sin(world.x*2.5+.35*sin(world.z*.55))*sin(world.z*1.9+.45*sin(world.x*.4));float grain=.82+.18*(.55*ripple+.45*n(world.xz*4.7));vec3 base=mix(albedo*grain,basalt,rock);float wallMat=step(albedo.g,-.5),palmMat=step(albedo.b,-.65),lavaMat=step(albedo.b,-.1)*(1.-palmMat),lavaGlow=0.;if(wallMat>.5){float face=world.x*.7071-world.z*.7071;vec2 wu=vec2(face,world.y);float coarse=fb(wu*vec2(.32,.44));float strata=.55*fb(wu*vec2(1.1,1.7))+.28*fb(wu*vec2(3.2,4.7))+.17*n(wu*vec2(8.4,11.));float pits=smoothstep(.72,.96,n(wu*vec2(5.1,7.3)+vec2(coarse*3.)));float joint=smoothstep(.78,.96,abs(sin(face*1.65+world.y*.42+coarse*5.)));float moss=smoothstep(.61,.84,fb(wu*.62+vec2(3.,-2.)))*smoothstep(.35,.94,N.y+.34);base=mix(vec3(.20,.22,.23),vec3(.43,.38,.31),strata*.62+.18*coarse);base*=1.-joint*.28-pits*.13;base=mix(base,base*vec3(.46,.68,.43),moss*.38);float wet=pow(max(dot(normalize(eye-world),reflect(normalize(sun),N)),0.),28.);base+=vec3(.035,.046,.05)*wet*(1.-moss*.7);}if(palmMat>.5){float fibre=.5+.5*sin(world.y*38.+world.x*3.1+world.z*2.7);float scar=smoothstep(.82,.96,n(vec2(world.y*1.9,world.x*3.+world.z)));base=mix(vec3(.31,.29,.23),vec3(.58,.53,.40),fibre*.52);base*=1.-scar*.28;}if(lavaMat>.5){
-  vec2 lp=world.xz;float flow=world.z-.14*world.x,fragment=max(length(dFdx(lp)),length(dFdy(lp)));
+  vec2 lp=world.xz;float flow=routeS,fragment=max(length(dFdx(lp)),length(dFdy(lp)));
   float grain=n(lp*38.)*.59+n(lp*83.)*.41,coarse=fb(lp*1.26+vec2(.23*world.y));
   vec2 bend=.28*vec2(fb(lp*1.38),fb(lp*1.31+12.))+.055*vec2(n(lp*9.2),n(lp*12.1+9.));
   vec2 cellUV=(lp+bend)*mat2(1.77,.24,-.19,1.41),cell=floor(cellUV),ff=fract(cellUV);
@@ -286,6 +288,15 @@ void main(){if(world.y<-.70)discard;vec3 N=normalize(normal);float microX=fb(wor
     for(int i=0;i<6;i++){float age=float(i)*.64,tau=time-age;float h=(.24*sin(dot(uv,vec2(.115,.065))-tau*1.12)+.10*sin(dot(uv,vec2(.38,-.22))+tau*1.9)+.035*sin(dot(uv,vec2(1.3,.9))-tau*3.2))*amp;wet=max(wet,smoothstep(-.05,.017,h-world.y)*exp(-age*.29));}
     wet*=smoothstep(.01,.70,beach);base*=mix(vec3(1.),vec3(.54,.64,.68),wet);base+=vec3(.075,.09,.097)*wet*pow(1.-max(dot(normalize(eye-world),N),0.),2.6);
   }
+}
+if(landPass){
+  // The short upslope source split is painted directly into its terrain
+  // receiver, avoiding a separate sheet that can bridge a steep face.
+  vec2 source=world.xz-vec2(-10.,8.),flowDir=vec2(.7071,-.7071),sideDir=vec2(.7071,.7071);
+  float along=dot(source,flowDir),centerJitter=.025*sin(along*7.1+n(source*5.2)*5.)+.014*sin(along*15.3),across=abs(dot(source,sideDir)-centerJitter),taper=1.-smoothstep(2.12,3.16,along),splitOn=smoothstep(-.10,.02,along)*(1.-smoothstep(3.10,3.28,along));
+  float splitHalf=(.038+.045*n(world.xz*11.7))*(.26+.74*taper),aa=.025+fwidth(across)*1.8,seam=(1.-smoothstep(splitHalf,splitHalf+aa,across))*splitOn,bank=(1.-smoothstep(splitHalf,splitHalf+.10+.21*taper,across))*splitOn;
+  vec3 bankTint=mix(base*vec3(.24,.18,.13),vec3(.19,.070,.018),.22+.28*n(source*8.));base=mix(base,bankTint,bank*.62);vec3 splitFire=mix(vec3(.42,.018,.001),vec3(1.,.38,.025),n(world.xz*17.+vec2(0.,-time*.28)));
+  base=mix(base,splitFire,seam);lavaGlow=max(lavaGlow,seam*.82);
 }
 float direct=max(dot(N,normalize(sun)),0.),hemi=.34+.66*max(N.y,0.);vec2 cloudP=(world.xz-vec2(101.,-40.)+normalize(sun).xz*(170./normalize(sun).y))*.014117647-vec2(.87,.49)*time*.018;float cloudShade=smoothstep(.55,.72,weatherField(cloudP));direct*=mix(1.,.54,cloudShade);vec2 map=world.xz/vec2(300.,200.)+.5;float gust=.5+.5*sin(dot(world.xz,vec2(.035,.021))-time*.22+fb(world.xz*.09)*4.);vec2 drift=vec2(.87,.49)*(.0015+.0012*gust)*sin(time*.7+gust*3.);float canopy=texture(dappleMap,map+drift).r;float dapple=mix(.68,1.,canopy);float contact=texture(contactMap,map).r;vec3 lit=base*(.15+.38*hemi+.58*direct)*mix(1.,mix(.57,1.,contact),landPass?1.:0.)*sunShadow(.00025+.00065*(1.-max(N.y,0.)))*mix(1.,dapple,landPass?1.:0.);lit+=vec3(1.45,.27+.13*lavaGlow,.013)*lavaGlow;o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
     // Footprints are a dedicated ground pass.  This exact water function is
@@ -336,6 +347,24 @@ float cover=.69+.19*uv.y+.105*sin(wp.y*1.25+.8*sin(wp.z*1.8)+wp.x*.53);
 vec3 ambient=vec3(.48,.58,.57),sunTint=vec3(.73,.63,.38);
 vec3 lit=a.rgb*(.37+.77*col)*(ambient+sunTint*face)*eco*cover*windLight+rim*vec3(.11,.16,.05);
 o=vec4(pow(max(lit,vec3(0.)),vec3(.89)),1);}`;
+    // A compact folded clump is instanced only from nearby terrain cells.  Its
+    // roots are already projected onto the same sampled terrain as the island.
+    const grassV = `#version 300 es
+precision highp float;
+layout(location=0)in vec3 p;layout(location=1)in vec3 n;layout(location=2)in float tip;
+layout(location=4)in vec3 root;layout(location=5)in vec3 groundN;layout(location=6)in vec4 data;
+uniform mat4 m;uniform float time;uniform vec3 eye;out vec3 world,N,col;out float fade;
+void main(){
+ vec3 up=normalize(groundN),tx=normalize(cross(vec3(0.,0.,1.),up));if(length(tx)<.1)tx=vec3(1.,0.,0.);vec3 tz=normalize(cross(up,tx));
+ float ca=cos(data.y),sa=sin(data.y);vec3 local=tx*(p.x*ca-p.z*sa)+tz*(p.x*sa+p.z*ca)+up*p.y;
+ float gust=.5+.5*sin(dot(root.xz,vec2(.055,.037))-time*.72+data.w);float sway=(.045+.15*gust)*tip*tip;
+ vec3 bend=normalize(vec3(.87,.20,.49))*sway;world=root+local*data.x+bend;N=normalize(tx*(n.x*ca-n.z*sa)+tz*(n.x*sa+n.z*ca)+up*n.y);
+ col=mix(vec3(.040,.090,.019),vec3(.095,.205,.041),data.z)*(1.-.13*tip+.06*gust);fade=1.-smoothstep(22.,32.,length(root.xz-eye.xz));gl_Position=m*vec4(world,1.);
+}`;
+    const grassF = `#version 300 es
+precision highp float;in vec3 world,N,col;in float fade;uniform vec3 sun,eye;uniform highp sampler2DShadow shadowMap,nearShadowMap;uniform mat4 lightM,nearLightM;out vec4 o;
+float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float sh(highp sampler2DShadow sm,mat4 lm){vec4 q=lm*vec4(world,1.);q.xyz=q.xyz/q.w*.5+.5;if(q.x<.002||q.x>.998||q.y<.002||q.y>.998||q.z>1.)return 1.;return texture(sm,vec3(q.xy,q.z-.00055));}
+void main(){if(h(floor(world.xz*19.))>fade)discard;vec3 nn=normalize(N),L=normalize(sun);float direct=max(dot(nn,L),0.),hemi=.38+.62*max(nn.y,0.);float near=sh(nearShadowMap,nearLightM),far=sh(shadowMap,lightM),shadow=mix(far,near,1.-smoothstep(20.,27.,length(world.xz-eye.xz)));vec3 lit=col*(.19+.34*hemi+.48*direct*shadow);o=vec4(pow(max(lit,0.),vec3(.64)),1.);}`;
     const shadowV = `#version 300 es
 layout(location=0)in vec3 p;layout(location=3)in vec2 wind;uniform mat4 lightM;uniform float time;void main(){vec3 q=p;if(wind.x>0.){float g=.22+.42*(.5+.5*sin(dot(p.xz,vec2(.035,.021))-time*.22+wind.y));q.xz+=vec2(.87,.49)*g*wind.x*wind.x;q.y+=.065*sin(wind.y+time*3.)*wind.x;}gl_Position=lightM*vec4(q,1.);}`;
     const shadowLeafV = `#version 300 es
@@ -373,13 +402,14 @@ if(alpha<.003)discard;vec3 ink=col.rgb*(.93+.1*turbulence+.06*max(0.,-p.y*.7-p.x
 layout(location=0)in vec3 p;out float a;void main(){gl_Position=vec4(p.xy*2.-1.,0.,1.);gl_PointSize=p.z;a=p.z;}`;
     const fallAccumF = `#version 300 es
 precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-1.;q.x*=1.95;q.y*=.58;float d=dot(q,q);float thread=.72+.28*sin(gl_PointCoord.y*18.+a*.31);float g=exp(-d*5.4)*thread;o=vec4(g,g*(.18+.58*gl_PointCoord.y),0.,g);}`;
-    let S, W, M, K, Q, F, PZ, FA, SD, SDL;
+    let S, W, M, K, Q, G, F, PZ, FA, SD, SDL;
     try {
       S = program(skyV, skyF);
       W = program(waterV, waterF);
       M = program(meshV, meshF);
       K = program(markV, markF);
       Q = program(leafV, leafF);
+      G = program(grassV, grassF);
       F = program(flowV, flowF);
       PZ = program(spriteV, spriteF);
       FA = program(fallAccumV, fallAccumF);
@@ -583,8 +613,91 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       let dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));
       return Math.hypot(x - (a[0]+dx*t), z - (a[1]+dz*t));
     }
+    const lavaSource = { x: -10, z: 8, y: gridHeight(-10, 8) };
+    let lavaTrailSegments = [];
+    function routeSamplesDescend(a, b, allowance = .018) {
+      let previous = a.y, samples = Math.max(2, Math.ceil(Math.hypot(b.x-a.x, b.z-a.z) / .28));
+      for (let i = 1; i <= samples; i++) {
+        const f = i / samples, h = gridHeight(a.x + (b.x-a.x)*f, a.z + (b.z-a.z)*f);
+        if (h > previous + allowance) return false;
+        previous = h;
+      }
+      return true;
+    }
+    function normalize2(x, z) { const d = Math.hypot(x, z) || 1; return [x / d, z / d]; }
+    function traceLavaRoute(sourcePoint) {
+      // Reverse drainage grows uphill from actual sea grid cells. A reached node
+      // therefore has a non-increasing path back to the ocean on this mesh.
+      const nx=180,nz=120,dx=300/nx,dz=200/nz,count=nx*nz,h=new Float32Array(count),next=new Int32Array(count),reaches=new Uint8Array(count),heap=[];
+      next.fill(-1);
+      const id=(x,z)=>z*nx+x, point=(q)=>({x:-150+(q%nx)*dx,z:-100+Math.floor(q/nx)*dz,y:h[q]});
+      for(let z=0;z<nz;z++)for(let x=0;x<nx;x++)h[id(x,z)]=gridHeight(-150+x*dx,-100+z*dz);
+      const push=(q)=>{heap.push(q);let i=heap.length-1;while(i){let p=(i-1)>>1;if(h[heap[p]]<=h[q])break;heap[i]=heap[p];i=p;}heap[i]=q;};
+      const pop=()=>{const top=heap[0],tail=heap.pop();if(heap.length){let i=0;while(true){let a=i*2+1,b=a+1;if(a>=heap.length)break;let c=b<heap.length&&h[heap[b]]<h[heap[a]]?b:a;if(h[tail]<=h[heap[c]])break;heap[i]=heap[c];i=c;}heap[i]=tail;}return top;};
+      for(let z=0;z<nz;z++)for(let x=0;x<nx;x++){const q=id(x,z);if(h[q]<=-.03){reaches[q]=1;push(q);}}
+      // These are the six actual grid-triangle edges, not an eight-neighbour
+      // square approximation: cardinal neighbours plus the mesh's NW/SE split.
+      const dirs=[[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1]];
+      while(heap.length){const q=pop(),x=q%nx,z=(q/nx)|0;for(const [ox,oz] of dirs){const xx=x+ox,zz=z+oz;if(xx<0||zz<0||xx>=nx||zz>=nz)continue;const n=id(xx,zz);if(reaches[n]||h[n]<h[q]-.003)continue;reaches[n]=1;next[n]=q;push(n);}}
+      let start=-1,best=Infinity;
+      for(let z=0;z<nz;z++)for(let x=0;x<nx;x++){const q=id(x,z);if(!reaches[q]||h[q]>sourcePoint.y+.025)continue;const p=point(q),d=Math.hypot(p.x-sourcePoint.x,p.z-sourcePoint.z);if(d<best&&routeSamplesDescend(sourcePoint,p,.025)){start=q;best=d;}}
+      if(start<0)throw new Error("Lava source has no descending sea-connected grid node");
+      const raw=[{...sourcePoint}];let q=start,guard=0;while(q>=0&&guard++<count){const p=point(q),last=raw.at(-1);if(Math.hypot(p.x-last.x,p.z-last.z)>.03)raw.push(p);if(h[q]<-.03)break;q=next[q];}
+      if(raw.at(-1).y>-.02)throw new Error("Lava drainage graph did not reach the sea");
+      // Round only grid corners whose short cut is itself continuously
+      // descending on the sampled terrain; otherwise preserve the drainage bend.
+      const softened=[raw[0]];
+      for(let i=1;i<raw.length-1;i++){
+        const a=softened.at(-1),b=raw[i],c=raw[i+1],enter={x:a.x+(b.x-a.x)*.72,z:a.z+(b.z-a.z)*.72},leave={x:b.x+(c.x-b.x)*.28,z:b.z+(c.z-b.z)*.28};
+        enter.y=gridHeight(enter.x,enter.z);leave.y=gridHeight(leave.x,leave.z);
+        if(routeSamplesDescend(a,enter,0)&&routeSamplesDescend(enter,leave,0)&&routeSamplesDescend(leave,c,0))softened.push(enter,leave);else softened.push(b);
+      }
+      softened.push(raw.at(-1));
+      // Keep every linked triangle node and resample each real edge to half a
+      // metre. Centre and rails can then drape every ravine without bridging it.
+      const route=[softened[0]];
+      const appendEdge=(a,b,depth=0)=>{const x=(a.x+b.x)*.5,z=(a.z+b.z)*.5,y=gridHeight(x,z),mid={x,y,z},planar=Math.hypot(b.x-a.x,b.z-a.z),chord=(a.y+b.y)*.5;
+        // Only bends whose terrain departs from their chord receive extra rows.
+        if(depth<7&&(planar>.24||Math.abs(y-chord)>.032)){appendEdge(a,mid,depth+1);appendEdge(mid,b,depth+1);return;}
+        const previous=route.at(-1);if(b.y>previous.y+.018)throw new Error("Lava resample rose across a terrain edge");route.push(b);
+      };
+      for(let i=1;i<softened.length;i++){const a=softened[i-1],b=softened[i],count=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.45));let previous=a;for(let j=1;j<=count;j++){const f=j/count,next={x:a.x+(b.x-a.x)*f,y:0,z:a.z+(b.z-a.z)*f};next.y=gridHeight(next.x,next.z);appendEdge(previous,next);previous=next;}}
+      let s=0;for(let i=0;i<route.length;i++){if(i)s+=Math.hypot(route[i].x-route[i-1].x,route[i].y-route[i-1].y,route[i].z-route[i-1].z);route[i].s=s;}return route;
+    }
+    const lavaRoute = traceLavaRoute(lavaSource);
+    const lavaOutlet = lavaRoute.at(-1);
+    const lavaPath = lavaRoute.map((q) => [q.x, q.y + .09, q.z]);
+    const lavaSteamContacts = lavaRoute.filter((q) => q.y < .15).slice(-3).map((q) => [q.x, q.z]);
+    lavaTrailSegments = lavaRoute.slice(0, -1).map((q, i) => [[q.x, q.z], [lavaRoute[i + 1].x, lavaRoute[i + 1].z]]);
+    function lavaFrame(i) {
+      const a = lavaRoute[Math.max(0, i - 1)], b = lavaRoute[Math.min(lavaRoute.length - 1, i + 1)];
+      const [tx, tz] = normalize2(b.x - a.x, b.z - a.z);
+      return { tx, tz, sx: -tz, sz: tx };
+    }
+    function lavaPoseFor(index, lookIndex, side = 1) {
+      const anchor = lavaRoute[Math.max(0, Math.min(lavaRoute.length - 1, index))], target = lavaRoute[Math.max(0, Math.min(lavaRoute.length - 1, lookIndex))], f = lavaFrame(index);
+      let best;
+      for (const distance of [5.5, 7, 8.5, 10.5]) {
+        const x = anchor.x + f.sx * distance * side - f.tx * 1.7, z = anchor.z + f.sz * distance * side - f.tz * 1.7, h = gridHeight(x, z);
+        if (h > .2 && normal(x, z)[1] > .70) { best = { x, z, y: h }; break; }
+      }
+      best ||= { x: anchor.x + f.sx * 9 * side, z: anchor.z + f.sz * 9 * side, y: gridHeight(anchor.x + f.sx * 9 * side, anchor.z + f.sz * 9 * side) };
+      const distance = Math.hypot(target.x - best.x, target.z - best.z);
+      return { ...best, target, yaw: Math.atan2(target.x - best.x, -(target.z - best.z)), pitch: Math.max(-.78, Math.min(.78, Math.atan2(target.y + .55 - (best.y + 1.72), distance))) };
+    }
+    function directedLavaPose(x, z, target, pitch) {
+      const y = gridHeight(x, z);
+      return { x, z, y, target, yaw: Math.atan2(target.x - x, -(target.z - z)), pitch };
+    }
+    // These short offsets remain tied to the generated source/outlet, while
+    // keeping a clear side-on human-height composition on the steep flank.
+    // GPU-checked walkable headland framing the source and its oceanward run.
+    const lavaSourcePose = { x: -7.30029204, z: 4.78261334, yaw: Math.atan2(-9.72 + 7.30029204, -(7.73 - 4.78261334)), pitch: -1.06806181 };
+    const lavaCoastIndex = Math.max(8, lavaRoute.findIndex((q) => q.y < .40));
+    const coastTarget = lavaRoute[lavaCoastIndex];
+    const lavaCoastPose = directedLavaPose(coastTarget.x + 5.8, coastTarget.z - 1.3, coastTarget, -.24);
     function landmarkTrail(x, z) {
-      return segmentDistance(x,z,[-52,-33],[-82,-65]) < 11 || segmentDistance(x,z,[-7,12],[-21,82]) < 11;
+      return segmentDistance(x,z,[-52,-33],[-82,-65]) < 11 || lavaTrailSegments.some(([a,b]) => segmentDistance(x, z, a, b) < 8.5);
     }
     const REEF_X = 164,
       REEF_Z = 124;
@@ -876,21 +989,57 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       leafVertex(b, [u1, 1], c, .12, phase + .17);
       leafVertex(e, [u1, 0], c, 1, phase + .48);
     }
-    // Small crossed sprays are only attached to branch tips; distant trees retain the atlas impostor.
+    // Three short atlas planes make one curved, twig-attached branchlet. They
+    // retain the hand-painted leaf silhouettes between the larger solid leaves.
+    function atlasBranchlet(p, growth, scale, seed, tint) {
+      const axis=norm(growth),flat=Math.hypot(axis[0],axis[2])<.02?[1,0,0]:norm([axis[2],0,-axis[0]]),phase=seed*.31+p[0]*.11+p[2]*.07;
+      for(let k=0;k<3;k++){
+        const roll=(noise(seed,k*3)-.5)*1.45,travel=scale*(.045+.105*k),curl=(noise(seed+4,k)-.5)*scale*.16,
+          centre=[p[0]+axis[0]*travel+flat[0]*curl,p[1]+axis[1]*travel+.035*scale*k,p[2]+axis[2]*travel+flat[2]*curl],
+          tilt=norm([axis[0]+flat[0]*Math.sin(roll)*.22,axis[1]+.12+.09*Math.cos(roll),axis[2]+flat[2]*Math.sin(roll)*.22]),
+          side=Math.hypot(tilt[0],tilt[2])<.02?[1,0,0]:norm(cross(tilt,[0,1,0])),w=scale*(.115+.055*noise(seed,k+11)),h=scale*(.20+.10*noise(seed+7,k+19)),
+          u0=((seed+k)%4)*.25,u1=u0+.25,a=[centre[0]-side[0]*w-tilt[0]*h*.30,centre[1]-side[1]*w-tilt[1]*h*.30,centre[2]-side[2]*w-tilt[2]*h*.30],
+          b=[centre[0]+side[0]*w-tilt[0]*h*.30,centre[1]+side[1]*w-tilt[1]*h*.30,centre[2]+side[2]*w-tilt[2]*h*.30],
+          d=[centre[0]-side[0]*w+tilt[0]*h*.70,centre[1]-side[1]*w+tilt[1]*h*.70,centre[2]-side[2]*w+tilt[2]*h*.70],
+          e=[centre[0]+side[0]*w+tilt[0]*h*.70,centre[1]+side[1]*w+tilt[1]*h*.70,centre[2]+side[2]*w+tilt[2]*h*.70];
+        leafVertex(a,[u0,1],tint,.12,phase+k*.09);leafVertex(b,[u1,1],tint,.12,phase+k*.09+.13);leafVertex(d,[u0,0],tint,.88,phase+k*.09+.27);
+        leafVertex(d,[u0,0],tint,.88,phase+k*.09+.27);leafVertex(b,[u1,1],tint,.12,phase+k*.09+.13);leafVertex(e,[u1,0],tint,.88,phase+k*.09+.40);
+      }
+    }
+    // Terminal sprays use individual folded leaves hinged to their twig. This
+    // replaces near-field crossed rectangles while retaining atlas shadows.
+    function leafBlade(root, azimuth, length, width, tint, phase) {
+      const side=[-Math.sin(azimuth),.035,Math.cos(azimuth)],forward=[Math.cos(azimuth),0,Math.sin(azimuth)],
+        rise=.035+.23*noise(root[0]*.47+phase,root[2]*.41-phase),roll=.34*Math.sin(phase*1.71);
+      let previous;
+      // Four profile stations give each leaf a rounded shoulder and tapered
+      // tip; its raised centre line is the visibly attached midrib.
+      for(let station=0;station<4;station++){
+        const t=station/3,shoulder=Math.sin(Math.PI*t)*(.78+.22*Math.sin(t*Math.PI*.5)),span=width*shoulder,
+          reach=length*t,drop=length*(.10+.14*noise(phase,3))*t*t,
+          centre=[root[0]+forward[0]*reach,root[1]+rise*length*Math.sin(t*Math.PI*.72)-drop,root[2]+forward[2]*reach],
+          fold=span*(.30+.20*Math.cos(t*Math.PI)+roll*.16),left=[centre[0]+side[0]*span,centre[1]-roll*span*.34,centre[2]+side[2]*span],
+          ridge=[centre[0],centre[1]+fold,centre[2]],right=[centre[0]-side[0]*span,centre[1]+roll*span*.34,centre[2]-side[2]*span],
+          shade=.78+.16*(1-t),row=[
+            pv(left,norm([-side[0],.54,-side[2]]),tint.map(v=>v*.70*shade),t*.72,phase),
+            pv(ridge,[0,.97,0],tint.map((v,i)=>v*(i===1?1.12:.92)*shade),t*.78,phase+.08),
+            pv(right,norm([side[0],.54,side[2]]),tint.map((v,i)=>v*(i===1?.78:.68)*shade),t*.72,phase+.16)
+          ];
+        if(previous){tri(previous[0],row[0],previous[1]);tri(previous[1],row[0],row[1]);tri(previous[1],row[1],previous[2]);tri(previous[2],row[1],row[2]);}previous=row;
+      }
+    }
     function leafSpray(p, scale, seed, tint) {
-      for (let i = 0; i < 4; i++) {
-        let a = seed * 1.71 + i * 1.57,
-          spread = scale * (.14 + .07 * Math.sin(seed + i * 4.1));
-        leafQuad(
-          p[0] + Math.cos(a) * spread,
-          p[1] + ((i & 1) ? .06 : -.03) * scale,
-          p[2] + Math.sin(a) * spread,
-          scale * (.10 + .025 * (i % 2)),
-          scale * (.14 + .03 * ((i + 1) % 3)),
-          a,
-          (seed + i) % 4,
-          tint,
-        );
+      const count = scale > 4 ? 9 : 7,twigCount=scale>4?3:2,parentPhase=seed*.31+p[0]*.11+p[2]*.07,twigs=[];
+      for(let twig=0;twig<twigCount;twig++){
+        const a=seed*.91+twig*6.283/twigCount+.18*Math.sin(seed+twig*4.1),reach=scale*(.12+.055*noise(seed,twig+29)),lift=scale*(.028+.045*noise(seed+7,twig)),end=[p[0]+Math.cos(a)*reach,p[1]+lift,p[2]+Math.sin(a)*reach];
+        woodSegment(p,end,scale*.010,scale*.0038,[.095,.054,.020],.17,parentPhase+twig*.19);twigs.push({a,end});
+      }
+      for (let i = 0; i < count; i++) {
+        const twig=twigs[i%twigCount],attach=.24+.64*((i/twigCount|0)+.5)/Math.ceil(count/twigCount),a=twig.a+[-.70,.14,.62][i%3]+.16*Math.sin(seed*3.1+i*4.7),
+          root = [p[0]+(twig.end[0]-p[0])*attach,p[1]+(twig.end[1]-p[1])*attach,p[2]+(twig.end[2]-p[2])*attach],
+          length = scale * (.115 + .050 * noise(seed + i * 5.3, i + 3)), width = length * (.16 + .050 * noise(seed + 11, i * 3)),
+          tint2 = tint.map((v, c) => v * (.80 + .16 * noise(seed + i * 3, c + 9)) + (c === 1 ? .025 : 0));
+        leafBlade(root, a, length, width, tint2, parentPhase+i*.83);
       }
     }
     function lowForestSprays(x, y, z, h, seed, tint) {
@@ -902,6 +1051,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
           tip = [x + Math.cos(a) * h * (.23 + .04 * layer), y + h * (.59 + .08 * layer), z + Math.sin(a) * h * (.23 + .04 * layer)];
         woodSegment(root, tip, h * .022, h * .009, [.11,.063,.025]);
         leafSpray(tip, h * (.72 + .08 * layer), seed + branch * 19, tint);
+        atlasBranchlet(tip,[tip[0]-root[0],tip[1]-root[1],tip[2]-root[2]],h*(.62+.06*layer),seed+branch*37,[.39+.05*noise(seed,branch),.53+.06*noise(seed+4,branch),.23+.04*noise(seed+7,branch)]);
       }
     }
     function broadleafTrunk(x, y, z, h) {
@@ -953,31 +1103,23 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       y = gridHeight(x, z);
       let h = 2.3 + R() * 3.5,
         w = h * (0.31 + R() * 0.13),
-        c = [0.56 + R() * 0.2, 0.58 + R() * 0.17, 0.48 + R() * 0.14],
+        c = [0.38 + R() * 0.12, 0.46 + R() * 0.13, 0.22 + R() * 0.10],
+        solidC = [.055 + R() * .04, .16 + R() * .085, .018 + R() * .030],
         v = i % 4;
       leafRoots.push([x, z, w, h]);
       broadleafTrunk(x, y, z, h);
-      let walkingForest = y < 30 && Math.hypot(x - 101, z + 40) < 72 && localTreeCount < 110;
+      let walkingForest = y < 30 && Math.hypot(x - 91, z + 32) < 78 && localTreeCount < 230;
       if (walkingForest) {
         localTreeCount++;
         oakWord(x, y, z, h, i);
-      } else if (y < 28 && lowForestCount++ < 650) {
-        lowForestSprays(x, y, z, h, i, c);
+      } else if (y < 31 && lowForestCount++ < 980) {
+        lowForestSprays(x, y, z, h, i, solidC);
       } else {
-        // Only the non-walkable/distant canopy keeps larger generated atlas impostors.
-        leafQuad(x, y + h * 0.5, z, w, h, R() * 6.28, v, c);
-        leafQuad(x, y + h * 0.5, z, w, h, R() * 6.28, v, c);
-        if (R() > 0.22)
-        leafQuad(
-          x + (R() - 0.5) * w,
-          y + h * 0.55,
-          z + (R() - 0.5) * w,
-          w * 0.72,
-          h * 0.74,
-          R() * 6.28,
-          (v + 1) % 4,
-          c,
-        );
+        // Distant crowns use short crossed sprays, avoiding trunk-height walls.
+        for(let spray=0;spray<3;spray++){
+          const turn=R()*6.28,reach=w*(.20+.30*R());
+          leafQuad(x+Math.cos(turn)*reach,y+h*(.57+.10*R()),z+Math.sin(turn)*reach,w*(.72+.14*R()),h*(.42+.15*R()),turn+.55*spray,v,c);
+        }
       }
     }
     for (const [x,z,h,seed] of [[83,-25,6.4,701],[75,-20,5.7,709],[92,-18,5.1,719]]) {
@@ -1115,79 +1257,73 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
           woodSegment(bud.p, end, bud.d, bud.d * .56, [.13, .075, .028], .07 + generation * .09, seed * .41 + k * .73);
           for (let turn of [-.72,.72,-1.58,1.58]) next.push({ p: end, v: forkDirection(bud.v, turn + .16 * noise(seed + k * 3, generation + 2), .52 + .14 * noise(seed + 8, k + turn)), l: bud.l * .55, d: bud.d * .51 });
           if (generation === 2) {
-            let tint = [.44 + .20 * noise(seed, k), .52 + .22 * noise(seed + 4, k), .27 + .13 * noise(seed + 7, k)];
+            let tint = [.055 + .040 * noise(seed, k), .16 + .095 * noise(seed + 4, k), .020 + .032 * noise(seed + 7, k)];
             leafSpray(end, h, seed + k * 13, tint);
+            if ((seed + k) % 3 === 0) atlasBranchlet(end,bud.v,h*.62,seed+k*17,[.38,.52,.24]);
           }
         }
         buds = next;
       }
     }
-    // Opaque, terrain-embedded pāhoehoe lobes replace the former flat apron.
-    // Their staggered, rotated crowns create a rounded branching shoreline toe.
-    function lavaLobe(x, z, rx, rz, h, turn, seed) {
-      const first = pP.length / 3, rings = 5, sides = 13, ground = gridHeight(x, z) - .055;
-      for (let r = 0; r <= rings; r++) for (let i = 0; i < sides; i++) {
-        const v = r / rings, a = i * Math.PI * 2 / sides, ca = Math.cos(a), sa = Math.sin(a),
-          rough = .84 + .18 * noise(seed + ca * 2.7, seed * .37 + sa * 2.7),
-          radial = Math.pow(1 - v, .68) * rough, lx = ca * rx * radial, lz = sa * rz * radial,
-          px = x + lx * Math.cos(turn) - lz * Math.sin(turn), pz = z + lx * Math.sin(turn) + lz * Math.cos(turn),
-          py = ground + h * Math.pow(v, .72) * (.88 + .12 * noise(px * .7, pz * .7)),
-          shade = .055 + .10 * noise(px * .55, pz * .55) + .055 * v;
-        // Negative blue is a private, float-safe material tag consumed by meshF.
-        pv([px, py, pz], norm([ca * Math.cos(turn) - sa * Math.sin(turn), .42 + .25 * v, ca * Math.sin(turn) + sa * Math.cos(turn)]), [shade, shade * .96, -.45]);
-      }
-      for (let r = 0; r < rings; r++) for (let i = 0; i < sides; i++) { const a = first + r * sides + i, b = first + r * sides + (i + 1) % sides, c = a + sides, d = b + sides; tri(a,c,b);tri(b,c,d); }
+    // The route is computed above from the triangulated terrain.  These draped
+    // meshes keep the magma physically continuous from its fissure to the sea.
+    const fallsPath = [[-42,-14],[-48,-30],[-56,-38],[-64,-46],[-66,-48],[-69,-51],[-72,-54]].map(([x,z])=>[x,gridHeight(x,z)+.10,z]);
+    function lavaWidth(q) {
+      const qy = Math.max(0, Math.min(1, (q.y - 2.5) / 10.5)), shore = 1 - qy*qy*(3-2*qy);
+      return .48 + .12 * Math.sin(q.s * .43) + shore * (1.15 + .28 * Math.sin(q.s * .77));
     }
-    const lavaLobes = [[-18,68,1.0,2.0,.32,.22],[-19,70,1.15,2.1,.38,-.12],[-18,72,1.25,2.2,.42,.28],[-21,74,1.3,2.0,.36,-.25],[-18,76,1.55,2.35,.44,.16],[-22,78,1.7,2.2,.39,-.18],[-18,79,1.65,2.5,.46,.21],[-23,81,1.95,2.35,.42,-.30],[-18,82,2.05,2.6,.50,.12],[-24,83.5,2.2,2.35,.38,-.19],[-17,84,2.15,2.7,.43,.24],[-21,85,2.3,2.15,.32,-.08]];
-    lavaLobes.forEach((q,i)=>lavaLobe(...q,i*17+91));
-    // Low overlapping bed closes sand gutters between the branching shoreline lobes.
-    [[-20,75,2.6,5.5,.14,.10],[-22,80,3.1,5.8,.15,-.17],[-18,83,3.2,4.6,.13,.18]].forEach((q,i)=>lavaLobe(...q,311+i*29));
-    const lavaPath = [[-10,8],[-10,16],[-10,24],[-10,32],[-12,40],[-14,48],[-14,56],[-18,64],[-20,72],[-20,80],[-20,84]].map(([x,z])=>[x,gridHeight(x,z)+.10,z]),
-      fallsPath = [[-42,-14],[-48,-30],[-56,-38],[-64,-46],[-66,-48],[-69,-51],[-72,-54]].map(([x,z])=>[x,gridHeight(x,z)+.10,z]);
-    // A narrow, continuous, terrain-following pāhoehoe channel starts at the
-    // high vent and becomes a shallow branching apron only at the shoreline.
-    // Each rail samples its own ground point, preventing a suspended ribbon on
-    // the steep volcanic flank.
-    function lavaChannel(path) {
-      const rows = [];
-      let distance = 0;
-      for (let s = 0; s < path.length - 1; s++) {
-        const a = path[s], b = path[s + 1], length = Math.hypot(b[0] - a[0], b[2] - a[2]), count = Math.max(4, Math.ceil(length / .52));
-        for (let j = 0; j <= count; j++) {
-          if (s && !j) continue;
-          const f = j / count, x = a[0] * (1 - f) + b[0] * f, z = a[2] * (1 - f) + b[2] * f;
-          rows.push({ x, z, d: distance + length * f });
-        }
-        distance += length;
-      }
-      const first = pP.length / 3, across = 10;
-      for (let r = 0; r < rows.length; r++) {
-        const q = rows[r], before = rows[Math.max(0, r - 1)], after = rows[Math.min(rows.length - 1, r + 1)],
-          dx = after.x - before.x, dz = after.z - before.z, len = Math.max(.01, Math.hypot(dx, dz)),
-          sx = -dz / len, sz = dx / len, run = r / (rows.length - 1), width = .48 + run * .64 + .12 * noise(q.x * .19, q.z * .19);
-        for (let c = 0; c <= across; c++) {
-          const u = c / across * 2 - 1, bank = Math.abs(u), wobble = (noise(q.x * .48 + c * 2.1, q.z * .48 - c) - .5) * .13,
-            x = q.x + sx * (u * width + wobble * (1 - bank)), z = q.z + sz * (u * width + wobble * (1 - bank)),
-            crown = (.055 + .15 * Math.pow(Math.max(0, 1 - bank), 1.7)) * (.82 + .25 * noise(x * .75, z * .75)),
-            y = gridHeight(x, z) - .035 + crown,
-            ex = gridHeight(x + .22, z) - gridHeight(x - .22, z), ez = gridHeight(x, z + .22) - gridHeight(x, z - .22),
-            tilt = -Math.sign(u || 1) * .20 * Math.pow(bank, .7),
-            n = norm([ex - sx * tilt, .44, ez - sz * tilt]);
-          pv([x, y, z], n, [u, -.12, -.45]);
+    function appendLavaRibbon(route, core) {
+      // Closely spaced cross-ribbons follow the triangulated ground through
+      // the steep source shoulder instead of bridging it with long facets.
+      const first = pP.length / 3, columns = core ? 9 : 20;
+      for (let i = 0; i < route.length; i++) {
+        const q = route[i], f = lavaFrame(i), width = lavaWidth(q) * (core ? .42 : 1);
+        for (let j = 0; j <= columns; j++) {
+          const u = j / columns * 2 - 1, edge = Math.abs(u), wobble = (noise(q.x*.63+j*3.1, q.z*.57-j*1.7)-.5) * width * .18 * (1-edge);
+          const x = q.x + f.sx * (u * width + wobble), z = q.z + f.sz * (u * width + wobble),
+            slope=1-normal(x,z)[1], lift = core ? .10 + .085 * (1-edge) + slope*.055 : .042 + .105 * Math.pow(1-edge, 1.7) + slope*.045,
+            y = gridHeight(x, z) + lift,
+            col = core ? [Math.abs(u) * width, -.12, -.45] : [.13 + .08*edge, .105 + .04*noise(x,z), -.45];
+          pv([x,y,z], normal(x,z), col, 0, q.s);
         }
       }
-      for (let r = 0; r < rows.length - 1; r++) for (let c = 0; c < across; c++) {
-        const a = first + r * (across + 1) + c, b = a + 1, d = a + across + 1, e = d + 1;
-        tri(a, d, b); tri(b, d, e);
+      for (let i = 0; i < route.length - 1; i++) for (let j = 0; j < columns; j++) {
+        const a = first + i * (columns + 1) + j, b = a + 1, d = a + columns + 1, e = d + 1;
+        tri(a,d,b); tri(b,d,e);
       }
     }
-    lavaChannel(lavaPath);
+    function appendFissureLips(route) {
+      const cut = route.filter((q) => q.s < 16), first = pP.length / 3;
+      for (let i = 0; i < cut.length; i++) {
+        const q = cut[i], f = lavaFrame(i), jag = .05 * Math.sin(q.s*2.3) + .06 * (noise(q.x*.9,q.z*.9)-.5);
+        for (const sign of [-1,1]) for (let band = 0; band < 3; band++) {
+          const half = [.78, .49, .28][band] + jag, x = q.x + f.sx * sign * half, z = q.z + f.sz * sign * half,
+            y = gridHeight(x,z) + [.025,.30,.13][band] + .05 * noise(q.s*1.9+band, sign*7.3),
+            shade = .075 + .04 * noise(x*2.1,z*1.7);
+          pv([x,y,z], normal(x,z), [shade,shade*.93,shade*.82], 0, q.s);
+        }
+      }
+      const bands = 6;
+      for (let i = 0; i < cut.length - 1; i++) for (let side = 0; side < 2; side++) for (let band = 0; band < 2; band++) {
+        const a = first + i * bands + side * 3 + band, b = a + 1, d = a + bands, e = d + 1;
+        tri(a,d,b);tri(b,d,e);
+      }
+    }
+    appendLavaRibbon(lavaRoute, false);
+    appendLavaRibbon(lavaRoute, true);
+    appendFissureLips(lavaRoute);
+    // The short terrain-shaded source split feeds the channel from an upslope
+    // crack while its steam remains anchored on that actual receiver.
+    const fissureVent={x:lavaSource.x+.7071*2.15,z:lavaSource.z-.7071*2.15,y:gridHeight(lavaSource.x+.7071*2.15,lavaSource.z-.7071*2.15)};
+    // Waterfall-only flow mesh. Lava is now entirely in the draped opaque
+    // route meshes above, so no fixed glow strips survive this replacement.
     let flowP=[],flowUV=[],flowI=[];
     function flowVertex(p,u,v,id){flowP.push(...p);flowUV.push(u,v,id);return flowP.length/3-1;}
-    function flowStrip(path,width,id){let last=[],distance=0;for(let s=0;s<path.length-1;s++){let a=path[s],b=path[s+1],dx=b[0]-a[0],dz=b[2]-a[2],len=Math.hypot(dx,dz),count=Math.max(2,Math.ceil(len/.42));for(let k=0;k<=count;k++){if(s&&k===0)continue;let f=k/count,x=a[0]*(1-f)+b[0]*f,z=a[2]*(1-f)+b[2]*f,y=gridHeight(x,z)+.13,w=width*(.76+.18*Math.sin((distance+len*f)*.43));let sx=-dz/len*w,sz=dx/len*w, row=[flowVertex([x+sx,y,z+sz],distance+len*f,0,id),flowVertex([x-sx,y,z-sz],distance+len*f,1,id)];if(last.length){flowI.push(last[0],row[0],last[1],last[1],row[0],row[1]);}last=row;}distance+=len;}}
+    function flowStrip(path,width,id){let last=[],distance=0;for(let s=0;s<path.length-1;s++){let a=path[s],b=path[s+1],dx=b[0]-a[0],dz=b[2]-a[2],len=Math.hypot(dx,dz),count=Math.max(2,Math.ceil(len/.42));for(let k=0;k<=count;k++){if(s&&k===0)continue;let f=k/count,x=a[0]*(1-f)+b[0]*f,z=a[2]*(1-f)+b[2]*f,y=gridHeight(x,z)+.13,w=width*(.76+.18*Math.sin((distance+len*f)*.43));let sx=-dz/len*w,sz=dx/len*w,row=[flowVertex([x+sx,y,z+sz],distance+len*f,0,id),flowVertex([x-sx,y,z-sz],distance+len*f,1,id)];if(last.length){flowI.push(last[0],row[0],last[1],last[1],row[0],row[1]);}last=row;}distance+=len;}}
     flowStrip(fallsPath.slice(0,4),.82,0);
-    // Broken glowing seams sit in shallow channels between the solid lobes.
-    for (const finger of [[[-19,69],[-20,75],[-18,80],[-17,84]],[[-20,72],[-22,78],[-24,83],[-24,85]],[[-18,75],[-19,80],[-20,84],[-21,86]]]) flowStrip(finger.map(([x,z])=>[x,gridHeight(x,z)+.27,z]),.075,1);
+    // Grass candidates are generated once below, after the canopy density map
+    // exists.  Only neighboring cells are uploaded while walking.
+    let grassTufts=0;
     // One continuous, irregular lip-to-pool sheet maps the density atlas once.
     let lip=[-64-.7071*1.1,8.3,-46-.7071*1.1],pool=[-64-.7071*2.5,3.9,-46-.7071*2.5];
     // The raised feed shelf bridges the upstream runnel into the waterfall lip.
@@ -1263,6 +1399,50 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       const px = Math.max(0, Math.min(511, Math.floor((x / 300 + .5) * 512)));
       const py = Math.max(0, Math.min(511, Math.floor((z / 200 + .5) * 512)));
       return 1 - dapplePixels[(py * 512 + px) * 4] / 255;
+    }
+    // One folded, tapered clump mesh is shared by all grass.  Candidate roots
+    // are cached once in small cells; walking updates only the entering fringe.
+    const grassP=[],grassN=[],grassTip=[];
+    function grassVertex(p,n,tip){grassP.push(...p);grassN.push(...n);grassTip.push(tip);}
+    function grassTri(a,b,c){for(const q of [a,b,c])grassVertex(...q);}
+    for(let blade=0;blade<7;blade++){
+      const a=blade*2.399+.31*Math.sin(blade*4.3),dx=Math.cos(a),dz=Math.sin(a),sx=-dz,sz=dx,
+        rootR=.040+.250*blade/6,len=.18+.19*((blade*3)%7)/6,w=.011+.011*(blade%4);
+      for(let seg=0;seg<2;seg++){
+        const t0=seg/2,t1=(seg+1)/2,point=t=>[dx*(rootR+len*(.16*t+.48*t*t)),len*t*(.70-.34*t),dz*(rootR+len*(.16*t+.48*t*t))],row=t=>{
+          const p=point(t),ww=w*(1-.68*t),ridge=[p[0],p[1]+ww*.7,p[2]];
+          return [[ [p[0]+sx*ww,p[1],p[2]+sz*ww],[-sx,.46,-sz],t],[ridge,[0,.91,0],t],[[p[0]-sx*ww,p[1],p[2]-sz*ww],[sx,.46,sz],t]];
+        },lo=row(t0),hi=row(t1);
+        grassTri(lo[0],hi[0],lo[1]);grassTri(lo[1],hi[0],hi[1]);grassTri(lo[1],hi[1],lo[2]);grassTri(lo[2],hi[1],hi[2]);
+      }
+    }
+    const grassCells=new Map(),grassGenerated=new Set(),GRASS_CELL=6;
+    function grassKey(ix,iz){return ix+":"+iz;}
+    function addGrass(x,z,seed,owner){
+      const y=gridHeight(x,z),n=normal(x,z),cover=canopyCover(x,z),grove=Math.hypot(x-53.6,z+35.6)<12;
+      if(y<2.55||y>31||n[1]<.82||landmarkTrail(x,z))return;
+      const clear=Math.max(grove?.96:0,(1-cover)*(.78+.30*noise(x*.09,z*.09)));
+      if(noise(seed*1.31,seed*2.17)>.05+.91*clear)return;
+      const list=grassCells.get(owner)||[];
+      list.push([x,y+.013,z,n[0],n[1],n[2],.72+.34*noise(seed,17),noise(seed,31)*6.283,.48+.36*noise(seed,43),seed*.73]);grassCells.set(owner,list);grassTufts++;
+    }
+    function populateGrassCell(ix,iz){
+      const key=grassKey(ix,iz);if(grassGenerated.has(key)||ix<0||ix>=44||iz<0||iz>=28)return;grassGenerated.add(key);grassCells.set(key,[]);
+      for(let patch=0;patch<5;patch++)for(let j=0;j<24;j++){
+        const patchSeed=(ix+1)*173.17+(iz+1)*71.93+patch*29.4,seed=patchSeed+j*13.71,px=-132+(ix+.15+.70*noise(patchSeed,3))*GRASS_CELL,pz=-84+(iz+.15+.70*noise(patchSeed,7))*GRASS_CELL,
+          r=.08+.92*Math.sqrt(noise(seed,13)),a=noise(seed,19)*6.283,x=px+Math.cos(a)*r,z=pz+Math.sin(a)*r;addGrass(x,z,seed,key);
+      }
+    }
+    const grassVAO=gl.createVertexArray();gl.bindVertexArray(grassVAO);
+    for(const [loc,data,size] of [[0,grassP,3],[1,grassN,3],[2,grassTip,1]]){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,0,0);}
+    const grassBuffers=[];
+    for(const [loc,size] of [[4,3],[5,3],[6,4]]){const b=gl.createBuffer();grassBuffers.push(b);gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,4,gl.DYNAMIC_DRAW);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,size,gl.FLOAT,false,0,0);gl.vertexAttribDivisor(loc,1);}
+    const grassVertexCount=grassP.length/3;let grassInstanceCount=0,grassCellX=NaN,grassCellZ=NaN;
+    function updateGrassNeighborhood(x,z){
+      const cx=Math.floor((x+132)/GRASS_CELL),cz=Math.floor((z+84)/GRASS_CELL);if(cx===grassCellX&&cz===grassCellZ)return;
+      grassCellX=cx;grassCellZ=cz;const roots=[],normals=[],data=[];
+      for(let iz=cz-7;iz<=cz+7;iz++)for(let ix=cx-7;ix<=cx+7;ix++){populateGrassCell(ix,iz);const list=grassCells.get(grassKey(ix,iz));if(!list)continue;for(const q of list){if(Math.hypot(q[0]-x,q[2]-z)>42)continue;roots.push(q[0],q[1],q[2]);normals.push(q[3],q[4],q[5]);data.push(q[6],q[7],q[8],q[9]);}}
+      for(const [b,values] of [[grassBuffers[0],roots],[grassBuffers[1],normals],[grassBuffers[2],data]]){gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(values),gl.DYNAMIC_DRAW);}grassInstanceCount=roots.length/3;
     }
     const dappleTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, dappleTexture);
@@ -1508,6 +1688,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       wU = { m: U(W,"m"), t: U(W,"t"), eye: U(W,"eye"), ground: U(W,"ground"), bathy: U(W,"bathy") },
       kU = { m: U(K,"m"), t: U(K,"t"), ground: U(K,"ground") },
       qU = { m: U(Q, "m"), atlas: U(Q, "atlas"), time: U(Q,"time") },
+      gU = { m: U(G,"m"), time: U(G,"time"), eye: U(G,"eye"), sun: U(G,"sun"), shadowMap: U(G,"shadowMap"), nearShadowMap: U(G,"nearShadowMap"), lightM: U(G,"lightM"), nearLightM: U(G,"nearLightM") },
       fU = { m: U(F, "m"), eye: U(F,"eye"), t: U(F, "t"), fallDensity: U(F, "fallDensity") },
       zU = { m: U(PZ, "m"), viewport: U(PZ,"viewport"), tanHalfFov: U(PZ,"tanHalfFov") };
     let V = [
@@ -1555,7 +1736,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         rustle.filter.type = "bandpass"; rustle.filter.Q.value = .65;
         rustle.source.loop = true; rustle.source.start(); audio.rustle = rustle;
         for(const [gain,cut,pan,seed] of [[.16,260,-.38,8221],[.11,2450,.32,9173]]){let loop=noiseNode(2.8,0,pan,cut,seed);loop.source.loop=true;loop.source.start();audio.surf.push({amp:loop.amp,gain,pan:loop.stereo});}
-        for (const [x,z,gain,cut,seed] of [[-64,-46,.20,1100,1741],[-20,84,.10,520,601]]) {
+        for (const [x,z,gain,cut,seed] of [[-64,-46,.20,1100,1741],[lavaOutlet.x,lavaOutlet.z,.10,520,601]]) {
           let loop = noiseNode(1.8, 0, 0, cut, seed); loop.source.loop = true; loop.source.start();
           audio.spatial.push({ x, z, gain, amp: loop.amp, pan: loop.stereo });
         }
@@ -1590,9 +1771,9 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
     }
     if (test === "swim") Object.assign(player, { x: -150, z: 5, yaw: -Math.PI / 2, pitch: .02 });
     if (test === "falls") Object.assign(player, { x: -73.97, z: -51.02, yaw: Math.atan2(-65.2 + 73.97, -(-47.2 + 51.02)), pitch: .14 });
-    if (test === "lava") Object.assign(player, { x: -9, z: 81, yaw: -Math.PI / 2, pitch: -.05 });
-    if (test === "lavaUpper") Object.assign(player, { x: -8, z: 50, yaw: -2.356, pitch: -.10 });
-    if (test === "forest") Object.assign(player, { x: 83, z: -25, yaw: -2.15, pitch: .04 });
+    if (test === "lava") Object.assign(player, { x: lavaCoastPose.x, z: lavaCoastPose.z, yaw: lavaCoastPose.yaw, pitch: lavaCoastPose.pitch });
+    if (test === "lavaSource" || test === "vent") Object.assign(player, { x: lavaSourcePose.x, z: lavaSourcePose.z, yaw: lavaSourcePose.yaw, pitch: lavaSourcePose.pitch });
+    if (test === "forest") Object.assign(player, { x: 53.6, z: -35.6, yaw: 1.047, pitch: .075 });
     if (test === "wave") Object.assign(player, { x: -126, z: 8, yaw: -1.039, pitch: .02 });
     function activeButton(value) {
       document
@@ -1605,9 +1786,9 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       hint.textContent = "WASD to walk · drag or arrows to look · Shift to move faster";
     }
     function landmark(kind) {
-      let p = kind === "falls" ? [-73.97,-51.02] : [-9,81], q = kind === "falls" ? [-65.2,6.15,-47.2] : [-20,1,81];
-      player.x = p[0]; player.z = p[1]; player.yaw = Math.atan2(q[0] - p[0], -(q[2] - p[1])); player.pitch = kind === "falls" ? .14 : -.05;
-      setWalk(); hint.textContent = kind === "falls" ? "Falls trail · follow the bright stream downhill" : "Lava trail · follow the warm flow toward the sea";
+      let p = kind === "grove" ? { x: 53.6, z: -35.6, yaw: 1.047, pitch: .075 } : kind === "falls" ? { x: -73.97, z: -51.02, yaw: Math.atan2(-65.2 + 73.97, -(-47.2 + 51.02)), pitch: .14 } : kind === "vent" ? lavaSourcePose : lavaCoastPose;
+      player.x = p.x; player.z = p.z; player.yaw = p.yaw; player.pitch = p.pitch;
+      setWalk(); hint.textContent = kind === "grove" ? "Grove clearing · follow the grassy lowland among the trees" : kind === "falls" ? "Falls trail · follow the bright stream downhill" : kind === "vent" ? "Vent trail · the fissure feeds the downhill flow" : "Lava trail · follow the warm flow toward the sea";
     }
     function setView(i) {
       view = i;
@@ -1617,7 +1798,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       T = V[i].T.slice();
       mode = "orbit";
       activeButton(String(i));
-      hint.textContent = "drag to orbit · scroll to approach · WALK returns to the shore";
+      hint.textContent = "drag to orbit · scroll to approach · WALK resumes your current position";
     }
     function blocked(x, z) {
       if (reefMargin(x, z) < 0.015) return true;
@@ -1711,6 +1892,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       lastFrame = t;
       waterClock = t * .001;
       updatePlayer(dt);
+      updateGrassNeighborhood(player.x,player.z);
       updateEffects(dt);
       // Texel-snapped 52m foreground depth map; static far map remains intact.
       if (t - nearShadowStamp > 125) {
@@ -1790,6 +1972,11 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       gl.uniform1i(mU.landPass, 0);
       gl.bindVertexArray(vegetation.v);
       gl.drawElements(gl.TRIANGLES, vegetation.n, gl.UNSIGNED_INT, 0);
+      if(grassInstanceCount){
+        gl.useProgram(G);gl.uniformMatrix4fv(gU.m,false,m);gl.uniform1f(gU.time,t*.001);gl.uniform3fv(gU.eye,eye);gl.uniform3fv(gU.sun,SUN);gl.uniformMatrix4fv(gU.lightM,false,lightM);gl.uniformMatrix4fv(gU.nearLightM,false,nearLightM);
+        gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,shadowDepth);gl.uniform1i(gU.shadowMap,1);gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,nearShadowDepth);gl.uniform1i(gU.nearShadowMap,6);
+        gl.bindVertexArray(grassVAO);gl.drawArraysInstanced(gl.TRIANGLES,0,grassVertexCount,grassInstanceCount);
+      }
       // Ground-only marks and kicked sand are in their own ranges, then the
       // opaque displaced surface writes depth over any advancing water.
       if (footprintMesh.n) { gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.useProgram(K); gl.uniformMatrix4fv(kU.m,false,m);gl.uniform1f(kU.t,t*.001);gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,groundTex);gl.uniform1i(kU.ground,2);gl.bindVertexArray(footprintMesh.v);gl.drawArrays(gl.TRIANGLES,0,footprintMesh.n);gl.disable(gl.BLEND); }
@@ -1801,17 +1988,17 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
       let fallPoints=[];for(let i=0;i<900;i++){let source=i%3,age=(t*.001*.74+i*.618)%1,center=[.22,.53,.82][source],spread=[.15,.22,.14][source],rand=Math.sin(i*19.713+source*5.17)*43758.5453,offset=rand-Math.floor(rand)-.5,slot=Math.max(.025,Math.min(.975,center+offset*spread*(.55+.45*age)+Math.sin(i*2.17+t*.0013)*.018));fallPoints.push(slot,age,5.5+3.7*(1-age));}
       gl.bindFramebuffer(gl.FRAMEBUFFER,fallFbo);gl.viewport(0,0,128,256);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.disable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);gl.useProgram(FA);gl.bindVertexArray(fallVAO);gl.bindBuffer(gl.ARRAY_BUFFER,fallBuffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(fallPoints),gl.DYNAMIC_DRAW);gl.drawArrays(gl.POINTS,0,900);gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.enable(gl.DEPTH_TEST);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
       gl.useProgram(F); gl.uniform3fv(fU.eye,eye); gl.uniformMatrix4fv(fU.m,false,m); gl.uniform1f(fU.t,t*.001);gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,fallDensity);gl.uniform1i(fU.fallDensity,5); gl.bindVertexArray(flowVAO); gl.drawElements(gl.TRIANGLES,flowI.length,gl.UNSIGNED_INT,0);
-      let sp=[],sc=[],time=t*.001,vent=lavaPath[lavaPath.length-1],lipNow=lip,poolNow=pool;
+      let sp=[],sc=[],time=t*.001,vent=fissureVent,outlet=lavaOutlet,lipNow=lip,poolNow=pool;
       // A warm grey vent high on the slope plus low moist sea-contact steam.
       // Advect expanding gas packets along the common trade-wind direction.
       for(let i=0;i<54;i++){
         const seed=i*19.71,p=(time*.092+i*.618034)%1,birth=time-p/.092,
           wander=.32*Math.sin(birth*.79)+.22*Math.sin(birth*.24),cross=.22*Math.sin(seed+p*5.9)+p*wander,
-          drift=p*(1.2+2.4*p),x=-10+.87*drift-.49*cross,z=8+.49*drift+.87*cross,
-          y=65.85+p*(3.3+1.4*p)+.20*p*Math.sin(seed+p*5),fade=Math.min(1,p*9.)*Math.pow(1-p,1.3);
+          drift=p*(1.2+2.4*p),x=vent.x+.87*drift-.49*cross,z=vent.z+.49*drift+.87*cross,
+          y=vent.y+.18+p*(3.3+1.4*p)+.20*p*Math.sin(seed+p*5),fade=Math.min(1,p*9.)*Math.pow(1-p,1.3);
         sp.push(x,y,z,.35+p*(1.1+.58*p));sc.push(.47+.19*p,.45+.18*p,.42+.16*p,.51*fade);
       }
-      for(const [ox,oz] of [[-20,84],[-24,84],[-15,84]])for(let i=0;i<37;i++){
+      for(const [ox,oz] of lavaSteamContacts)for(let i=0;i<37;i++){
         const seed=i*13.37+ox,p=(time*.255+i*.618034+Math.abs(ox)*.031)%1,age=p/.255,birth=time-age,
           wet=Math.max(0,waterSurface(ox,oz,birth)-gridHeight(ox,oz)),heat=.23+Math.min(1,wet*5.)*.77,
           head=(.3+.84*p)*Math.sin(birth*1.21+ox*.21)*.31,
@@ -1892,7 +2079,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
     );
     document
       .querySelectorAll("button")
-      .forEach((b) => (b.onclick = () => b.dataset.view === "walk" ? setWalk() : b.dataset.view === "mute" ? toggleSound() : b.dataset.view === "falls" || b.dataset.view === "lava" ? landmark(b.dataset.view) : setView(+b.dataset.view)));
+      .forEach((b) => (b.onclick = () => b.dataset.view === "walk" ? setWalk() : b.dataset.view === "mute" ? toggleSound() : b.dataset.view === "grove" || b.dataset.view === "falls" || b.dataset.view === "lava" || b.dataset.view === "vent" ? landmark(b.dataset.view) : setView(+b.dataset.view)));
     addEventListener("keydown", (x) => {
       enableSound();
       if ("123".includes(x.key)) setView(+x.key - 1);
@@ -1945,6 +2132,7 @@ precision highp float;in float a;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-
         boulderGroups,
         boulderCount,
         atlasAlpha,
+        grassTufts,
       }),
       view: setView,
       walk: setWalk,
