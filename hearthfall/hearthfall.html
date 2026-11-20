@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Hearthfall</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="description" content="Hearthfall: raise a village through the Stone, Bronze and Iron ages, survive the wolves of the night and the hunger of winter, and burn your rival's town center.">
+<meta name="description" content="Hearthfall: raise a clan from cavemen to townsfolk through the Ember, Kiln and Forge ages, survive the wolves of the night and the hunger of winter, and burn your rival's Hearth Hall.">
 <style>
   :root { --ink:#f4ead6; --dim:rgba(244,234,214,.6); --panel:rgba(24,19,14,.86); --edge:rgba(255,224,165,.17); --gold:#e8c46c; --bad:#ff7d5e; --good:#a8e391; --blue:#7fb2ff; }
   * { box-sizing:border-box; }
@@ -118,7 +118,7 @@
   <div class="res pn" id="r-gold" data-tip="gold"><canvas width="40" height="40"></canvas><span>0</span></div>
   <div class="res pn" id="r-pop" data-tip="pop"><canvas width="40" height="40"></canvas><span>0/0</span></div>
   <div class="pn" id="clock" data-tip="clock"><canvas width="60" height="60"></canvas><div><b id="dayl">Day 1</b><span id="seasonl">Spring</span></div></div>
-  <div class="pn" id="era" data-tip="era"><b id="eral">Stone Age</b><span id="eras">Rival: Stone Age</span></div>
+  <div class="pn" id="era" data-tip="era"><b id="eral">Ember Age</b><span id="eras">Rival: Ember Age</span></div>
 </div>
 <div id="topR">
   <button class="pn ib" id="bSpeed" title="Game speed">1×</button>
@@ -127,8 +127,8 @@
 </div>
 <div id="touchbar" class="hud">
   <button class="pn ib" id="bBox" title="Drag to box-select">▢</button>
-  <button class="pn ib" id="bIdle" title="Next idle villager">💤</button>
-  <button class="pn ib" id="bHome" title="Town Center">⌂</button>
+  <button class="pn ib" id="bIdle" title="Next idle worker">💤</button>
+  <button class="pn ib" id="bHome" title="Hearth Hall">⌂</button>
 </div>
 <div id="alerts" class="hud"></div>
 <div id="banner" class="hud"><b id="bannerT"></b><span id="bannerS"></span></div>
@@ -143,19 +143,19 @@
 <div id="menu" class="ov">
   <div class="card pn">
     <h1>HEARTHFALL</h1>
-    <div class="sub">Raise a village from the Stone Age. Keep the fires lit. Burn your rival's hall.</div>
+    <div class="sub">Raise a clan from cave to town. Keep the fires lit. Burn your rival's hall.</div>
     <ul>
-      <li><b>Gather</b> food, wood, stone and gold with villagers. Build houses for more people.</li>
-      <li><b>Every dawn</b> your people eat. Run out of food and they starve. Farms freeze in <b>winter</b>.</li>
-      <li><b>At night</b> wolves hunt anyone outside the firelight. Build braziers and towers. Every fifth night is a <b>Blood Moon</b>.</li>
-      <li><b>Advance</b> through the Bronze and Iron ages for archers, cavalry and catapults.</li>
-      <li><b>Win</b> by destroying the rival Town Center. Lose yours and it is over.</li>
+      <li><b>Gather</b> food, wood, stone and gold with your people. Build dwellings to grow the clan.</li>
+      <li><b>Every dawn</b> your people eat. Run out of food and they starve. Fields freeze in <b>winter</b>.</li>
+      <li><b>At night</b> wolves hunt anyone outside the firelight. Build braziers and lookouts, or ring the bell to shelter in the Hearth Hall. Every fifth night is a <b>Blood Moon</b>.</li>
+      <li><b>Advance</b> from the Ember Age (cavemen) through the Kiln Age to the Forge Age, unlocking bowhunters, outriders and stonehurlers.</li>
+      <li><b>Win</b> by burning the rival Hearth Hall. Lose yours and it is over.</li>
     </ul>
     <div class="row" id="diffRow">
       <button class="choice" data-d="0">Easy</button><button class="choice on" data-d="1">Normal</button><button class="choice" data-d="2">Hard</button>
     </div>
     <div class="row"><button class="go" id="bStart">Light the hearth</button></div>
-    <div class="hint" id="ctlHint">Left-click or drag to select · Right-click to gather, build, attack or move · WASD/arrows or screen edges to pan · Wheel to zoom · . next idle villager · H town center · Ctrl+1–9 groups</div>
+    <div class="hint" id="ctlHint">Left-click or drag to select · Right-click to gather, build, attack or move · WASD/arrows or screen edges to pan · Wheel to zoom · . next idle worker · H Hearth Hall · B bell · Ctrl+1–9 groups</div>
   </div>
 </div>
 <div id="pause" class="ov" hidden>
@@ -208,7 +208,7 @@ const pick = arr => arr[Math.floor(rnd() * arr.length)];
 // Rules
 // ---------------------------------------------------------------------------
 const RES = ['food', 'wood', 'stone', 'gold'];
-const ERA_NAMES = ['Stone Age', 'Bronze Age', 'Iron Age'];
+const ERA_NAMES = ['Ember Age', 'Kiln Age', 'Forge Age'];
 const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
 const DAY_LEN = 120;           // seconds per day
 const NIGHT_AT = .62, DAWN_END = .07;
@@ -223,13 +223,13 @@ const DIFF = [
 
 // Units. Array values are indexed by the owner's era.
 const UNIT = {
-  villager: { name: 'Villager', hp: 25, atk: 3, arm: 0, spd: 60, cd: 1.4, sight: 6, r: 6, cost: { food: 50 }, time: 7, desc: 'Gathers, builds and repairs. Carries a lantern at night.' },
-  warrior: { names: ['Clubman', 'Spearman', 'Swordsman'], hp: [42, 58, 76], atk: [5, 7, 10], arm: [0, 1, 2], spd: 64, cd: 1.15, sight: 7, r: 6, mil: 1,
-    cost: [{ food: 50, wood: 20 }, { food: 55, wood: 25 }, { food: 60, gold: 20 }], time: 8, desc: 'Sturdy infantry. Upgrades with every era. Spearmen punish cavalry.' },
-  archer: { names: ['Archer', 'Archer', 'Longbowman'], era: 1, hp: [30, 30, 38], atk: [4, 4, 6], arm: 0, rng: [140, 140, 172], spd: 60, cd: 1.6, sight: 8, r: 6, mil: 1, proj: 'arrow', bld: .35,
+  villager: { name: 'Forager', names: ['Forager', 'Settler', 'Townsfolk'], hp: 25, atk: 3, arm: 0, spd: 60, cd: 1.4, sight: 6, r: 6, cost: { food: 50 }, time: 7, desc: 'Your people. They gather, build and repair, and carry a lantern at night.' },
+  warrior: { names: ['Cudgeler', 'Spearwarden', 'Swordsworn'], hp: [42, 58, 76], atk: [5, 7, 10], arm: [0, 1, 2], spd: 64, cd: 1.15, sight: 7, r: 6, mil: 1,
+    cost: [{ food: 50, wood: 20 }, { food: 55, wood: 25 }, { food: 60, gold: 20 }], time: 8, desc: 'Sturdy foot soldiers who improve with every age. Spearwardens punish riders.' },
+  archer: { names: ['Bowhunter', 'Bowhunter', 'Warbow'], era: 1, hp: [30, 30, 38], atk: [4, 4, 6], arm: 0, rng: [140, 140, 172], spd: 60, cd: 1.6, sight: 8, r: 6, mil: 1, proj: 'arrow', bld: .35,
     cost: { wood: 35, gold: 30 }, time: 8, desc: 'Ranged support. Weak against buildings.' },
-  rider: { name: 'Horseman', era: 2, hp: 110, atk: 9, arm: 1, spd: 98, cd: 1.25, sight: 8, r: 9, mil: 1, cost: { food: 70, gold: 60 }, time: 11, desc: 'Fast cavalry for raiding and running down archers.' },
-  catapult: { name: 'Catapult', era: 2, hp: 85, atk: 18, arm: 2, rng: 236, minr: 56, spd: 34, cd: 4.2, sight: 8, r: 10, mil: 1, proj: 'stone', bld: 5, splash: 30,
+  rider: { name: 'Outrider', era: 2, hp: 110, atk: 9, arm: 1, spd: 98, cd: 1.25, sight: 8, r: 9, mil: 1, cost: { food: 70, gold: 60 }, time: 11, desc: 'Fast cavalry for raiding and running down archers.' },
+  catapult: { name: 'Stonehurler', era: 2, hp: 85, atk: 18, arm: 2, rng: 236, minr: 56, spd: 34, cd: 4.2, sight: 8, r: 10, mil: 1, proj: 'stone', bld: 5, splash: 30,
     cost: { wood: 130, gold: 90 }, time: 15, desc: 'Slow siege engine. Smashes buildings from range.' },
   deer: { name: 'Deer', hp: 12, atk: 0, arm: 0, spd: 76, sight: 5, r: 6, wild: 1 },
   wolf: { name: 'Wolf', hp: 30, atk: 5, arm: 0, spd: 86, cd: 1.1, sight: 9, r: 6, wild: 1 },
@@ -237,33 +237,33 @@ const UNIT = {
 };
 // Buildings
 const BLD = {
-  tc: { name: 'Town Center', w: 4, h: 4, hp: 1800, cost: { wood: 275, stone: 100 }, time: 60, pop: 5, drop: RES, light: 7.5, sight: 9, rng: 205, atk: 5, cd: 1.9,
-    trains: ['villager'], techs: ['bronze', 'iron'], nobuild: 1, desc: 'Heart of the village. Trains villagers, accepts every resource and shoots arrows at raiders.' },
-  house: { name: 'House', w: 2, h: 2, hp: 420, cost: { wood: 30 }, time: 9, pop: 5, light: 2.2, sight: 4, desc: '+5 population.' },
-  granary: { name: 'Granary', w: 2, h: 2, hp: 520, cost: { wood: 75 }, time: 12, drop: ['food'], light: 2.6, sight: 5, techs: ['smoke', 'plough'], desc: 'Food drop-off. Researches food upgrades.' },
-  store: { name: 'Storehouse', w: 2, h: 2, hp: 520, cost: { wood: 75 }, time: 12, drop: ['wood', 'stone', 'gold'], light: 2.6, sight: 5, techs: ['axe', 'pick'], desc: 'Wood, stone and gold drop-off.' },
-  barracks: { name: 'Barracks', w: 3, h: 3, hp: 950, cost: { wood: 150 }, time: 18, trains: ['warrior'], light: 3, sight: 5, desc: 'Trains infantry.' },
+  tc: { name: 'Hearth Hall', w: 4, h: 4, hp: 1800, cost: { wood: 275, stone: 100 }, time: 60, pop: 5, drop: RES, light: 7.5, sight: 9, rng: 205, atk: 5, cd: 1.9,
+    trains: ['villager'], techs: ['bronze', 'iron'], nobuild: 1, desc: 'Heart of the clan. Raises new folk, takes every resource and shoots arrows at raiders.' },
+  house: { name: 'Dwelling', w: 2, h: 2, hp: 420, cost: { wood: 30 }, time: 9, pop: 5, light: 2.2, sight: 4, desc: '+5 population.' },
+  granary: { name: 'Larder', w: 2, h: 2, hp: 520, cost: { wood: 75 }, time: 12, drop: ['food'], light: 2.6, sight: 5, techs: ['smoke', 'plough'], desc: 'Food drop-off. Researches food upgrades.' },
+  store: { name: 'Stockpile', w: 2, h: 2, hp: 520, cost: { wood: 75 }, time: 12, drop: ['wood', 'stone', 'gold'], light: 2.6, sight: 5, techs: ['axe', 'pick'], desc: 'Wood, stone and gold drop-off.' },
+  barracks: { name: 'War Lodge', w: 3, h: 3, hp: 950, cost: { wood: 150 }, time: 18, trains: ['warrior'], light: 3, sight: 5, desc: 'Trains foot soldiers.' },
   brazier: { name: 'Brazier', w: 1, h: 1, hp: 160, cost: { wood: 20, stone: 10 }, time: 5, light: 5.6, sight: 5, desc: 'Firelight. Wolves will not hunt inside it, except under a Blood Moon.' },
-  wall: { name: 'Palisade', names: ['Palisade', 'Stone Wall', 'Fortified Wall'], w: 1, h: 1, hp: [260, 480, 720], cost: { wood: 4 }, time: 2.5, sight: 2, wall: 1, desc: 'Blocks raiders. Drag to lay a line. Grows stronger each era.' },
-  farm: { name: 'Farm', era: 1, w: 3, h: 3, hp: 140, cost: { wood: 60 }, time: 9, sight: 2, farm: 1, desc: 'Endless food, but nothing grows in winter.' },
-  tower: { name: 'Watch Tower', era: 1, w: 2, h: 2, hp: 950, cost: { wood: 80, stone: 100 }, time: 22, rng: 215, atk: 6, cd: 1.5, light: 5, sight: 10, desc: 'Shoots arrows and lights the night.' },
-  range: { name: 'Archery Range', era: 1, w: 3, h: 3, hp: 950, cost: { wood: 150 }, time: 18, trains: ['archer'], light: 3, sight: 5, desc: 'Trains archers.' },
-  smith: { name: 'Blacksmith', era: 1, w: 3, h: 3, hp: 950, cost: { wood: 140 }, time: 18, techs: ['forge', 'scale', 'cast', 'chain'], light: 3.4, sight: 5, desc: 'Weapon and armor upgrades.' },
-  stable: { name: 'Stable', era: 2, w: 3, h: 3, hp: 1000, cost: { wood: 170, stone: 40 }, time: 20, trains: ['rider'], light: 3, sight: 5, desc: 'Trains horsemen.' },
-  workshop: { name: 'Siege Workshop', era: 2, w: 3, h: 3, hp: 1000, cost: { wood: 200, stone: 80 }, time: 22, trains: ['catapult'], light: 3, sight: 5, desc: 'Builds catapults.' },
+  wall: { name: 'Stake Fence', names: ['Stake Fence', 'Rampart', 'Curtain Wall'], w: 1, h: 1, hp: [260, 480, 720], cost: { wood: 4 }, time: 2.5, sight: 2, wall: 1, desc: 'Blocks raiders. Drag to lay a line. Grows stronger each era.' },
+  farm: { name: 'Field', era: 1, w: 3, h: 3, hp: 140, cost: { wood: 60 }, time: 9, sight: 2, farm: 1, desc: 'Endless food, but nothing grows in winter.' },
+  tower: { name: 'Lookout', era: 1, w: 2, h: 2, hp: 950, cost: { wood: 80, stone: 100 }, time: 22, rng: 215, atk: 6, cd: 1.5, light: 5, sight: 10, desc: 'Shoots arrows and lights the night.' },
+  range: { name: 'Bow Yard', era: 1, w: 3, h: 3, hp: 950, cost: { wood: 150 }, time: 18, trains: ['archer'], light: 3, sight: 5, desc: 'Trains bowhunters.' },
+  smith: { name: 'Smithy', era: 1, w: 3, h: 3, hp: 950, cost: { wood: 140 }, time: 18, techs: ['forge', 'scale', 'cast', 'chain'], light: 3.4, sight: 5, desc: 'Weapon and armor upgrades.' },
+  stable: { name: 'Paddock', era: 2, w: 3, h: 3, hp: 1000, cost: { wood: 170, stone: 40 }, time: 20, trains: ['rider'], light: 3, sight: 5, desc: 'Trains outriders.' },
+  workshop: { name: 'Engine Yard', era: 2, w: 3, h: 3, hp: 1000, cost: { wood: 200, stone: 80 }, time: 22, trains: ['catapult'], light: 3, sight: 5, desc: 'Builds stonehurlers.' },
 };
 const BUILD_MENU = ['house', 'granary', 'store', 'barracks', 'brazier', 'wall', 'farm', 'tower', 'range', 'smith', 'stable', 'workshop'];
 const TECH = {
-  bronze: { name: 'Bronze Age', era: 0, up: 1, cost: { food: 400, wood: 200 }, time: 26, desc: 'Farms, towers, archers and the blacksmith. Infantry become spearmen.' },
-  iron: { name: 'Iron Age', era: 1, up: 2, cost: { food: 600, gold: 250 }, time: 32, desc: 'Cavalry, catapults and swordsmen. Walls of stone.' },
+  bronze: { name: 'Kiln Age', era: 0, up: 1, cost: { food: 400, wood: 200 }, time: 26, desc: 'Fired clay and bronze. Unlocks fields, lookouts, bowhunters and the smithy; your people stand tall and dress in woven cloth.' },
+  iron: { name: 'Forge Age', era: 1, up: 2, cost: { food: 600, gold: 250 }, time: 32, desc: 'Steel and stone. Unlocks outriders and stonehurlers; your people dress like modern townsfolk.' },
   smoke: { name: 'Smokehouse', era: 0, cost: { food: 80, wood: 80 }, time: 14, desc: 'Preserved meat: dawn upkeep −35%.' },
-  plough: { name: 'Heavy Plough', era: 1, cost: { food: 120, wood: 100 }, time: 16, desc: 'Farms +30%.' },
-  axe: { name: 'Bronze Axes', era: 0, cost: { food: 80, wood: 60 }, time: 12, desc: 'Woodcutting +25%.' },
-  pick: { name: 'Picks', era: 1, cost: { food: 100, wood: 80 }, time: 14, desc: 'Stone and gold mining +30%.' },
-  forge: { name: 'Forging', era: 1, cost: { food: 120, gold: 60 }, time: 16, desc: 'Soldiers +1 attack.' },
-  scale: { name: 'Scale Armor', era: 1, cost: { food: 120, gold: 60 }, time: 16, desc: 'Soldiers +1 armor.' },
-  cast: { name: 'Iron Casting', era: 2, req: 'forge', cost: { food: 200, gold: 120 }, time: 20, desc: 'Soldiers +2 attack.' },
-  chain: { name: 'Chain Mail', era: 2, req: 'scale', cost: { food: 200, gold: 120 }, time: 20, desc: 'Soldiers +2 armor.' },
+  plough: { name: 'Furrow Rakes', era: 1, cost: { food: 120, wood: 100 }, time: 16, desc: 'Fields +30%.' },
+  axe: { name: 'Hafted Axes', era: 0, cost: { food: 80, wood: 60 }, time: 12, desc: 'Woodcutting +25%.' },
+  pick: { name: 'Hard Picks', era: 1, cost: { food: 100, wood: 80 }, time: 14, desc: 'Stone and gold mining +30%.' },
+  forge: { name: 'Honed Blades', era: 1, cost: { food: 120, gold: 60 }, time: 16, desc: 'Soldiers +1 attack.' },
+  scale: { name: 'Hardened Hides', era: 1, cost: { food: 120, gold: 60 }, time: 16, desc: 'Soldiers +1 armor.' },
+  cast: { name: 'Quenched Steel', era: 2, req: 'forge', cost: { food: 200, gold: 120 }, time: 20, desc: 'Soldiers +2 attack.' },
+  chain: { name: 'Riveted Plate', era: 2, req: 'scale', cost: { food: 200, gold: 120 }, time: 20, desc: 'Soldiers +2 armor.' },
 };
 function applyTech(tm, k) {
   tm.techs[k] = 1;
@@ -449,7 +449,7 @@ function setEra(tm, e) {
   const old = tm.era; tm.era = e;
   for (const u of G.units) if (u.team === tm.id) { const m = stat(u, 'hp'); if (m !== u.maxhp) { u.hp = u.hp / u.maxhp * m; u.maxhp = m; } }
   for (const b of G.blds) if (b.team === tm.id) { const m = bMax(b.type, b.team); if (m !== b.maxhp) { b.hp = b.hp / b.maxhp * m; b.maxhp = m; } }
-  if (tm.id === 0) { banner(ERA_NAMES[e], e === 1 ? 'Bronze tools, tiled roofs, farms and archers' : 'Iron arms, stone walls, horse and siege'); sfx('era'); }
+  if (tm.id === 0) { banner(ERA_NAMES[e], e === 1 ? 'Fired clay, bronze tools and woven cloth' : 'Steel, stone and the look of modern folk'); sfx('era'); }
   else alertMsg(`Your rival has entered the ${ERA_NAMES[e]}.`, 'bad', TC_POS(1));
   G.uiDirty = true; void old;
 }
@@ -799,14 +799,14 @@ function startFlee(u, a) {
   const tc = G.teams[u.team].tc;
   if (tc) goNear(u, tc);
   else if (a) { const ang = Math.atan2(u.y - a.y, u.x - a.x); goTo(u, clamp(u.x + Math.cos(ang) * 4 * T, T, WPX - T), clamp(u.y + Math.sin(ang) * 4 * T, T, WPX - T)); }
-  u.task = 'Running for the Town Center';
+  u.task = 'Running for the Hearth Hall';
 }
 const shelterCount = tc => { let n = 0; for (const u of G.units) if (u.hidden === tc.id && !u.dead) n++; return n; };
 function flee(u, dt) {
   u.fleeT -= dt;
   const tc = G.teams[u.team].tc;
   if (tc && u.type === 'villager' && edgeDist(u, tc) < 14 && shelterCount(tc) < 15) {
-    u.hidden = tc.id; u.path = null; u.needPath = null; u.moving = false; u.x = tc.x; u.y = tc.y + tc.h * T / 2 - 6; u.task = 'Sheltering in the Town Center';
+    u.hidden = tc.id; u.path = null; u.needPath = null; u.moving = false; u.x = tc.x; u.y = tc.y + tc.h * T / 2 - 6; u.task = 'Sheltering in the Hearth Hall';
     if (u.sel) { setSel(SEL.filter(e => e !== u), true); }
     return;
   }
@@ -841,7 +841,7 @@ function ringBell(team, on) {
     if (on) { if (u.st !== 'flee' && dist(u.x, u.y, tc.x, tc.y) < 30 * T) { startFlee(u, null); u.fleeT = 2; } }
     else u.fleeT = 0;
   }
-  if (team === 0) { sfx('bell'); alertMsg(on ? 'The bell rings! Villagers run for the Town Center.' : 'All clear. Back to work.', on ? 'night' : 'good'); G.uiDirty = true; }
+  if (team === 0) { sfx('bell'); alertMsg(on ? 'The bell rings! Your people run for the Hearth Hall.' : 'All clear. Back to work.', on ? 'night' : 'good'); G.uiDirty = true; }
 }
 
 // Gathering
@@ -908,7 +908,7 @@ function deliver(u, dt) {
   let b = u.drop && G.bldById.get(u.drop);
   if (!b || b.dead || !b.done || b.team !== u.team) {
     b = nearestDrop(u.team, u.ctype, u.x, u.y);
-    if (!b) { stopUnit(u); u.task = `No drop-off — build a ${u.ctype === 'food' ? 'Granary' : 'Storehouse'}`; return; }
+    if (!b) { stopUnit(u); u.task = `No drop-off — build a ${u.ctype === 'food' ? 'Larder' : 'Stockpile'}`; return; }
     u.drop = b.id; goNear(u, b);
   }
   if (edgeDist(u, b) > 9) {
@@ -1134,7 +1134,7 @@ function updBld(b, dt) {
   if (!q) return;
   if (q.u) {
     if (tm.pop >= tm.cap) {
-      if (!q.housed && b.team === 0 && G.time - (G.housedAt || -99) > 25) { G.housedAt = G.time; alertMsg(tm.cap >= 100 ? 'Population limit reached.' : 'Not enough houses — build more to keep training.', 'bad', { x: b.x, y: b.y }); }
+      if (!q.housed && b.team === 0 && G.time - (G.housedAt || -99) > 25) { G.housedAt = G.time; alertMsg(tm.cap >= 100 ? 'Population limit reached.' : 'Not enough dwellings — build more to keep training.', 'bad', { x: b.x, y: b.y }); }
       q.housed = true; return;
     }
     q.housed = false; q.t += dt;
@@ -1216,7 +1216,7 @@ function dawn() {
   }
   const s = SEASONS[G.season];
   banner(`Day ${G.day}`, G.winter ? 'Winter · the fields are frozen' : G.season === 0 ? 'Spring · the fields thaw' : s);
-  if (G.winter) alertMsg('Winter: farms will not grow and frost bites anyone outside firelight at night.', 'night');
+  if (G.winter) alertMsg('Winter: fields will not grow and frost bites anyone outside firelight at night.', 'night');
   if (G.day % 5 === 4) alertMsg('The moon is swelling. Tomorrow night is a Blood Moon.', 'night');
   G.uiDirty = true;
 }
@@ -2013,62 +2013,111 @@ function farmSprite(sk, v) {
 // ---------------------------------------------------------------------------
 const SKIN = ['#e3b78f', '#c99572', '#a8714e', '#f0c9a4'], HAIR = ['#3a2616', '#6b4423', '#a8722e', '#1c1612', '#8a8a86'];
 const TUNIC = ['#8a6a46', '#7a5b3e', '#94744c', '#6e6247', '#8b5a3c'];
+// People change with the era: hunched, fur-clad cavemen in the Ember Age, upright tunic-wearers in the
+// Kiln Age, and modern-looking folk in shirts, trousers and boots in the Forge Age.
+const PELT = ['#8a6440', '#7a5634', '#9a7448', '#6e4a2c'], SHIRT = ['#d8d0bc', '#a9b8c8', '#c9a878', '#b8c4a8', '#d4b4a0'], TROUSER = ['#3a4a6a', '#4a3a2a', '#3d3d42', '#56503e'];
 function drawHuman(g, u, era, col, walk, bob, sw) {
-  const vill = u.type === 'villager', id = u.id;
+  const vill = u.type === 'villager', id = u.id, male = id % 2 === 0;
+  const cave = era === 0, modern = era === 2;
   const skin = SKIN[id % 4];
-  // legs
-  g.strokeStyle = vill ? '#3e2c1c' : '#2e2a26'; g.lineWidth = 2.2;
-  g.beginPath(); g.moveTo(-1.5, -6 + bob); g.lineTo(-1.5 + walk * 2.6, 0); g.moveTo(1.6, -6 + bob); g.lineTo(1.6 - walk * 2.6, 0); g.stroke();
+  g.save();
+  if (cave) g.scale(1.08, .9); else if (modern) g.scale(.97, 1.06);
+  // legs and feet
+  const legCol = cave ? shadeHex(skin, -.08) : era === 1 ? '#5a4632' : vill ? TROUSER[id % 4] : '#2e2a26';
+  g.strokeStyle = legCol; g.lineWidth = cave ? 2.6 : 2.2;
+  const kneeBend = cave ? 1.2 : 0;
+  g.beginPath(); g.moveTo(-1.5, -6 + bob); g.lineTo(-1.5 + walk * 2.6 + kneeBend, -2.8); g.lineTo(-1.5 + walk * 2.6, 0); g.moveTo(1.6, -6 + bob); g.lineTo(1.6 - walk * 2.6 + kneeBend, -2.8); g.lineTo(1.6 - walk * 2.6, 0); g.stroke();
+  if (!cave) { g.fillStyle = modern ? '#2a1e16' : '#7a5434'; g.fillRect(-2.6 + walk * 2.6, -1.1, 2.6, 1.4); g.fillRect(.5 - walk * 2.6, -1.1, 2.6, 1.4); }
+  // the upper body hunches forward in the Ember Age
+  g.translate(0, -5 + bob); g.rotate(cave ? .22 : 0); g.translate(0, 5 - bob);
   // carried load on the back
   if (vill && u.carry > 1) {
     const f = Math.min(1, u.carry / CARRY), cx = -5, cy = -10 + bob;
     if (u.ctype === 'wood') { g.fillStyle = '#7a5434'; for (let k = 0; k < 1 + f * 2; k++) g.fillRect(cx - 3, cy - 2 - k * 2.4, 7, 2.2); }
     else if (u.ctype === 'stone') { g.fillStyle = '#9a9890'; g.beginPath(); g.arc(cx, cy - 1, 2.2 + f * 1.4, 0, TAU); g.fill(); }
     else if (u.ctype === 'gold') { g.fillStyle = '#e8c04a'; g.beginPath(); g.arc(cx, cy - 1, 2 + f * 1.3, 0, TAU); g.fill(); g.fillStyle = '#fff2a8'; g.fillRect(cx - 1, cy - 2, 1, 1); }
-    else { g.fillStyle = '#9a7840'; g.beginPath(); g.ellipse(cx, cy, 3.4, 2.8, 0, 0, TAU); g.fill(); g.fillStyle = u.gkind === 'carcass' ? '#a3483a' : u.gkind === 'farm' ? '#e0c060' : '#c8283a'; g.beginPath(); g.arc(cx, cy - 2, 1.2 + f * 1.4, 0, TAU); g.fill(); }
+    else { g.fillStyle = cave ? '#6e4a2c' : '#9a7840'; g.beginPath(); g.ellipse(cx, cy, 3.4, 2.8, 0, 0, TAU); g.fill(); g.fillStyle = u.gkind === 'carcass' ? '#a3483a' : u.gkind === 'farm' ? '#e0c060' : '#c8283a'; g.beginPath(); g.arc(cx, cy - 2, 1.2 + f * 1.4, 0, TAU); g.fill(); }
   }
-  // body
-  const tunic = vill ? TUNIC[id % TUNIC.length] : u.type === 'archer' ? '#5a6a3a' : col.main;
-  g.fillStyle = tunic; g.beginPath(); g.moveTo(-4.6, -5 + bob); g.lineTo(4.6, -5 + bob); g.lineTo(3.4, -12.5 + bob); g.lineTo(-3.4, -12.5 + bob); g.closePath(); g.fill();
-  g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(1, -5 + bob); g.lineTo(4.6, -5 + bob); g.lineTo(3.4, -12.5 + bob); g.lineTo(1.8, -12.5 + bob); g.fill();
-  if (vill) { g.fillStyle = col.main; g.fillRect(-4, -8 + bob, 8, 1.8); }
-  else if (u.type === 'warrior' && era === 2) { g.fillStyle = '#a3a9b0'; g.fillRect(-3.6, -12.5 + bob, 7.2, 5.5); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(-3, -12 + bob, 2, 4.5); }
-  else if (u.type === 'warrior' && era === 1) { g.fillStyle = '#b07a3a'; g.fillRect(-3.4, -12 + bob, 6.8, 3); }
-  else if (u.type === 'archer') { g.fillStyle = col.main; g.fillRect(-4, -8 + bob, 8, 1.8); g.fillStyle = '#5a3d22'; g.fillRect(-5.5, -15 + bob, 2.2, 8); }
+  // torso
+  const torso = (c) => { g.fillStyle = c; g.beginPath(); g.moveTo(-4.6, -5 + bob); g.lineTo(4.6, -5 + bob); g.lineTo(3.4, -12.5 + bob); g.lineTo(-3.4, -12.5 + bob); g.closePath(); g.fill(); };
+  if (cave) {
+    // bare chest and shoulders with a ragged pelt slung over one shoulder
+    torso(skin);
+    const pc = PELT[id % 4];
+    g.fillStyle = pc; g.beginPath(); g.moveTo(-4.8, -4.2 + bob);
+    for (let k = 0; k <= 6; k++) g.lineTo(-4.8 + k * 1.6, -4.2 + bob + (k % 2 ? 1.3 : 0));
+    g.lineTo(3.8, -9 + bob); g.lineTo(2.2, -12.6 + bob); g.lineTo(-.4, -12.6 + bob); g.lineTo(-3.8, -9 + bob); g.closePath(); g.fill();
+    g.fillStyle = shadeHex(pc, -.35); for (const [x, y] of [[-2.5, -6.5], [1, -8], [2.5, -5.6], [-.5, -10.5]]) { g.beginPath(); g.arc(x, y + bob, .7, 0, TAU); g.fill(); }
+    g.strokeStyle = col.main; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-4.2, -7.4 + bob); g.lineTo(4.2, -7 + bob); g.stroke(); // team-coloured cord or war paint
+    if (!vill) { g.strokeStyle = col.lite; g.lineWidth = .9; g.beginPath(); g.moveTo(-2.5, -11.5 + bob); g.lineTo(-1, -9 + bob); g.moveTo(-1, -11.5 + bob); g.lineTo(.5, -9 + bob); g.stroke(); }
+  } else if (modern && vill) {
+    torso(SHIRT[id % 5]);
+    g.fillStyle = 'rgba(0,0,0,.14)'; g.beginPath(); g.moveTo(1, -5 + bob); g.lineTo(4.6, -5 + bob); g.lineTo(3.4, -12.5 + bob); g.lineTo(1.8, -12.5 + bob); g.fill();
+    if (id % 3 === 1) { g.fillStyle = '#4a3a2c'; g.fillRect(-3.8, -12.3 + bob, 2.2, 7); g.fillRect(1.4, -12.3 + bob, 2.2, 7); } // waistcoat
+    g.fillStyle = col.main; g.fillRect(-4.2, -6.6 + bob, 8.4, 1.5);
+    g.fillStyle = 'rgba(0,0,0,.25)'; for (const y of [-11, -9, -7.6]) g.fillRect(-.3, y + bob, .7, .7);
+  } else {
+    torso(vill ? TUNIC[id % TUNIC.length] : u.type === 'archer' ? '#5a6a3a' : col.main);
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(1, -5 + bob); g.lineTo(4.6, -5 + bob); g.lineTo(3.4, -12.5 + bob); g.lineTo(1.8, -12.5 + bob); g.fill();
+    if (vill) { g.fillStyle = col.main; g.fillRect(-4, -8 + bob, 8, 1.8); }
+    else if (u.type === 'warrior' && era === 2) { g.fillStyle = '#a3a9b0'; g.fillRect(-3.6, -12.5 + bob, 7.2, 5.5); g.fillStyle = 'rgba(255,255,255,.3)'; g.fillRect(-3, -12 + bob, 2, 4.5); }
+    else if (u.type === 'warrior' && era === 1) { g.fillStyle = '#b07a3a'; g.fillRect(-3.4, -12 + bob, 6.8, 3); }
+    else if (u.type === 'archer') { g.fillStyle = col.main; g.fillRect(-4, -8 + bob, 8, 1.8); }
+  }
+  if (u.type === 'archer') { g.fillStyle = '#5a3d22'; g.fillRect(-5.5, -15 + bob, 2.2, 8); }
   // head
-  const hy = -15 + bob;
-  g.fillStyle = skin; g.beginPath(); g.arc(0, hy, 2.9, 0, TAU); g.fill();
-  if (vill) { g.fillStyle = HAIR[id % 5]; g.beginPath(); g.arc(-.3, hy - .6, 3, Math.PI * 1.05, Math.PI * 2.05); g.fill(); if (id % 3 === 0) { g.fillStyle = '#c9b48a'; g.beginPath(); g.ellipse(0, hy - 2.2, 4.6, 1.4, 0, 0, TAU); g.fill(); g.fillRect(-2.3, hy - 4.5, 4.6, 2.5); } }
-  else if (u.type === 'archer') { g.fillStyle = col.dark; g.beginPath(); g.arc(0, hy - .3, 3.3, Math.PI * .9, Math.PI * 2.1); g.lineTo(-3.6, hy + 2.5); g.fill(); }
-  else if (era === 0) { g.fillStyle = '#6a4a2c'; g.beginPath(); g.arc(0, hy - .5, 3.1, Math.PI, 0); g.fill(); }
-  else if (era === 1) { g.fillStyle = '#c08a3a'; g.beginPath(); g.arc(0, hy - .5, 3.3, Math.PI, 0); g.fill(); g.fillStyle = col.main; g.fillRect(-.8, hy - 6.5, 1.6, 3); }
-  else { g.fillStyle = '#9aa3ad'; g.beginPath(); g.arc(0, hy - .3, 3.4, Math.PI, 0); g.fill(); g.fillRect(.6, hy - .5, 1, 3); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(-2, hy - 3, 1.2, 1.2); }
-  g.fillStyle = '#1a120c'; g.fillRect(1.3, hy - .6, 1, 1);
+  const hx = cave ? .9 : 0, hy = (cave ? -14.2 : -15) + bob;
+  g.fillStyle = skin; g.beginPath(); g.arc(hx, hy, cave ? 3.1 : 2.9, 0, TAU); g.fill();
+  if (cave) {
+    g.fillStyle = shadeHex(skin, -.1); g.beginPath(); g.ellipse(hx + 1.6, hy + 1.6, 2, 1.6, 0, 0, TAU); g.fill(); // heavy jaw
+    const hair = HAIR[id % 4];
+    g.fillStyle = hair; g.beginPath(); g.arc(hx - .5, hy - .3, 3.5, Math.PI * .85, Math.PI * 2.02); g.lineTo(hx - 2.8, hy + 3.4); g.lineTo(hx - 4, hy + 1); g.closePath(); g.fill();
+    g.strokeStyle = hair; g.lineWidth = .8; g.beginPath(); for (let k = 0; k < 5; k++) { const x = hx - 3 + k * 1.3; g.moveTo(x, hy - 3); g.lineTo(x - .8, hy - 4.3); } g.stroke();
+    if (male) { g.fillStyle = hair; g.beginPath(); g.moveTo(hx - .4, hy + .8); g.quadraticCurveTo(hx + 1.5, hy + 5, hx + 3.6, hy + 1.2); g.lineTo(hx + 2.4, hy + 1.6); g.closePath(); g.fill(); }
+    g.fillStyle = shadeHex(skin, -.35); g.fillRect(hx + .4, hy - 1.7, 3, 1); // heavy brow ridge
+    if (!vill) { g.fillStyle = col.main; g.fillRect(hx - 3.2, hy - 2.6, 6.2, 1.1); g.fillStyle = '#efe6d2'; g.beginPath(); g.moveTo(hx - 2.5, hy - 2.6); g.lineTo(hx - 3.6, hy - 5.5); g.lineTo(hx - 1.6, hy - 2.6); g.fill(); }
+    g.fillStyle = '#1a120c'; g.fillRect(hx + 1.6, hy - .4, .9, .9);
+  } else {
+    if (vill || u.type === 'archer' && modern) {
+      g.fillStyle = HAIR[id % 5]; g.beginPath(); g.arc(-.3, hy - .6, 3, Math.PI * 1.05, Math.PI * 2.05); g.fill();
+      if (era === 1 && male && id % 3 !== 0) { g.fillStyle = HAIR[id % 5]; g.beginPath(); g.arc(1.4, hy + 1.6, 1.5, 0, Math.PI); g.fill(); }
+      if (modern && id % 3 === 0) { g.fillStyle = ['#4a4a52', '#6a5440', '#8a7a5a'][id % 3 === 0 ? (id >> 2) % 3 : 0]; g.beginPath(); g.ellipse(.6, hy - 2.1, 3.8, 1.2, 0, 0, TAU); g.fill(); g.fillRect(-2.6, hy - 4, 5, 2.2); }
+      else if (era === 1 && id % 3 === 0) { g.fillStyle = '#c9b48a'; g.beginPath(); g.ellipse(0, hy - 2.2, 4.6, 1.4, 0, 0, TAU); g.fill(); g.fillRect(-2.3, hy - 4.5, 4.6, 2.5); }
+    }
+    else if (u.type === 'archer') { g.fillStyle = col.dark; g.beginPath(); g.arc(0, hy - .3, 3.3, Math.PI * .9, Math.PI * 2.1); g.lineTo(-3.6, hy + 2.5); g.fill(); }
+    else if (era === 1) { g.fillStyle = '#c08a3a'; g.beginPath(); g.arc(0, hy - .5, 3.3, Math.PI, 0); g.fill(); g.fillStyle = col.main; g.fillRect(-.8, hy - 6.5, 1.6, 3); }
+    else { g.fillStyle = '#9aa3ad'; g.beginPath(); g.arc(0, hy - .3, 3.4, Math.PI, 0); g.fill(); g.fillRect(.6, hy - .5, 1, 3); g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(-2, hy - 3, 1.2, 1.2); }
+    g.fillStyle = '#1a120c'; g.fillRect(1.3, hy - .6, 1, 1);
+  }
   // arms and tools
-  const rest = .5, a = sw > 0 ? lerp(-2.3, .7, 1 - sw / .34) : rest + Math.sin(u.ph + G.time * 8) * (u.moving ? .3 : 0);
+  const rest = .5, a = sw > 0 ? lerp(-2.3, .7, 1 - sw / .34) : rest + Math.sin(u.ph + G.time * 8) * (u.moving ? .3 : 0) + (cave ? .35 : 0);
   const sx = 1.5, sy = -11 + bob, ax = sx + Math.cos(a) * 5, ay = sy + Math.sin(a) * 5;
-  g.strokeStyle = skin; g.lineWidth = 1.7; g.beginPath(); g.moveTo(sx, sy); g.lineTo(ax, ay); g.stroke();
-  g.strokeStyle = shadeHex(skin, -.2); g.beginPath(); g.moveTo(-1.5, sy); g.lineTo(-2.5, sy + 4); g.stroke();
+  const sleeve = cave ? skin : modern && vill ? SHIRT[id % 5] : skin;
+  g.strokeStyle = sleeve; g.lineWidth = cave ? 2 : 1.7; g.beginPath(); g.moveTo(sx, sy); g.lineTo(ax, ay); g.stroke();
+  g.strokeStyle = shadeHex(sleeve, -.2); g.beginPath(); g.moveTo(-1.5, sy); g.lineTo(cave ? -1.5 : -2.5, sy + (cave ? 5 : 4)); g.stroke();
+  if (modern && vill) { g.fillStyle = skin; g.beginPath(); g.arc(ax, ay, .9, 0, TAU); g.fill(); }
   let tool = null;
   if (vill) {
     if (u.st === 'build') tool = 'hammer';
     else if (u.st === 'attack') tool = 'spear';
     else if (u.st === 'gather' || u.st === 'deliver') tool = u.gkind === 'tree' ? 'axe' : u.gkind === 'stone' || u.gkind === 'gold' ? 'pick' : u.gkind === 'farm' ? 'sickle' : u.gkind === 'carcass' ? 'knife' : null;
   } else tool = u.type === 'archer' ? 'bow' : era === 0 ? 'club' : era === 1 ? 'spear' : 'sword';
+  const head = cave ? '#8a8478' : era === 1 ? '#c8913c' : '#b8bcc2';
   const tx = Math.cos(a), ty = Math.sin(a);
   g.lineWidth = 1.3;
   switch (tool) {
-    case 'axe': g.strokeStyle = '#6b4a2c'; g.beginPath(); g.moveTo(ax - tx * 2, ay - ty * 2); g.lineTo(ax + tx * 6, ay + ty * 6); g.stroke(); g.fillStyle = era ? '#b0b4b8' : '#8a8478'; g.beginPath(); g.arc(ax + tx * 6 - ty * 1.5, ay + ty * 6 + tx * 1.5, 2.2, 0, TAU); g.fill(); break;
-    case 'pick': g.strokeStyle = '#6b4a2c'; g.beginPath(); g.moveTo(ax - tx * 2, ay - ty * 2); g.lineTo(ax + tx * 6, ay + ty * 6); g.stroke(); g.strokeStyle = '#9a9ca0'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ax + tx * 6 - ty * 3.5, ay + ty * 6 + tx * 3.5); g.quadraticCurveTo(ax + tx * 7.5, ay + ty * 7.5, ax + tx * 6 + ty * 3.5, ay + ty * 6 - tx * 3.5); g.stroke(); break;
-    case 'hammer': g.strokeStyle = '#6b4a2c'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + tx * 5, ay + ty * 5); g.stroke(); g.fillStyle = '#7a7670'; g.save(); g.translate(ax + tx * 5, ay + ty * 5); g.rotate(a); g.fillRect(-1.2, -2.2, 2.4, 4.4); g.restore(); break;
-    case 'sickle': g.strokeStyle = '#b8bcc0'; g.beginPath(); g.arc(ax + tx * 3, ay + ty * 3, 2.6, a - 1.5, a + 1.5); g.stroke(); break;
-    case 'knife': g.strokeStyle = '#c0c4c8'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + tx * 3.5, ay + ty * 3.5); g.stroke(); break;
-    case 'spear': { g.strokeStyle = '#7a5a36'; const L = vill ? 10 : 15; g.beginPath(); g.moveTo(ax - tx * 5, ay - ty * 5 - 3); g.lineTo(ax + tx * L * .6, ay + ty * L * .6 - 8); g.stroke(); g.fillStyle = era >= 1 ? '#c8913c' : '#8a8478'; g.beginPath(); const ex = ax + tx * L * .6, ey = ay + ty * L * .6 - 8; g.arc(ex, ey, 1.4, 0, TAU); g.fill(); if (!vill) { g.fillStyle = col.main; g.beginPath(); g.ellipse(-3.5, -8 + bob, 2.6, 3.6, 0, 0, TAU); g.fill(); g.strokeStyle = col.dark; g.lineWidth = .8; g.stroke(); } break; }
-    case 'club': g.strokeStyle = '#6b4a2c'; g.lineWidth = 2; g.beginPath(); g.moveTo(ax - tx, ay - ty); g.lineTo(ax + tx * 5, ay + ty * 5); g.stroke(); g.fillStyle = '#5a3d22'; g.beginPath(); g.arc(ax + tx * 6, ay + ty * 6, 2.2, 0, TAU); g.fill(); break;
+    case 'axe': g.strokeStyle = '#6b4a2c'; g.beginPath(); g.moveTo(ax - tx * 2, ay - ty * 2); g.lineTo(ax + tx * 6, ay + ty * 6); g.stroke(); g.fillStyle = head; g.beginPath(); cave ? g.ellipse(ax + tx * 6 - ty * 1.2, ay + ty * 6 + tx * 1.2, 2.4, 1.6, a, 0, TAU) : g.arc(ax + tx * 6 - ty * 1.5, ay + ty * 6 + tx * 1.5, 2.2, 0, TAU); g.fill(); break;
+    case 'pick': g.strokeStyle = '#6b4a2c'; g.beginPath(); g.moveTo(ax - tx * 2, ay - ty * 2); g.lineTo(ax + tx * 6, ay + ty * 6); g.stroke(); g.strokeStyle = cave ? '#e6dcc4' : head; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ax + tx * 6 - ty * 3.5, ay + ty * 6 + tx * 3.5); g.quadraticCurveTo(ax + tx * 7.5, ay + ty * 7.5, ax + tx * 6 + ty * 3.5, ay + ty * 6 - tx * 3.5); g.stroke(); break;
+    case 'hammer': g.strokeStyle = '#6b4a2c'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + tx * 5, ay + ty * 5); g.stroke(); g.fillStyle = cave ? '#8a8478' : '#7a7670'; g.save(); g.translate(ax + tx * 5, ay + ty * 5); g.rotate(a); cave ? (g.beginPath(), g.ellipse(0, 0, 1.8, 2.6, 0, 0, TAU), g.fill()) : g.fillRect(-1.2, -2.2, 2.4, 4.4); g.restore(); break;
+    case 'sickle': g.strokeStyle = cave ? '#cfc6b0' : '#b8bcc0'; g.beginPath(); g.arc(ax + tx * 3, ay + ty * 3, 2.6, a - 1.5, a + 1.5); g.stroke(); break;
+    case 'knife': g.strokeStyle = cave ? '#8a8478' : '#c0c4c8'; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + tx * 3.5, ay + ty * 3.5); g.stroke(); break;
+    case 'spear': { g.strokeStyle = '#7a5a36'; const L = vill ? 10 : 15; g.beginPath(); g.moveTo(ax - tx * 5, ay - ty * 5 - 3); g.lineTo(ax + tx * L * .6, ay + ty * L * .6 - 8); g.stroke(); g.fillStyle = head; g.beginPath(); const ex = ax + tx * L * .6, ey = ay + ty * L * .6 - 8; g.arc(ex, ey, 1.4, 0, TAU); g.fill(); if (!vill) { g.fillStyle = col.main; g.beginPath(); g.ellipse(-3.5, -8 + bob, 2.6, 3.6, 0, 0, TAU); g.fill(); g.strokeStyle = col.dark; g.lineWidth = .8; g.stroke(); } break; }
+    case 'club': g.strokeStyle = '#6b4a2c'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(ax - tx, ay - ty); g.lineTo(ax + tx * 5, ay + ty * 5); g.stroke(); g.fillStyle = '#5a3d22'; g.beginPath(); g.arc(ax + tx * 6, ay + ty * 6, 2.6, 0, TAU); g.fill(); g.fillStyle = '#efe6d2'; g.beginPath(); g.arc(ax + tx * 6 + 1, ay + ty * 6 - 1.5, .9, 0, TAU); g.fill(); break;
     case 'sword': g.strokeStyle = '#d0d4d8'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + tx * 8, ay + ty * 8); g.stroke(); g.strokeStyle = '#6a5030'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(ax - ty * 2, ay + tx * 2); g.lineTo(ax + ty * 2, ay - tx * 2); g.stroke();
       g.fillStyle = col.main; g.beginPath(); g.moveTo(-6.5, -12 + bob); g.lineTo(-1.5, -12 + bob); g.lineTo(-1.8, -6 + bob); g.lineTo(-4, -3 + bob); g.lineTo(-6.2, -6 + bob); g.closePath(); g.fill(); g.strokeStyle = col.lite; g.lineWidth = .9; g.stroke(); g.fillStyle = col.lite; g.fillRect(-4.5, -10 + bob, 1.5, 4); break;
     case 'bow': { const bx = 3.5, by = -10 + bob, pull = sw > 0 ? sw / .34 * 3 : 0; g.strokeStyle = '#6b4a2c'; g.lineWidth = 1.4; g.beginPath(); g.arc(bx, by, 6, -1.2, 1.2); g.stroke(); g.strokeStyle = 'rgba(240,230,210,.8)'; g.lineWidth = .5; g.beginPath(); g.moveTo(bx + Math.cos(-1.2) * 6, by + Math.sin(-1.2) * 6); g.lineTo(bx - pull, by); g.lineTo(bx + Math.cos(1.2) * 6, by + Math.sin(1.2) * 6); g.stroke(); break; }
   }
+  g.restore();
 }
 function drawHorse(g, u, col, gal) {
   const k = Math.sin(gal), k2 = Math.sin(gal + 1.6);
@@ -2608,7 +2657,7 @@ function cmdList() {
       out.push({ id: 'u:' + ut, icon: iconURL('u', ut), lock: ud.era && tm.era < ud.era ? ERA_NAMES[ud.era].split(' ')[0].toUpperCase() : '', poor: !afford(tm, c), ql: n || '', bar: b.queue[0] && b.queue[0].u === ut ? b.queue[0].t / ud.time : 0,
         tip: { h: unitName({ type: ut, team: 0 }), cost: c, p: `${ud.desc} HP ${stat({ type: ut, team: 0 }, 'hp')} · Attack ${stat({ type: ut, team: 0 }, 'atk')}` }, act: () => { if (queueUnit(b, ut)) { sfx('click'); G.uiDirty = true; } } });
     }
-    if (b.type === 'tc') out.push({ id: 'bell', icon: iconURL('x', G.bell[0] ? 'clear' : 'bell'), on: G.bell[0], tip: { h: G.bell[0] ? 'All clear' : 'Ring the bell', p: 'Villagers shelter inside the Town Center and heal. It fires an extra arrow for every three sheltering. Shortcut: B.' }, act: () => ringBell(0, !G.bell[0]) });
+    if (b.type === 'tc') out.push({ id: 'bell', icon: iconURL('x', G.bell[0] ? 'clear' : 'bell'), on: G.bell[0], tip: { h: G.bell[0] ? 'All clear' : 'Ring the bell', p: 'Your people shelter inside the Hearth Hall and heal. It fires an extra arrow for every three sheltering. Shortcut: B.' }, act: () => ringBell(0, !G.bell[0]) });
     for (const k of d.techs || []) {
       const t = TECH[k]; if (tm.techs[k]) continue;
       if (t.up && tm.era !== t.up - 1) continue;
@@ -2681,14 +2730,14 @@ function updInfo() {
     f = e.done ? e.hp / e.maxhp : e.prog;
     const d = BLD[e.type];
     stats = `<span>HP <b>${Math.ceil(e.hp)}/${e.maxhp}</b></span>${d.pop ? `<span>Housing <b>+${d.pop}</b></span>` : ''}${d.drop ? `<span>Drop-off <b>${d.drop.length === 4 ? 'all' : d.drop.join(', ')}</b></span>` : ''}${d.atk ? `<span>Arrows <b>${d.atk + G.teams[e.team].era * 2}</b></span>` : ''}${d.light ? `<span>Firelight <b>${d.light}</b></span>` : ''}`;
-    if (d.farm && e.team === 0) task = G.winter ? 'Frozen until spring.' : farmers(e) ? 'Being farmed.' : 'Idle field — send a villager.';
+    if (d.farm && e.team === 0) task = G.winter ? 'Frozen until spring.' : farmers(e) ? 'Being worked.' : 'Idle field — send a worker.';
     if (e.team === 0 && e.queue.length) {
       const q0 = e.queue[0];
       task = q0.housed ? 'Waiting for housing…' : q0.u ? `Training ${unitName({ type: q0.u, team: 0 })}` : `Researching ${TECH[q0.k].name}`;
       extra = '<div class="queue">' + e.queue.map((q, i) => `<div class="qi" data-i="${i}" title="Click to cancel"><img src="${q.u ? iconURL('u', q.u) : iconURL('t', q.k)}"><i style="width:${i === 0 ? (q.t / (q.u ? UNIT[q.u].time : TECH[q.k].time)) * 100 : 0}%"></i></div>`).join('') + '</div>';
     }
     if (e.team === 0 && d.trains && !e.queue.length) task = 'Right-click the ground or a resource to set a rally point.';
-    if (e.type === 'tc' && e.team === 0) { const n = shelterCount(e); if (n) task = `Sheltering ${n} villager${n > 1 ? 's' : ''}. ` + (G.bell[0] ? 'The bell is ringing.' : ''); }
+    if (e.type === 'tc' && e.team === 0) { const n = shelterCount(e); if (n) task = `Sheltering ${n} ${n > 1 ? 'people' : 'person'}. ` + (G.bell[0] ? 'The bell is ringing.' : ''); }
   } else {
     title = e.kind === 'tree' ? (e.pine ? 'Pine' : 'Oak') : e.kind === 'berry' ? 'Berry Bush' : e.kind === 'carcass' ? 'Carcass' : e.kind === 'gold' ? 'Gold Mine' : 'Stone Quarry';
     f = e.amt / e.max; stats = `<span>${e.give} <b>${Math.ceil(e.amt)}</b></span>`;
@@ -2734,13 +2783,13 @@ function underAttack(t, att) {
   if (G.time - (G.atkAlert[k] || -99) < 12) return;
   G.atkAlert[k] = G.time;
   const wolf = att.type === 'wolf' || att.type === 'direwolf';
-  const msg = t.ent === 'b' ? `Your ${bName(t)} is under attack!` : wolf ? 'Wolves are attacking your people!' : t.type === 'villager' ? 'Your villagers are under attack!' : 'Your army is engaged!';
+  const msg = t.ent === 'b' ? `Your ${bName(t)} is under attack!` : wolf ? 'Wolves are attacking your people!' : t.type === 'villager' ? 'Your workers are under attack!' : 'Your army is engaged!';
   alertMsg(msg, 'bad', { x: t.x, y: t.y }); sfx('alarm');
 }
 let bannerT = 0;
 function banner(t, s) { if (TEST && !window.HF_LOG) return; $('bannerT').textContent = t; $('bannerS').textContent = s || ''; $('banner').classList.add('show'); clearTimeout(bannerT); bannerT = setTimeout(() => $('banner').classList.remove('show'), 3200); }
 function centerOn(x, y) { cam.x = x; cam.y = y; clampCam(); }
-function resetView() { const b = G.teams[0].tc || G.blds[0]; cam.z = window.innerWidth < 700 ? .9 : 1.05; if (b) centerOn(b.x + 40, b.y - 30); }
+function resetView() { const b = G.teams[0].tc || G.blds[0]; cam.z = matchMedia('(pointer: coarse)').matches ? 1.3 : window.innerWidth < 700 ? 1.15 : 1.05; if (b) centerOn(b.x + 40, b.y - 30); }
 
 // Placement and commands ------------------------------------------------------
 function startPlace(type) {
@@ -2772,7 +2821,12 @@ function wallCells(a, b) {
 }
 function pickAt(wx, wy, rad = 10) {
   let best = null, bd = rad;
-  for (const u of G.units) { if (u.hidden || (u.team !== 0 && !visAt(u.x, u.y))) continue; const d = dist(wx, wy, u.x, u.y - 7); if (d < bd + UNIT[u.type].r * .5) { bd = d; best = u; } }
+  for (const u of G.units) {
+    if (u.hidden || (u.team !== 0 && !visAt(u.x, u.y))) continue;
+    // distance to the body, not the feet; own people win close calls
+    const d = Math.min(dist(wx, wy, u.x, u.y - 9), dist(wx, wy, u.x, u.y - 2)) - UNIT[u.type].r * .5 - (u.team === 0 ? 3 : 0);
+    if (d < bd) { bd = d; best = u; }
+  }
   if (best) return best;
   for (const b of G.blds) { if (b.team !== 0 && !expl[tid(b.tx, b.ty)]) continue; if (wx >= b.tx * T && wx <= (b.tx + b.w) * T && wy >= b.ty * T - (BLD[b.type].farm ? 0 : T * .8) && wy <= (b.ty + b.h) * T) return b; }
   for (const [ox, oy] of [[0, 0], [0, T * .6], [0, T * 1.2]]) {
@@ -2827,7 +2881,7 @@ function boxSelect(a, b, add) {
 }
 function nextIdle() {
   const idle = G.units.filter(u => u.team === 0 && u.type === 'villager' && u.st === 'idle');
-  if (!idle.length) { alertMsg('No idle villagers.'); return; }
+  if (!idle.length) { alertMsg('No idle workers.'); return; }
   const u = idle[UI.idleIx++ % idle.length]; setSel([u]); centerOn(u.x, u.y);
 }
 
@@ -2865,7 +2919,9 @@ cv.addEventListener('pointermove', e => {
   if (UI.place === 'wall' && UI.wallStart && (p || e.buttons)) UI.wallLine = wallCells(UI.wallStart, ghostCell(w));
   if (!p) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
-  if (Math.hypot(p.x - p.sx, p.y - p.sy) > (p.type === 'mouse' ? 5 : 10)) p.moved = true;
+  const far = Math.hypot(p.x - p.sx, p.y - p.sy);
+  if (far > (p.type === 'mouse' ? 5 : 16)) p.moved = true;
+  p.far = Math.max(p.far || 0, far);
   if (p.type !== 'mouse') {
     if (pinch && pts.size >= 2) {
       const [a, b] = [...pts.values()]; const d = dist(a.x, a.y, b.x, b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
@@ -2890,8 +2946,9 @@ function endPointer(e) {
     if (UI.place === 'wall' && UI.wallStart && p.moved) { placeAt('wall', UI.wallLine || [UI.wallStart]); UI.wallStart = null; UI.wallLine = null; return; }
     UI.wallStart = null;
     if (p.box && p.moved) { boxSelect(toWorld(p.sx, p.sy), w, false); return; }
-    if (p.moved) return;
-    tap(w); return;
+    // a quick touch that wobbles a little is still a tap, not a pan
+    if (p.moved && !(performance.now() - p.t < 350 && (p.far || 0) < 26)) return;
+    tap(toWorld(p.sx, p.sy)); return;
   }
   if (p.done || p.pan) return;
   if (UI.place === 'wall' && UI.wallStart) { placeAt('wall', UI.wallLine || [UI.wallStart]); UI.wallStart = null; UI.wallLine = null; return; }
@@ -2912,7 +2969,7 @@ function tap(w) {
     return;
   }
   if (UI.amove) { command(w.x, w.y, true); return; }
-  const e = pickAt(w.x, w.y, 18 / cam.z);
+  const e = pickAt(w.x, w.y, 30 / cam.z);
   if (e && e.ent === 'u' && e.team === 0) {
     const now = performance.now();
     if (now - lastClick.t < 350 && SEL.length === 1 && SEL[0] === e) { const a = toWorld(0, 0), b = toWorld(VW, VH); setSel(G.units.filter(u => u.team === 0 && !u.hidden && u.type === e.type && u.x > a.x && u.x < b.x && u.y > a.y && u.y < b.y)); }
@@ -3041,7 +3098,7 @@ function endGame(win) {
   G.over = true; updVision(); updFog(); setSel([]);
   const tm = G.teams[0], s = tm.stats, mins = Math.floor(G.clock / 60);
   $('endT').textContent = win ? 'Victory' : 'Defeat';
-  $('endS').textContent = win ? `The rival hall burns. Your hearth stands after ${G.day} days.` : `Your Town Center has fallen on day ${G.day}.`;
+  $('endS').textContent = win ? `The rival hall burns. Your hearth stands after ${G.day} days.` : `Your Hearth Hall has fallen on day ${G.day}.`;
   $('endStats').innerHTML = [['Days', G.day], ['Time', `${mins}m ${Math.floor(G.clock % 60)}s`], ['Era', ERA_NAMES[tm.era]], ['Difficulty', DIFF[G.diff].name], ['Trained', s.trained], ['Built', s.built], ['Enemies slain', s.kills], ['People lost', s.lost], ['Gathered', fmt(s.gathered)], ['Rival era', ERA_NAMES[G.teams[1].era]]].map(([a, b]) => `<div>${a} <b>${b}</b></div>`).join('');
   $('end').hidden = false; sfx(win ? 'win' : 'lose');
 }
