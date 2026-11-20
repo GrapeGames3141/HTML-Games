@@ -6,6 +6,54 @@
   let hiding = false;
   let hadPointerLock = false;
 
+  // Installed before game scripts by the Pages builder. The lobby is left alone.
+  const nativeNow = performance.now.bind(performance);
+  const nativeRAF = window.requestAnimationFrame.bind(window);
+  const nativeCancelRAF = window.cancelAnimationFrame.bind(window);
+  let pausedAt = null, pausedDuration = 0, nextFrameId = 1;
+  const frames = new Map();
+  function gameNow() {
+    return (pausedAt === null ? nativeNow() : pausedAt) - pausedDuration;
+  }
+  function scheduleFrame(id, entry) {
+    entry.nativeId = nativeRAF(() => {
+      entry.nativeId = null;
+      if (pausedAt !== null) return;
+      frames.delete(id);
+      entry.callback(gameNow());
+    });
+  }
+  if (game) {
+    Object.defineProperty(performance, 'now', {configurable:true, value:gameNow});
+    window.requestAnimationFrame = callback => {
+      const id = nextFrameId++;
+      const entry = {callback, nativeId:null};
+      frames.set(id, entry);
+      if (pausedAt === null) scheduleFrame(id, entry);
+      return id;
+    };
+    window.cancelAnimationFrame = id => {
+      const entry = frames.get(id);
+      if (!entry) return;
+      if (entry.nativeId !== null) nativeCancelRAF(entry.nativeId);
+      frames.delete(id);
+    };
+  }
+  function pauseFrames() {
+    if (!game || pausedAt !== null) return;
+    pausedAt = nativeNow();
+    for (const entry of frames.values()) {
+      if (entry.nativeId !== null) nativeCancelRAF(entry.nativeId);
+      entry.nativeId = null;
+    }
+  }
+  function resumeFrames() {
+    if (pausedAt === null) return;
+    pausedDuration += nativeNow() - pausedAt;
+    pausedAt = null;
+    for (const [id, entry] of frames) scheduleFrame(id, entry);
+  }
+
   let dialog = null;
   let previousFocus = null;
 
@@ -19,6 +67,7 @@
       event.stopImmediatePropagation();
     }
     hiding = true;
+    pauseFrames();
     previousFocus = document.activeElement;
     hadPointerLock = false;
     if (document.pointerLockElement) document.exitPointerLock();
@@ -43,6 +92,7 @@
       dialog.remove();
       dialog = null;
       hiding = false;
+      resumeFrames();
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
       previousFocus = null;
     }, {once:true});
