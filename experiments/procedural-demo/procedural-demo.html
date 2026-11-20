@@ -180,7 +180,14 @@ float fb(vec2 p){return .516*(n(p)+.5*n(p*2.02)+.25*n(p*4.1)+.125*n(p*8.2)+.0625
 float field(vec2 p){return fb(p+1.5*vec2(fb(p*.55+8.),fb(p*.55-12.)));}
 vec2 gradn(vec2 p,float e){return vec2(n(p+vec2(e,0.))-n(p-vec2(e,0.)),n(p+vec2(0.,e))-n(p-vec2(0.,e)))/(2.*e);}
 vec3 sky(vec3 d){vec3 sun=normalize(vec3(-.64,.48,.55));float hi=max(d.y,0.);vec3 c=mix(vec3(.70,.83,.87),vec3(.10,.34,.61),pow(hi,.55));vec2 p=d.xz/max(.065,d.y+.065)*2.4+vec2(.0009*t,0.);float den=smoothstep(.55,.72,field(p)+.07*fb(p*2.7));float light=clamp(.52+3.8*(field(p)-field(p+.18*sun.xz)),.15,1.);vec3 cloud=mix(vec3(.55,.64,.70),vec3(.99,.98,.91),light);c=mix(c,cloud,den*.74);float disk=pow(max(dot(d,sun),0.),700.);c+=vec3(1.,.79,.48)*(disk*5.+pow(max(dot(d,sun),0.),18.)*.18);return mix(vec3(.60,.76,.81),c,smoothstep(.012,.105,max(d.y,0.)));}
+float waveH(vec2 p){float a=atan(p.y/124.,p.x/164.),r=length(p/vec2(164.,124.))/(1.+.052*sin(a*3.+.45)+.025*sin(a*7.-1.2)),lagoon=1.-smoothstep(.72,1.02,r);return (.24*sin(dot(p,vec2(.115,.065))-t*1.12)+.10*sin(dot(p,vec2(.38,-.22))+t*1.9)+.035*sin(dot(p,vec2(1.3,.9))-t*3.2))*(.35+.65*lagoon);}
 void main(){vec2 screen=uv*2.-1.;vec3 ray=normalize(forward+right*screen.x*aspect*tanHalfFov+up*screen.y*tanHalfFov);if(ray.y>=0.){o=vec4(sky(ray),1.);return;}float hit=-eye.y/ray.y;vec2 xz=eye.xz+ray.xz*hit;vec2 map=xz/vec2(300.,200.)+.5;float border=1.-max(abs(map.x*2.-1.),abs(map.y*2.-1.));float inMap=smoothstep(-.14,.20,border);float depth=mix(24.,texture(bathy,map).r*22.,inMap);float ra=atan(xz.y/124.,xz.x/164.);float rr=length(xz/vec2(164.,124.))/(1.+.052*sin(ra*3.+.45)+.025*sin(ra*7.-1.2));float reefBand=smoothstep(.84,.93,rr)*(1.-smoothstep(1.01,1.10,rr));depth=mix(depth,min(depth,.58+.55*fb(xz*.035)),reefBand);mat2 swizz=mat2(.82,.57,-.57,.82);vec2 q=swizz*xz;float warp=2.8*n(xz*.055)+.7*n(xz*.23);float pixel=max(length(dFdx(xz)),length(dFdy(xz)));float near=1.-smoothstep(.32,5.5,pixel);vec2 slope=.19*gradn(q*vec2(.11,.22)+vec2(t*.026,-t*.019),.075)*(1.-smoothstep(1.,7.,pixel));slope+=.115*gradn(swizz*q*.34+vec2(-t*.052,t*.034)+warp*.12,.065)*near;slope+=.075*gradn(q*.72+vec2(t*.14,t*.09)+warp*.24,.055)*near;slope+=.035*gradn(q*1.55+vec2(-t*.22,t*.17),.045)*near;vec3 N=normalize(vec3(-slope.x,1.,-slope.y));vec2 floorXZ=xz+N.xz*min(depth,5.)*.75;float reef=fb(floorXZ*.11+vec2(warp*.22,-warp*.17));float detail=fb(floorXZ*.68+vec2(warp));vec3 sand=vec3(.82,.77,.56);vec3 coral=mix(vec3(.16,.35,.28),vec3(.04,.46,.39),detail);vec3 seabed=mix(sand,coral,smoothstep(.38,.62,reef));vec3 deep=vec3(.025,.20,.34);vec3 trans=exp(-depth/max(.38,-ray.y)*vec3(.50,.19,.12));vec3 body=mix(deep,seabed,trans);float veins=fb(floorXZ*2.7+vec2(t*.09,-t*.05)+warp)-fb(floorXZ*4.9-warp);body+=vec3(.15,.16,.10)*smoothstep(.18,.38,abs(veins))*exp(-depth*.65);float fres=.04+.90*pow(1.-max(dot(-ray,N),0.),4.);vec3 sun=normalize(vec3(-.64,.48,.55));vec3 refl=reflect(ray,N);vec3 roughSky=mix(sky(refl),mix(vec3(.60,.76,.81),vec3(.21,.49,.69),clamp(refl.y,0.,1.)),.55+.36*smoothstep(120.,650.,hit));vec3 c=mix(body,roughSky,fres);c+=vec3(1.,.80,.46)*pow(max(dot(normalize(-ray+sun),N),0.),260.)*(.18+.55*near);float phase=fract((depth*.42-t*.16+fb(floorXZ*.35))*1.7);float lace=fb(floorXZ*1.1+vec2(t*.05,-t*.03));float foam=smoothstep(.08,1.4,depth)*(1.-smoothstep(1.4,3.5,depth))*smoothstep(.92,.985,phase)*smoothstep(.42,.70,lace);c=mix(c,vec3(.94,.97,.89),foam*.72);c=mix(c,vec3(.60,.76,.81),1.-exp(-hit*.0009));o=vec4(c,1.);}`;
+    const waterV = `#version 300 es
+precision highp float;layout(location=0)in vec2 xz;uniform mat4 m;uniform float t;out vec3 world,N;out float crest,reef;
+float wave(vec2 p){float a=atan(p.y/124.,p.x/164.),r=length(p/vec2(164.,124.))/(1.+.052*sin(a*3.+.45)+.025*sin(a*7.-1.2)),lagoon=1.-smoothstep(.72,1.02,r);return (.24*sin(dot(p,vec2(.115,.065))-t*1.12)+.10*sin(dot(p,vec2(.38,-.22))+t*1.9)+.035*sin(dot(p,vec2(1.3,.9))-t*3.2))*(1.-.65*lagoon);}
+void main(){float e=.28,y=wave(xz),dx=wave(xz+vec2(e,0.))-wave(xz-vec2(e,0.)),dz=wave(xz+vec2(0.,e))-wave(xz-vec2(0.,e));world=vec3(xz.x,y,xz.y);N=normalize(vec3(-dx/(2.*e),1.,-dz/(2.*e)));float a=atan(xz.y/124.,xz.x/164.),r=length(xz/vec2(164.,124.))/(1.+.052*sin(a*3.+.45)+.025*sin(a*7.-1.2));reef=smoothstep(.78,.99,r);crest=smoothstep(.16,.28,y)*reef*(.35+.65*max(0.,dot(normalize(xz),normalize(vec2(-.87,-.49)))));gl_Position=m*vec4(world,1.);}`;
+    const waterF = `#version 300 es
+precision highp float;in vec3 world,N;in float crest,reef;uniform vec3 eye;uniform float t;uniform sampler2D ground;out vec4 o;float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}void main(){vec2 map=world.xz/vec2(300.,200.)+.5;float floor=texture(ground,map).r*4.-2.,depth=world.y-floor;if(depth<-.03)discard;vec3 V=normalize(eye-world),sun=normalize(vec3(-.64,.48,.55));vec2 gp=world.xz*vec2(.72,1.18)+vec2(-t*.16,t*.11);vec2 g=vec2(n(gp+vec2(.05,0.))-n(gp-vec2(.05,0.)),n(gp+vec2(0.,.05))-n(gp-vec2(0.,.05)))*1.5;vec3 NN=normalize(N+vec3(-g.x,0.,-g.y));float fres=.04+.78*pow(1.-max(dot(V,NN),0.),4.);vec2 refr=world.xz+NN.xz*min(depth,2.)*.55;float grain=n(refr*.25);vec3 sand=mix(vec3(.72,.61,.37),vec3(.91,.78,.48),grain),coral=mix(vec3(.08,.29,.22),vec3(.19,.43,.30),n(refr*.65));vec3 bed=mix(sand,coral,smoothstep(.40,.67,n(refr*.12)));vec3 deep=vec3(.018,.14,.23),body=mix(deep,bed,exp(-depth/max(.14,V.y)*vec3(.58,.22,.13)));float sparkle=pow(max(dot(reflect(-sun,NN),V),0.),180.);float lace=smoothstep(.56,.74,n(world.xz*2.2+vec2(t*.18,-t*.09)))*smoothstep(.34,.62,n(world.xz*.72+vec2(-t*.05,t*.08)));float shore=(1.-smoothstep(.03,.34,depth))*lace;float foam=max(crest*lace,shore);vec3 c=mix(body,mix(vec3(.58,.76,.82),vec3(.08,.28,.52),clamp(reflect(-V,NN).y,0.,1.)),fres*.55)+vec3(1.,.84,.52)*sparkle*.9;c=mix(c,vec3(.94,.97,.89),foam*.86);o=vec4(c,1.);}`;
     const meshV = `#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;layout(location=2)in vec3 c;uniform mat4 m;out vec3 albedo,world,normal;void main(){world=p;normal=n;albedo=c;gl_Position=m*vec4(p,1);}`;
     const meshF = `#version 300 es
@@ -191,7 +198,7 @@ float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
 float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}
 float fb(vec2 p){return n(p)+.5*n(p*2.03)+.25*n(p*4.1);}
 float sunShadow(float bias){vec4 q=lightM*vec4(world,1.);q.xyz=q.xyz/q.w*.5+.5;if(q.x<.002||q.x>.998||q.y<.002||q.y>.998||q.z>1.)return 1.;vec2 texel=1./vec2(textureSize(shadowMap,0));float s=0.;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++)s+=texture(shadowMap,vec3(q.xy+vec2(float(x),float(y))*texel,q.z-bias));return mix(.58,1.,s/9.);}
-void main(){if(world.y<0.)discard;vec3 N=normalize(normal);float microX=fb(world.xz*4.2+vec2(.07,0.))-fb(world.xz*4.2-vec2(.07,0.));float microZ=fb(world.xz*4.2+vec2(0.,.07))-fb(world.xz*4.2-vec2(0.,.07));N=normalize(N+vec3(microX,0.,microZ)*.24*(landPass?1.:0.));float steep=1.-N.y,rock=landPass?smoothstep(.18,.52,steep):0.;vec2 face=vec2(world.x+.57*world.z,world.y);float joint=face.x*.175+face.y*.094+.49*n(face*.21)+.15*n(face*.87);float bed=world.y+.21*world.x-.105*world.z+.22*floor(joint+.5)+.66*fb(world.xz*.42)+.20*sin(face.x*.61);float silt=fb(vec2(face.x*.26,bed*1.65)),seam=abs(fract(bed*.49+.13*sin(bed*1.21))-.5),chips=fb(vec2(face.x*1.13,bed*2.75));vec3 basalt=mix(vec3(.23,.24,.22),vec3(.46,.39,.30),silt*.48);basalt*=.80+.20*chips;basalt*=1.-.18*smoothstep(.03,.11,seam);float ripple=.5+.5*sin(world.x*2.5+.35*sin(world.z*.55))*sin(world.z*1.9+.45*sin(world.x*.4));float grain=.82+.18*(.55*ripple+.45*n(world.xz*4.7));vec3 base=mix(albedo*grain,basalt,rock);if(landPass&&world.y<5.&&steep<.22){float damp=smoothstep(3.4,.05,world.y);base=mix(base,base*vec3(.54,.66,.62),damp*.55);base+=vec3(.045,.034,.014)*(ripple-.35)*(1.-damp*.7);}float direct=max(dot(N,normalize(sun)),0.),hemi=.34+.66*max(N.y,0.);vec3 lit=base*(.15+.38*hemi+.58*direct)*sunShadow(.00025+.00065*(1.-max(N.y,0.)));o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
+void main(){if(world.y<-.70)discard;vec3 N=normalize(normal);float microX=fb(world.xz*4.2+vec2(.07,0.))-fb(world.xz*4.2-vec2(.07,0.));float microZ=fb(world.xz*4.2+vec2(0.,.07))-fb(world.xz*4.2-vec2(0.,.07));N=normalize(N+vec3(microX,0.,microZ)*.24*(landPass?1.:0.));float steep=1.-N.y,rock=landPass?smoothstep(.18,.52,steep):0.;vec2 face=vec2(world.x+.57*world.z,world.y);float joint=face.x*.175+face.y*.094+.49*n(face*.21)+.15*n(face*.87);float bed=world.y+.21*world.x-.105*world.z+.22*floor(joint+.5)+.66*fb(world.xz*.42)+.20*sin(face.x*.61);float silt=fb(vec2(face.x*.26,bed*1.65)),seam=abs(fract(bed*.49+.13*sin(bed*1.21))-.5),chips=fb(vec2(face.x*1.13,bed*2.75));vec3 basalt=mix(vec3(.23,.24,.22),vec3(.46,.39,.30),silt*.48);basalt*=.80+.20*chips;basalt*=1.-.18*smoothstep(.03,.11,seam);float ripple=.5+.5*sin(world.x*2.5+.35*sin(world.z*.55))*sin(world.z*1.9+.45*sin(world.x*.4));float grain=.82+.18*(.55*ripple+.45*n(world.xz*4.7));vec3 base=mix(albedo*grain,basalt,rock);if(landPass&&world.y<5.&&steep<.22){float damp=smoothstep(3.4,.05,world.y);base=mix(base,base*vec3(.54,.66,.62),damp*.55);base+=vec3(.045,.034,.014)*(ripple-.35)*(1.-damp*.7);}float direct=max(dot(N,normalize(sun)),0.),hemi=.34+.66*max(N.y,0.);vec3 lit=base*(.15+.38*hemi+.58*direct)*sunShadow(.00025+.00065*(1.-max(N.y,0.)));o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
     const leafV = `#version 300 es
 precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec2 uv;layout(location=2)in vec3 c;uniform mat4 m;out vec2 vuv;out vec3 col;out vec3 wp;void main(){vuv=uv;col=c;wp=p;gl_Position=m*vec4(p,1);}`;
     const leafF = `#version 300 es
@@ -212,9 +219,10 @@ void main(){float edge=smoothstep(0.,.10,v.y)*smoothstep(1.,.90,v.y);float vein=
 precision highp float;layout(location=0)in vec4 p;layout(location=1)in vec3 c;uniform mat4 m;uniform vec2 viewport;uniform float tanHalfFov;out vec3 col;void main(){col=c;gl_Position=m*vec4(p.xyz,1.);gl_PointSize=p.w*viewport.y/(2.*tanHalfFov*max(.01,gl_Position.w));}`;
     const spriteF = `#version 300 es
 precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.-1.;float r=dot(q,q);float a=smoothstep(1.,.12,r)*(1.-.22*sin(q.x*13.+q.y*9.));if(a<.03)discard;o=vec4(col,a*.22);}`;
-    let S, M, Q, F, PZ, SD, SDL;
+    let S, W, M, Q, F, PZ, SD, SDL;
     try {
       S = program(skyV, skyF);
+      W = program(waterV, waterF);
       M = program(meshV, meshF);
       Q = program(leafV, leafF);
       F = program(flowV, flowF);
@@ -387,6 +395,9 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const groundTex=gl.createTexture(),groundPixels=new Uint8Array(256*256);
+    for(let j=0;j<256;j++)for(let i=0;i<256;i++){let x=-150+300*i/255,z=-100+200*j/255;groundPixels[j*256+i]=Math.round((Math.max(-2,Math.min(2,H(x,z)))+2)*63.75);}
+    gl.bindTexture(gl.TEXTURE_2D,groundTex);gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,256,256,0,gl.RED,gl.UNSIGNED_BYTE,groundPixels);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     function normal(x, z) {
       let e = 0.4;
       return norm([
@@ -1078,7 +1089,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       for (const t of tracks) t.age += dt;
       for (const r of ripples) r.age += dt;
       ripples = ripples.filter((r) => r.age < 2.1);
-      let kept = tracks.filter((t) => t.age < (t.wet ? 16 : 80) && gridHeight(t.x, t.z) > -0.35);
+      let kept = tracks.filter((t) => t.age < (t.wet ? 16 : 80) && gridHeight(t.x, t.z) > -0.35 && (!t.wet || waterSurface(t.x,t.z) - gridHeight(t.x,t.z) < .16));
       if (kept.length !== tracks.length) { tracks = kept; changed = true; }
       for (const g of grains) {
         g.age += dt; g.vy -= 7.5 * dt; g.vx *= .96; g.vz *= .96;
@@ -1131,6 +1142,10 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       gl.vertexAttribPointer(0, size, gl.FLOAT, false, 0, 0);
       return v;
     }
+    const waterP=[],waterI=[],waterNX=320,waterNZ=240;
+    for(let z=0;z<=waterNZ;z++)for(let x=0;x<=waterNX;x++)waterP.push(-200+x*400/waterNX,-160+z*320/waterNZ);
+    for(let z=0;z<waterNZ;z++)for(let x=0;x<waterNX;x++){let a=z*(waterNX+1)+x,b=a+1,c=a+waterNX+1,d=c+1;waterI.push(a,c,b,b,c,d);}
+    const waterVAO=gl.createVertexArray();gl.bindVertexArray(waterVAO);let waterPB=gl.createBuffer(),waterIB=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,waterPB);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(waterP),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,waterIB);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(waterI),gl.STATIC_DRAW);
     const screen = arrayVAO([-1, -1, 3, -1, -1, 3], 2),
       U = (p, n) => gl.getUniformLocation(p, n),
       mU = {
@@ -1150,6 +1165,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         tanHalfFov: U(S, "tanHalfFov"),
         bathy: U(S, "bathy"),
       },
+      wU = { m: U(W,"m"), t: U(W,"t"), eye: U(W,"eye"), ground: U(W,"ground") },
       qU = { m: U(Q, "m"), atlas: U(Q, "atlas") },
       fU = { m: U(F, "m"), t: U(F, "t") },
       zU = { m: U(PZ, "m"), viewport: U(PZ,"viewport"), tanHalfFov: U(PZ,"tanHalfFov") };
@@ -1217,10 +1233,11 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         s.pan.pan.setTargetAtTime(Math.max(-1,Math.min(1,right/(dist||1))),audio.ctx.currentTime,.08);
       }
     }
-    if (test === "swim") Object.assign(player, { x: -128, z: -5, yaw: -1.1 });
+    if (test === "swim") Object.assign(player, { x: -150, z: 5, yaw: -Math.PI / 2, pitch: .02 });
     if (test === "falls") Object.assign(player, { x: -66.8, z: -53.1, yaw: Math.atan2(-64.7 + 66.8, -(-46.7 + 53.1)), pitch: .16 });
     if (test === "lava") Object.assign(player, { x: -9, z: 81, yaw: -Math.PI / 2, pitch: -.05 });
     if (test === "forest") Object.assign(player, { x: 83, z: -25, yaw: -2.15, pitch: .04 });
+    if (test === "wave") Object.assign(player, { x: -126, z: 8, yaw: -1.039, pitch: .02 });
     function activeButton(value) {
       document
         .querySelectorAll("button")
@@ -1271,9 +1288,16 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       }
       return Math.hypot(player.x - startX, player.z - startZ);
     }
+    let waterClock = 0;
+    function waterSurface(x, z, time = waterClock) {
+      let a = Math.atan2(z / 124, x / 164), r = Math.hypot(x / 164, z / 124) / (1 + .052 * Math.sin(a * 3 + .45) + .025 * Math.sin(a * 7 - 1.2)),
+        lagoon = 1 - Math.max(0, Math.min(1, (r - .72) / .28)),
+        swell = .24 * Math.sin(x * .115 + z * .065 - time * 1.12) + .10 * Math.sin(x * .38 - z * .22 + time * 1.9) + .035 * Math.sin(x * 1.3 + z * .9 - time * 3.2);
+      return swell * (1 - .65 * lagoon);
+    }
     function updatePlayer(dt) {
       if (mode !== "walk") return;
-      let ground = gridHeight(player.x, player.z), depth = Math.max(0, -ground);
+      let ground = gridHeight(player.x, player.z), surface = waterSurface(player.x, player.z), depth = Math.max(0, surface - ground);
       medium = depth > 0.72 ? "swim" : depth > 0.08 ? "wade" : "sand";
       let forward = (keys.has("w") || keys.has("W") ? 1 : 0) - (keys.has("s") || keys.has("S") ? 1 : 0) - touchMove[1],
         strafe = (keys.has("d") || keys.has("D") ? 1 : 0) - (keys.has("a") || keys.has("A") ? 1 : 0) + touchMove[0],
@@ -1295,10 +1319,9 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
           else stampFoot(player.x, player.z, player.yaw, medium === "wade");
         }
       }
-      ground = gridHeight(player.x, player.z);
-      depth = Math.max(0, -ground);
+      ground = gridHeight(player.x, player.z); surface = waterSurface(player.x, player.z); depth = Math.max(0, surface - ground);
       medium = depth > 0.72 ? "swim" : depth > 0.08 ? "wade" : "sand";
-      player.y = medium === "swim" ? 0.22 + Math.sin(walkTime * 3.2) * 0.045 : ground;
+      player.y = medium === "swim" ? surface + .22 + Math.sin(walkTime * 3.2 + waterClock * 2.) * .045 : ground;
       updateAudio();
     }
     function resize() {
@@ -1329,6 +1352,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       if (renderWidth !== innerWidth || renderHeight !== innerHeight || renderDpr !== (devicePixelRatio || 1)) resize();
       let dt = Math.min(0.05, (t - lastFrame || 16) * 0.001);
       lastFrame = t;
+      waterClock = t * .001;
       updatePlayer(dt);
       updateEffects(dt);
       let eye, fwd, tanHalfFov, terrainClearance;
@@ -1374,6 +1398,7 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
       gl.uniform1i(sU.bathy, 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.enable(gl.DEPTH_TEST);
+      gl.useProgram(W); gl.uniformMatrix4fv(wU.m,false,m); gl.uniform1f(wU.t,t*.001); gl.uniform3fv(wU.eye,eye); gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,groundTex);gl.uniform1i(wU.ground,2); gl.bindVertexArray(waterVAO); gl.drawElements(gl.TRIANGLES,waterI.length,gl.UNSIGNED_INT,0);
       gl.useProgram(M);
       gl.uniformMatrix4fv(mU.m, false, m);
       gl.uniform3fv(mU.sun, SUN);
@@ -1503,6 +1528,8 @@ precision highp float;in vec3 col;out vec4 o;void main(){vec2 q=gl_PointCoord*2.
         player: { ...player },
         groundElevation: gridHeight(player.x, player.z),
         reefMargin: reefMargin(player.x, player.z),
+        waterSurface: waterSurface(player.x, player.z),
+        prevailingWindXZ: [.87,.49],
         sound: { enabled: !!audio.ctx, muted: audio.muted, events: audio.events },
         effects: { tracks: tracks.length, grains: grains.length, ripples: ripples.length, splashes: splashCount },
         landmarks: { falls: fallsPath.length, lava: lavaPath.length },
