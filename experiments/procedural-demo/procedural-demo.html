@@ -134,11 +134,11 @@
       return p;
     }
     const skyV = `#version 300 es
-in vec2 p;out vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0,1);}`;
+layout(location=0)in vec2 p;out vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0,1);}`;
     const skyF = `#version 300 es
 precision highp float;
 in vec2 uv; out vec4 o;
-uniform float t, aspect;
+uniform float t, aspect, tanHalfFov;
 uniform vec3 eye, forward, right, up;
 uniform sampler2D bathy;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
@@ -146,9 +146,9 @@ float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h
 float fb(vec2 p){return .516*(n(p)+.5*n(p*2.02)+.25*n(p*4.1)+.125*n(p*8.2)+.0625*n(p*16.4));}
 float field(vec2 p){return fb(p+1.5*vec2(fb(p*.55+8.),fb(p*.55-12.)));}
 vec3 sky(vec3 d){vec3 sun=normalize(vec3(-.64,.48,.55));float hi=max(d.y,0.);vec3 c=mix(vec3(.70,.83,.87),vec3(.10,.34,.61),pow(hi,.55));vec2 p=d.xz/max(.065,d.y+.065)*2.4+vec2(.0009*t,0.);float den=smoothstep(.55,.72,field(p)+.07*fb(p*2.7));float light=clamp(.52+3.8*(field(p)-field(p+.18*sun.xz)),.15,1.);vec3 cloud=mix(vec3(.55,.64,.70),vec3(.99,.98,.91),light);c=mix(c,cloud,den*.74);float disk=pow(max(dot(d,sun),0.),700.);c+=vec3(1.,.79,.48)*(disk*5.+pow(max(dot(d,sun),0.),18.)*.18);return mix(vec3(.60,.76,.81),c,smoothstep(.012,.105,max(d.y,0.)));}
-void main(){vec2 screen=uv*2.-1.;vec3 ray=normalize(forward+right*screen.x*aspect*.3594+up*screen.y*.3594);if(ray.y>=0.){o=vec4(sky(ray),1.);return;}float hit=-eye.y/ray.y;vec2 xz=eye.xz+ray.xz*hit;vec2 map=xz/vec2(300.,200.)+.5;float border=1.-max(abs(map.x*2.-1.),abs(map.y*2.-1.));float inMap=smoothstep(-.14,.20,border);float depth=mix(24.,texture(bathy,map).r*22.,inMap);mat2 swizz=mat2(.82,.57,-.57,.82);vec2 q=swizz*xz;float warp=2.8*n(xz*.055)+.7*n(xz*.23);float pixel=max(length(dFdx(xz)),length(dFdy(xz)));float fine=1.-smoothstep(.18,.9,pixel);vec2 g=q*vec2(.125,.19)+vec2(t*.032,-t*.021);vec2 slope=.17*vec2(n(g+vec2(.09,0))-n(g-vec2(.09,0)),n(g+vec2(0,.09))-n(g-vec2(0,.09)))/.18*(1.-smoothstep(1.,6.,pixel));slope+=vec2(.93,.36)*.13*cos(dot(q,vec2(.93,.36))*3.3+warp*4.-t*2.2)*fine;slope+=vec2(-.35,.94)*.10*cos(dot(q,vec2(-.35,.94))*2.1-warp*3.+t*1.7)*fine;slope+=vec2(.71,-.70)*.08*cos(dot(q,vec2(.71,-.70))*6.6+warp*5.-t*2.9)*fine;slope+=vec2(.14,.99)*.055*cos(dot(q,vec2(.14,.99))*11.8-warp*7.+t*3.5)*fine;vec3 N=normalize(vec3(-slope.x,1.,-slope.y));vec2 floorXZ=xz+N.xz*min(depth,5.)*.75;float reef=fb(floorXZ*.11+vec2(warp*.22,-warp*.17));float detail=fb(floorXZ*.68);vec3 sand=vec3(.82,.77,.56);vec3 coral=mix(vec3(.20,.33,.26),vec3(.05,.43,.36),detail);vec3 seabed=mix(sand,coral,smoothstep(.43,.65,reef));vec3 deep=vec3(.025,.20,.34);vec3 trans=exp(-depth/max(.38,-ray.y)*vec3(.50,.19,.12));vec3 body=mix(deep,seabed,trans);float veins=abs(sin(floorXZ.x*3.8+warp*4.)*sin(floorXZ.y*4.6-warp*3.));body+=vec3(.17,.16,.08)*smoothstep(.78,.96,veins)*exp(-depth*.6);float fres=.04+.90*pow(1.-max(dot(-ray,N),0.),4.);vec3 sun=normalize(vec3(-.64,.48,.55));vec3 refl=reflect(ray,N);vec3 roughSky=mix(sky(refl),mix(vec3(.60,.76,.81),vec3(.21,.49,.69),clamp(refl.y,0.,1.)),.45+.45*smoothstep(150.,750.,hit));vec3 c=mix(body,roughSky,fres);c+=vec3(1.,.80,.46)*pow(max(dot(normalize(-ray+sun),N),0.),240.)*(.25+.75*fine);float phase=fract((depth*.42-t*.16+fb(floorXZ*.35))*1.7);float lace=fb(floorXZ*1.1+vec2(t*.05,-t*.03));float foam=smoothstep(.08,1.4,depth)*(1.-smoothstep(1.4,3.5,depth))*smoothstep(.92,.985,phase)*smoothstep(.42,.70,lace);c=mix(c,vec3(.94,.97,.89),foam*.72);c=mix(c,vec3(.60,.76,.81),1.-exp(-hit*.0009));o=vec4(c,1.);}`;
+void main(){vec2 screen=uv*2.-1.;vec3 ray=normalize(forward+right*screen.x*aspect*tanHalfFov+up*screen.y*tanHalfFov);if(ray.y>=0.){o=vec4(sky(ray),1.);return;}float hit=-eye.y/ray.y;vec2 xz=eye.xz+ray.xz*hit;vec2 map=xz/vec2(300.,200.)+.5;float border=1.-max(abs(map.x*2.-1.),abs(map.y*2.-1.));float inMap=smoothstep(-.14,.20,border);float depth=mix(24.,texture(bathy,map).r*22.,inMap);mat2 swizz=mat2(.82,.57,-.57,.82);vec2 q=swizz*xz;float warp=2.8*n(xz*.055)+.7*n(xz*.23);float pixel=max(length(dFdx(xz)),length(dFdy(xz)));float fine=1.-smoothstep(.18,.9,pixel);vec2 g=q*vec2(.125,.19)+vec2(t*.032,-t*.021);vec2 slope=.17*vec2(n(g+vec2(.09,0))-n(g-vec2(.09,0)),n(g+vec2(0,.09))-n(g-vec2(0,.09)))/.18*(1.-smoothstep(1.,6.,pixel));slope+=vec2(.93,.36)*.13*cos(dot(q,vec2(.93,.36))*3.3+warp*4.-t*2.2)*fine;slope+=vec2(-.35,.94)*.10*cos(dot(q,vec2(-.35,.94))*2.1-warp*3.+t*1.7)*fine;slope+=vec2(.71,-.70)*.08*cos(dot(q,vec2(.71,-.70))*6.6+warp*5.-t*2.9)*fine;slope+=vec2(.14,.99)*.055*cos(dot(q,vec2(.14,.99))*11.8-warp*7.+t*3.5)*fine;vec3 N=normalize(vec3(-slope.x,1.,-slope.y));vec2 floorXZ=xz+N.xz*min(depth,5.)*.75;float reef=fb(floorXZ*.11+vec2(warp*.22,-warp*.17));float detail=fb(floorXZ*.68);vec3 sand=vec3(.82,.77,.56);vec3 coral=mix(vec3(.20,.33,.26),vec3(.05,.43,.36),detail);vec3 seabed=mix(sand,coral,smoothstep(.43,.65,reef));vec3 deep=vec3(.025,.20,.34);vec3 trans=exp(-depth/max(.38,-ray.y)*vec3(.50,.19,.12));vec3 body=mix(deep,seabed,trans);float veins=abs(sin(floorXZ.x*3.8+warp*4.)*sin(floorXZ.y*4.6-warp*3.));body+=vec3(.17,.16,.08)*smoothstep(.78,.96,veins)*exp(-depth*.6);float fres=.04+.90*pow(1.-max(dot(-ray,N),0.),4.);vec3 sun=normalize(vec3(-.64,.48,.55));vec3 refl=reflect(ray,N);vec3 roughSky=mix(sky(refl),mix(vec3(.60,.76,.81),vec3(.21,.49,.69),clamp(refl.y,0.,1.)),.45+.45*smoothstep(150.,750.,hit));vec3 c=mix(body,roughSky,fres);c+=vec3(1.,.80,.46)*pow(max(dot(normalize(-ray+sun),N),0.),240.)*(.25+.75*fine);float phase=fract((depth*.42-t*.16+fb(floorXZ*.35))*1.7);float lace=fb(floorXZ*1.1+vec2(t*.05,-t*.03));float foam=smoothstep(.08,1.4,depth)*(1.-smoothstep(1.4,3.5,depth))*smoothstep(.92,.985,phase)*smoothstep(.42,.70,lace);c=mix(c,vec3(.94,.97,.89),foam*.72);c=mix(c,vec3(.60,.76,.81),1.-exp(-hit*.0009));o=vec4(c,1.);}`;
     const meshV = `#version 300 es
-precision highp float;in vec3 p,n,c;uniform mat4 m;out vec3 albedo,world,normal;void main(){world=p;normal=n;albedo=c;gl_Position=m*vec4(p,1);}`;
+precision highp float;layout(location=0)in vec3 p;layout(location=1)in vec3 n;layout(location=2)in vec3 c;uniform mat4 m;out vec3 albedo,world,normal;void main(){world=p;normal=n;albedo=c;gl_Position=m*vec4(p,1);}`;
     const meshF = `#version 300 es
 precision highp float;in vec3 albedo,world,normal;out vec4 o;uniform sampler2D shade;uniform vec3 sun;uniform bool landPass;float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+1.),f.x),f.y);}float fb(vec2 p){return n(p)+.5*n(p*2.03)+.25*n(p*4.1);}
 void main(){if(world.y<0.)discard;vec3 N=normalize(normal);float steep=1.-N.y,rock=landPass?smoothstep(.18,.52,steep):0.;vec2 face=vec2(world.x+.57*world.z,world.y);float joint=face.x*.175+face.y*.094+.49*n(face*.21)+.15*n(face*.87);float bed=world.y+.21*world.x-.105*world.z+.22*floor(joint+.5)+.66*fb(world.xz*.42)+.20*sin(face.x*.61);float silt=fb(vec2(face.x*.26,bed*1.65)),seam=abs(fract(bed*.49+.13*sin(bed*1.21))-.5),chips=fb(vec2(face.x*1.13,bed*2.75));vec3 basalt=mix(vec3(.23,.24,.22),vec3(.46,.39,.30),silt*.48);basalt*=.80+.20*chips;basalt*=1.-.10*smoothstep(.03,.11,seam);float grain=.94+.06*sin(world.x*2.1+sin(world.z*1.3))*sin(world.z*1.7),occlusion=landPass?texture(shade,world.xz/vec2(300.,200.)+.5).r:1.;vec3 base=mix(albedo*grain,basalt,rock);float direct=max(dot(N,normalize(sun)),0.);vec3 lit=base*(.34+.66*direct)*occlusion;o=vec4(pow(max(lit,0.),vec3(.64)),1);}`;
@@ -188,9 +188,9 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         a[0] * b[1] - a[1] * b[0],
       ];
     }
-    function perspective(a, n, f) {
+    function perspective(a, n, f, tanHalfFov) {
       let q = 1 / (n - f),
-        s = 1 / Math.tan(0.345);
+        s = 1 / tanHalfFov;
       return new Float32Array([
         s / a,
         0,
@@ -255,9 +255,27 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         coast = Math.max(-8, 10 * (1 - Math.hypot(x / 130, z / 84))),
         g = (a, b, s, h) =>
           h * Math.exp(-(((wx - a) / s) ** 2) - ((wz - b) / (s * 0.72)) ** 2),
+        dx = wx + 10,
+        dz = (wz + 4) / 0.77,
+        radius = Math.hypot(dx, dz),
+        angle = Math.atan2(dz, dx),
+        ramp = Math.min(1, radius / 7) * Math.max(0, 1 - radius / 63),
+        ribs = Math.pow(
+          0.5 +
+            0.5 *
+              Math.cos(
+                10 * angle +
+                  0.075 * radius +
+                  3 * (noise(wx * 0.065, wz * 0.065) - 0.5),
+              ),
+          2.6,
+        ),
         peaks = Math.max(
           g(-61, -14, 32, 36),
-          g(-10, -4, 28, 60),
+          Math.max(
+            g(-10, -4, 32, 64) * (1 - 0.48 * ramp * ribs),
+            g(-23, -10, 13, 48),
+          ),
           g(40, 12, 25, 27),
         ),
         ridge = Math.abs(noise(wx * 0.075, wz * 0.075) - 0.5),
@@ -303,6 +321,23 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         H(x, z - e) - H(x, z + e),
       ]);
     }
+    function gridHeight(x, z) {
+      let sx = 300 / 180,
+        sz = 200 / 120,
+        u = Math.max(0, Math.min(179.999, (x + 150) / sx)),
+        v = Math.max(0, Math.min(119.999, (z + 100) / sz)),
+        i = Math.floor(u),
+        j = Math.floor(v),
+        fx = u - i,
+        fz = v - j,
+        a = H(-150 + i * sx, -100 + j * sz),
+        b = H(-150 + (i + 1) * sx, -100 + j * sz),
+        c = H(-150 + i * sx, -100 + (j + 1) * sz),
+        d = H(-150 + (i + 1) * sx, -100 + (j + 1) * sz);
+      return fx + fz <= 1
+        ? a * (1 - fx - fz) + b * fx + c * fz
+        : b * (1 - fz) + c * (1 - fx) + d * (fx + fz - 1);
+    }
     function makeMesh(P, N, C, I) {
       let v = gl.createVertexArray();
       gl.bindVertexArray(v);
@@ -338,7 +373,7 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
           b = -100 + (200 * z) / (nz - 1),
           y = H(a, b),
           q = normal(a, b),
-          beach = y < 5,
+          beach = y < 2.0 + 1.5 * noise(a * 0.04, b * 0.04),
           rock = q[1] < 0.76 && y > 8,
           g = noise(a * 0.19, b * 0.19),
           submerged = y <= 0,
@@ -356,7 +391,11 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
               ? [0.78 + 0.12 * g, 0.66 + 0.11 * g, 0.39 + 0.07 * g]
               : rock
                 ? [0.18 + 0.16 * g, 0.19 + 0.14 * g, 0.17 + 0.11 * g]
-                : [0.055 + 0.07 * g, 0.22 + 0.15 * g, 0.045 + 0.06 * g];
+                : [
+                    0.1 + 0.075 * g + 0.035 * noise(a * 0.47, b * 0.47),
+                    0.26 + 0.17 * g + 0.045 * noise(a * 0.11 + 8, b * 0.11),
+                    0.055 + 0.065 * g,
+                  ];
         P.push(a, y, b);
         N.push(...q);
         C.push(...c);
@@ -384,47 +423,6 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
     }
     function tri(a, b, c) {
       pI.push(a, b, c);
-    }
-    function crown(x, y, z, r, c) {
-      let T = pv([x, y + r * 0.72, z], [0, 1, 0], c),
-        D = pv([x, y - r * 0.55, z], [0, -1, 0], c),
-        q = [];
-      for (let i = 0; i < 8; i++) {
-        let a = (i * Math.PI) / 4;
-        q.push(
-          pv(
-            [
-              x + Math.cos(a) * r,
-              y + (R() - 0.5) * r * 0.24,
-              z + Math.sin(a) * r,
-            ],
-            [Math.cos(a), 0.25, Math.sin(a)],
-            c,
-          ),
-        );
-      }
-      for (let i = 0; i < 8; i++) {
-        tri(T, q[i], q[(i + 1) % 8]);
-        tri(D, q[(i + 1) % 8], q[i]);
-      }
-    }
-    for (let i = 0; i < 0; i++) {
-      let x = (R() - 0.5) * 240,
-        z = (R() - 0.5) * 155,
-        y = H(x, z),
-        n = normal(x, z);
-      if (y < 5 || y > 48 || n[1] < 0.76) continue;
-      let r = 2 + R() * 3.6,
-        c = [0.025 + R() * 0.035, 0.18 + R() * 0.17, 0.03 + R() * 0.05];
-      crown(x, y + r * 0.45, z, r, c);
-      if (R() > 0.3)
-        crown(
-          x + (R() - 0.5) * r,
-          y + r * 0.95,
-          z + (R() - 0.5) * r,
-          r * 0.72,
-          c,
-        );
     }
     function palm(x, z, y, h) {
       let q = [x, y, z];
@@ -528,23 +526,35 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         palm(x, z, y, 6 + R() * 5);
       }
     }
-    const vegetation = makeMesh(pP, pN, pC, pI);
     const leafCanvas = document.createElement("canvas");
     leafCanvas.width = 512;
     leafCanvas.height = 128;
     const leafInk = leafCanvas.getContext("2d");
     const leafPixels = leafInk.createImageData(512, 128);
     for (let frame = 0; frame < 4; frame++) {
-      let lobes = [];
-      for (let i = 0; i < 42; i++) {
+      let lobes = [],
+        clusters = [];
+      for (let i = 0; i < 5 + Math.floor(R() * 4); i++) {
         let angle = R() * 6.283,
-          r = Math.sqrt(R()) * 43;
+          reach = Math.sqrt(R()) * 35;
+        clusters.push([
+          64 + Math.cos(angle) * reach,
+          63 + Math.sin(angle) * reach * 0.66,
+          0.12 + R() * 0.23,
+        ]);
+      }
+      for (let i = 0; i < 95; i++) {
+        let branch = clusters[Math.floor(R() * clusters.length)],
+          angle = R() * 6.283,
+          reach = Math.sqrt(R()) * (7 + R() * 13),
+          radius = 5 + R() * 8;
         lobes.push([
-          64 + Math.cos(angle) * r,
-          64 + Math.sin(angle) * r * 0.7,
-          12 + R() * 18,
-          9 + R() * 15,
-          0.18 + R() * 0.26,
+          branch[0] + Math.cos(angle) * reach,
+          branch[1] + Math.sin(angle) * reach * 0.72,
+          radius,
+          radius * (0.7 + R() * 0.28),
+          branch[2] + R() * 0.14,
+          0.75 + R() * 0.35,
         ]);
       }
       for (let y = 0; y < 128; y++)
@@ -558,19 +568,29 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
               rad = dx * dx + dy * dy;
             if (rad < 1) {
               let rough =
-                0.08 * Math.sin(x * 0.31 + y * 0.17 + k) +
-                0.05 * Math.sin(x * 0.12 - y * 0.23);
-              if (rad > 1 + rough) continue;
+                  0.11 * Math.sin(x * 0.31 + y * 0.17 + k) +
+                  0.07 * Math.sin(x * 0.12 - y * 0.23 + k * 3),
+                edge =
+                  rad > 0.76 && Math.sin(x * 1.73 + y * 2.31 + k * 7) > 0.86;
+              if (rad > 1 + rough || edge) continue;
               let depth = Math.sqrt(Math.max(0, 1 - rad));
               if (depth > top) {
                 top = depth;
-                let sun = Math.max(0, -dx * 0.35 - dy * 0.48 + depth * 0.82);
+                let macro = Math.max(
+                    0,
+                    0.24 +
+                      depth * 0.42 -
+                      ((x - 64) / 64) * 0.16 -
+                      ((y - 59) / 64) * 0.31,
+                  ),
+                  sun = Math.max(0, -dx * 0.35 - dy * 0.48 + depth * 0.82);
                 let tone =
-                  0.24 +
-                  0.55 * sun +
+                  0.12 +
+                  0.4 * macro +
+                  0.42 * sun +
                   l[4] +
-                  0.05 * Math.sin(x * 1.9 + y * 0.73 + k * 5);
-                base = [24 + 38 * tone, 55 + 88 * tone, 13 + 28 * tone];
+                  0.06 * Math.sin(x * 1.9 + y * 0.73 + k * 5);
+                base = [18 + 43 * tone, 48 + 96 * tone, 15 + 33 * tone];
               }
             }
           }
@@ -645,18 +665,59 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
       leafVertex(b, [u1, 1], c);
       leafVertex(e, [u1, 0], c);
     }
+    function broadleafTrunk(x, y, z, h) {
+      let first = pP.length / 3,
+        sides = 4 + (Math.floor(noise(x * 0.73, z * 0.73) * 3) % 2),
+        rings = 3,
+        low = h * 0.035,
+        high = h * 0.013;
+      for (let row = 0; row <= rings; row++) {
+        let t = row / rings,
+          radius = low * (1 - t) + high * t,
+          py = y - 0.35 + h * 0.63 * t;
+        for (let col = 0; col < sides; col++) {
+          let angle =
+              (col * Math.PI * 2) / sides + noise(x * 0.2, z * 0.2) * 0.31,
+            bend = t * t * (noise(x * 0.11 + 2, z * 0.11) - 0.5) * h * 0.045,
+            nx = Math.cos(angle),
+            nz = Math.sin(angle);
+          pv(
+            [x + nx * radius + bend, py, z + nz * radius - bend * 0.38],
+            norm([nx, 0.16, nz]),
+            [0.115 + t * 0.035, 0.065 + t * 0.03, 0.025 + t * 0.015],
+          );
+        }
+      }
+      for (let row = 0; row < rings; row++)
+        for (let col = 0; col < sides; col++) {
+          let a = first + row * sides + col,
+            b = first + row * sides + ((col + 1) % sides),
+            c = a + sides,
+            d = b + sides;
+          tri(a, c, b);
+          tri(b, c, d);
+        }
+    }
     let leafRoots = [];
     for (let i = 0; i < 14000 && leafRoots.length < 2200; i++) {
       let x = (R() - 0.5) * 245,
         z = (R() - 0.5) * 158,
         y = H(x, z),
         n = normal(x, z);
-      if (y < 5 || y > 68 || n[1] < 0.48) continue;
+      if (
+        y < 2.9 ||
+        y > 68 ||
+        n[1] < 0.48 ||
+        Math.abs(y - gridHeight(x, z)) > 0.55
+      )
+        continue;
+      y = gridHeight(x, z);
       let h = 2.3 + R() * 3.5,
         w = h * (0.31 + R() * 0.13),
         c = [0.56 + R() * 0.2, 0.58 + R() * 0.17, 0.48 + R() * 0.14],
         v = i % 4;
       leafRoots.push([x, z, w, h]);
+      broadleafTrunk(x, y, z, h);
       leafQuad(x, y + h * 0.5, z, w, h, R() * 6.28, v, c);
       leafQuad(x, y + h * 0.5, z, w, h, R() * 6.28, v, c);
       if (R() > 0.22)
@@ -710,6 +771,75 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
       gl.UNSIGNED_BYTE,
       shadowCanvas,
     );
+    let boulderGroups = 0,
+      boulderCount = 0;
+    function boulder(x, z, y, rx, ry, rz, hue) {
+      let first = pP.length / 3,
+        rings = 5,
+        sides = 9;
+      for (let row = 0; row <= rings; row++) {
+        let v = row / rings,
+          theta = v * Math.PI * 0.5,
+          radial = Math.cos(theta),
+          lift = Math.sin(theta);
+        for (let col = 0; col < sides; col++) {
+          let a = (col * Math.PI * 2) / sides,
+            wobble =
+              0.87 +
+              0.16 *
+                noise(x * 0.33 + Math.cos(a) * 2, z * 0.33 + Math.sin(a) * 2),
+            px = x + Math.cos(a) * rx * radial * wobble,
+            pz = z + Math.sin(a) * rz * radial * wobble,
+            py = y + lift * ry - (1 - radial) * 0.1,
+            side = norm([
+              (Math.cos(a) * radial) / rx,
+              (lift * 0.92) / ry,
+              (Math.sin(a) * radial) / rz,
+            ]),
+            wet = Math.max(0, 0.35 - lift) * 0.5,
+            fleck = noise(px * 1.7, pz * 1.7) * 0.1;
+          pv([px, py, pz], side, [
+            0.21 + hue + fleck - wet,
+            0.22 + hue * 0.75 + fleck - wet,
+            0.19 + hue * 0.42 + fleck - wet,
+          ]);
+        }
+      }
+      for (let row = 0; row < rings; row++)
+        for (let col = 0; col < sides; col++) {
+          let a = first + row * sides + col,
+            b = first + row * sides + ((col + 1) % sides),
+            c = a + sides,
+            d = b + sides;
+          tri(a, c, b);
+          tri(b, c, d);
+        }
+    }
+    for (let attempt = 0; attempt < 180 && boulderGroups < 7; attempt++) {
+      let a = R() * Math.PI * 2,
+        radius = 76 + R() * 50,
+        x = Math.cos(a) * radius,
+        z = Math.sin(a) * radius,
+        y = H(x, z),
+        n = normal(x, z);
+      if (y < 0.4 || y > 8.5 || n[1] < 0.68) continue;
+      boulderGroups++;
+      let stones = 4 + Math.floor(R() * 6);
+      for (let stone = 0; stone < stones; stone++) {
+        let turn = R() * Math.PI * 2,
+          spread = R() * 4.2,
+          sx = x + Math.cos(turn) * spread,
+          sz = z + Math.sin(turn) * spread,
+          sy = H(sx, sz);
+        if (sy < 0.1 || sy > 10) continue;
+        let rx = 0.4 + R() * 1.85,
+          rz = rx * (0.58 + R() * 0.58),
+          ry = rx * (0.35 + R() * 0.52);
+        boulder(sx, sz, sy, rx, ry, rz, -0.025 + R() * 0.11);
+        boulderCount++;
+      }
+    }
+    const vegetation = makeMesh(pP, pN, pC, pI);
     const leafVAO = gl.createVertexArray();
     gl.bindVertexArray(leafVAO);
     for (const [data, location, size] of [
@@ -749,6 +879,7 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         right: U(S, "right"),
         up: U(S, "up"),
         aspect: U(S, "aspect"),
+        tanHalfFov: U(S, "tanHalfFov"),
         bathy: U(S, "bathy"),
       },
       qU = { m: U(Q, "m"), atlas: U(Q, "atlas") };
@@ -794,13 +925,15 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         ],
         terrainClearance = H(eye[0], eye[2]) + 1.5;
       eye[1] = Math.max(eye[1], terrainClearance, 1.5);
-      let fwd = norm([T[0] - eye[0], T[1] - eye[1], T[2] - eye[2]]),
+      let aspect = canvas.width / canvas.height,
+        tanHalfFov =
+          Math.tan(0.345) * (view === 0 ? Math.max(1, 1.38 / aspect) : 1),
+        fwd = norm([T[0] - eye[0], T[1] - eye[1], T[2] - eye[2]]),
         right = norm(cross(fwd, [0, 1, 0])),
         up = cross(right, fwd),
-        m = mul(
-          perspective(canvas.width / canvas.height, 0.3, 1500),
-          look(eye, T),
-        );
+        m = mul(perspective(aspect, 0.3, 1500, tanHalfFov), look(eye, T));
+      gl.clearColor(0.5, 0.73, 0.8, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.BLEND);
       gl.useProgram(S);
@@ -810,7 +943,8 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
       gl.uniform3fv(sU.forward, fwd);
       gl.uniform3fv(sU.right, right);
       gl.uniform3fv(sU.up, up);
-      gl.uniform1f(sU.aspect, canvas.width / canvas.height);
+      gl.uniform1f(sU.aspect, aspect);
+      gl.uniform1f(sU.tanHalfFov, tanHalfFov);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, bathy);
       gl.uniform1i(sU.bathy, 0);
@@ -904,6 +1038,8 @@ precision highp float;in vec2 vuv;in vec3 col;uniform sampler2D atlas;out vec4 o
         d,
         broadleafRoots: leafRoots.length,
         palmRoots: palmRoots.length,
+        boulderGroups,
+        boulderCount,
         atlasAlpha,
       }),
       view: setView,
