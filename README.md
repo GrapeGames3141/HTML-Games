@@ -24,12 +24,16 @@ Each game’s editable entry point is named after its folder: `<game>/<game>.htm
 | Slingshot | `slingshot/slingshot.html` | `http://127.0.0.1:8000/slingshot/slingshot.html` |
 | Heroes Sold Separately | `guildmaster/guildmaster.html` | `http://127.0.0.1:8000/guildmaster/guildmaster.html` |
 | Empire Rush | `empire-rush/empire-rush.html` | `http://127.0.0.1:8000/empire-rush/empire-rush.html` |
+| Axolotl Aquarium | `aquarium/aquarium.html` | `http://127.0.0.1:8000/aquarium/aquarium.html` |
+| Wool Rampage | `woolrampage/woolrampage.html` | `http://127.0.0.1:8000/woolrampage/woolrampage.html` |
+| Kindred Crossing | `kindred-crossing/kindred-crossing.html` | `http://127.0.0.1:8000/kindred-crossing/kindred-crossing.html` |
+| Volcanic Island Walk | `experiments/procedural-demo/procedural-demo.html` | `http://127.0.0.1:8000/experiments/procedural-demo/procedural-demo.html` |
 
 `splatcraft/snapshots/splatcraft-early.html` is a historical snapshot, not a playable entry point.
 
 ## Experiments
 
-Development prototypes live under [`experiments/`](experiments/), outside the arcade catalog and Pages package unless explicitly curated. `experiments/Astra-demo/Astra-demo.html` and `experiments/demo/demo.html` are the two curated nested experiment entrypoints. The [Humanoid Model Experiment](experiments/humanoid-model-experiment/README.md) remains intentionally excluded.
+Development prototypes live under [`experiments/`](experiments/), outside the arcade catalog and Pages package unless explicitly curated. `experiments/Astra-demo/Astra-demo.html`, `experiments/demo/demo.html`, and `experiments/procedural-demo/procedural-demo.html` are the three curated nested experiment entrypoints. The [Humanoid Model Experiment](experiments/humanoid-model-experiment/README.md) remains intentionally excluded.
 
 ## Arcade website
 
@@ -43,11 +47,11 @@ The published Pages build provides **Quick hide**: Escape, P, Pause, or the back
 
 The `Publish arcade to GitHub Pages` workflow publishes on pushes to `main` and can also be run manually. In repository **Settings → Pages**, set **Source** to **GitHub Actions**. A private repository requires a GitHub plan that supports Pages for private repositories; the workflow does not change repository visibility.
 
-Expected project URL: <https://grapegames3141.github.io/HTML-Games/>.
+Expected project URL: <https://grapegames3141.github.io/arcade_shelf/>.
 
-Add a new top-level game folder containing `<folder>/<folder>.html` and push it to `main`: the next Pages build discovers it, adds a card, and publishes its runtime assets. The source lobby is a curated fallback; serve `work/pages/` to see every discovered game. The two explicitly curated nested experiment entrypoints are packaged as standalone HTML pages only; their evidence, plans, and sibling prototypes remain excluded. Optional `game.json` in a top-level game folder can set string fields `entry` (a different, meaningful HTML filename in that folder), `title`, `description`, `category`, `controls`, and `requirements`. Without metadata, the card uses the HTML title, an Arcade category, and generic details. Existing curated cards retain their designed descriptions and category. The build copies common web runtime files (HTML, JS, CSS, JSON, images, audio, video, fonts, WASM, and glTF/bin assets); hidden files, tools, snapshots, references, and other source-only directories are excluded. External assets remain the game's responsibility. Local HTML links must resolve within the packaged site and use relative paths. Add the game to the source tables in this README and CLAUDE.md as required by repository instructions.
+Add a new top-level game folder containing `<folder>/<folder>.html` and push it to `main`: the next Pages build discovers it, adds a card, and publishes its runtime assets. The source lobby is a curated fallback; serve `work/pages/` to see every discovered game. The three explicitly curated nested experiment entrypoints are packaged as standalone HTML pages only; their evidence, plans, and sibling prototypes remain excluded. Optional `game.json` in a top-level game folder can set string fields `entry` (a different, meaningful HTML filename in that folder), `title`, `description`, `category`, `controls`, and `requirements`. Without metadata, the card uses the HTML title, an Arcade category, and generic details. Existing curated cards retain their designed descriptions and category. The build copies common web runtime files (HTML, JS, CSS, JSON, images, audio, video, fonts, WASM, and glTF/bin assets); hidden files, tools, snapshots, references, and other source-only directories are excluded. External assets remain the game's responsibility. Local HTML links must resolve within the packaged site and use relative paths. Add the game to the source tables in this README and CLAUDE.md as required by repository instructions.
 
-Validate and package locally with `node --check arcade.js`, `python -m unittest discover -s tools -p test_build_pages.py`, and `python tools/build-pages.py`. The generated `work/pages/` directory contains playable site files, excluding source snapshots, research references, local tools, and all experiments except the two explicit curated entrypoints. It includes generated compatibility aliases for the prior five `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
+Validate and package locally with `node --check arcade.js`, `python -m unittest discover -s tools -p test_build_pages.py`, and `python tools/build-pages.py`. The generated `work/pages/` directory contains playable site files, excluding source snapshots, research references, local tools, and all experiments except the three explicit curated entrypoints. It includes generated compatibility aliases for the prior five `/game/index.html` URLs; source-game folders never regain `index.html`. Serve it with `python -m http.server 8000 --directory work/pages`.
 
 Use this prompt for Claude Code:
 

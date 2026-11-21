@@ -1,0 +1,7 @@
+{
+  "title": "Axolotl Aquarium",
+  "description": "A realistic planted aquarium with a pet axolotl, fish, shrimp and snails. Feed and pet your axolotl, then aquascape the tank with plants, stone, driftwood and sculpted sand.",
+  "category": "Creative",
+  "controls": "Drag to look around; scroll or pinch to zoom. Tap the axolotl to pet it, tap the sand to call it over. Use Feed, Decorate, Animals and Tank at the bottom; in Decorate, drag items to move them. H hides the interface.",
+  "requirements": "WebGL2 browser"
+}

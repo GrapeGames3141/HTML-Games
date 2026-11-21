@@ -15,6 +15,7 @@ CURATED = {"prism-swarm": "prism", "appalachian-eagle": "eagle", "splat": "splat
 PROMOTED_EXPERIMENTS = (
     Path("experiments/Astra-demo/Astra-demo.html"),
     Path("experiments/demo/demo.html"),
+    Path("experiments/procedural-demo/procedural-demo.html"),
 )
 
 class PageParser(HTMLParser):
@@ -149,7 +150,7 @@ def build(root=ROOT):
                 break
     displayed_games = {key[0] for key in seen_paths if len(key) == 2}
     uncurated = [g for g in games if g.name not in displayed_games]
-    categories = {"action": "Action", "explore": "Explore", "creative": "Creative", "strategy": "Strategy", "experiments": "Experiments"}
+    categories = {"action": "Action", "explore": "Explore", "creative": "Creative", "puzzle": "Puzzle", "strategy": "Strategy", "experiments": "Experiments"}
     for game in uncurated:
         data = metadata(game)
         slug = category_slug(data["category"])

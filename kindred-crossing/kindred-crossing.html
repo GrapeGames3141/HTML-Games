@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Kindred Crossing</title>
+<meta name="description" content="Drop stone, iron, straw, ice, seeds and hollow logs, let the reactions play out, and guide the lanternling and its kin home.">
+<link rel="icon" href="art/icon.png">
+<style>
+:root {
+  --ink: #101f29; --ivory: #eee9cf; --muted: #a4bdba; --mint: #9ed5ba; --copper: #d69f6b; --amber: #ddad63;
+  --panel-w: min(360px, 32vw);
+  --serif: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --safe-t: env(safe-area-inset-top, 0px); --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px); --safe-r: env(safe-area-inset-right, 0px);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1a1f; color: var(--ivory); font-family: var(--sans); -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+#board { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+button { font-family: var(--serif); color: var(--ivory); cursor: pointer; }
+button:disabled { cursor: default; }
+.hidden { display: none !important; }
+
+/* ---- layout: landscape puts the panel on the right ---- */
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui > * { pointer-events: auto; }
+#topbar { position: absolute; top: calc(10px + var(--safe-t)); right: calc(12px + var(--safe-r)); width: var(--panel-w); display: flex; align-items: center; gap: 8px; }
+#panel { position: absolute; top: calc(80px + var(--safe-t)); right: calc(12px + var(--safe-r)); bottom: calc(12px + var(--safe-b)); width: var(--panel-w); display: flex; flex-direction: column; gap: 10px; }
+
+.badge { flex: 0 0 auto; width: 64px; height: 64px; border: 0; background: url(art/badge.png) center/contain no-repeat; font-size: 22px; font-weight: bold; text-shadow: 0 2px 3px #000; padding: 0; }
+.badge:hover { filter: brightness(1.12); }
+.plaque { flex: 1 1 auto; min-width: 0; height: 60px; border-style: solid; border-width: 12px 24px; border-color: transparent; border-image: url(art/plaque.png) 40 70 fill / 12px 24px stretch; display: flex; flex-direction: column; justify-content: center; padding: 0 2px; }
+#level-name { font-family: var(--serif); font-size: 19px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 2px rgba(0,0,0,.6); line-height: 1.1; }
+#level-sub { font-size: 12px; color: #f2dfb0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .04em; }
+.top-icons { display: flex; flex-direction: column; gap: 4px; }
+.icon-btn { width: 30px; height: 28px; border-radius: 8px; border: 1px solid rgba(221,173,99,.7); background: rgba(9,32,34,.88); font-size: 16px; line-height: 1; padding: 0; }
+.icon-btn.off { opacity: .45; text-decoration: line-through; }
+
+.card { border-style: solid; border-color: transparent; border-width: 16px 22px; border-image: url(art/panel.png) 40 70 fill / 16px 22px stretch; padding: 2px 2px; }
+#goals { font-size: 13px; }
+.goal { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: var(--muted); }
+.goal .star { font-size: 18px; color: #3d5652; text-shadow: 0 1px 0 #000; transition: color .3s; }
+.goal.earned .star { color: #ffd76a; text-shadow: 0 0 8px rgba(255,200,90,.8); }
+.goal.done .goal-text { color: var(--ivory); }
+.goal.live .star { color: #b9e6c8; }
+
+#hand-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#hand-title { display: flex; justify-content: space-between; font-family: var(--serif); font-size: 14px; color: var(--amber); margin-bottom: 6px; gap: 8px; }
+#piece-info { color: var(--muted); font-family: var(--sans); font-size: 12px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hand { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; align-content: start; padding: 2px; }
+.hcard { position: relative; border-radius: 10px; border: 2px solid rgba(164,189,186,.25); background: rgba(5,27,32,.72); padding: 4px 4px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 86px; }
+.hcard canvas { width: 76px; height: 58px; }
+.hcard .nm { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.15; }
+.hcard .key { position: absolute; top: 2px; left: 6px; font-size: 10px; color: rgba(238,233,207,.45); }
+.hcard.sel { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(221,173,99,.35), 0 0 16px rgba(221,173,99,.35); background: rgba(24,52,44,.85); }
+.hcard.sel .nm { color: var(--ivory); }
+.hcard.used { opacity: .28; pointer-events: none; }
+.hcard.hinted { border-color: #ffd76a; animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 22px rgba(255,215,106,.8); } }
+
+#controls { display: flex; flex-direction: column; gap: 8px; }
+#controls .row { display: flex; gap: 6px; }
+.ctl { flex: 1 1 0; min-width: 0; height: 52px; border-style: solid; border-color: transparent; border-width: 12px 16px; border-image: url(art/button-green.png) 50 70 fill / 12px 16px stretch; background: transparent; padding: 0; margin: 0; font-size: 22px; line-height: 1; text-shadow: 0 2px 2px rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+.ctl.primary { border-image-source: url(art/button-gold.png); color: #3a2208; text-shadow: 0 1px 0 rgba(255,240,200,.6); font-weight: bold; font-size: 20px; flex-grow: 1.6; }
+.ctl.alt, .row.small .ctl { height: 42px; font-size: 15px; border-width: 10px 13px; border-image-width: 10px 13px; }
+.ctl.send { border-image-source: url(art/button-gold.png); color: #3a2208; text-shadow: none; font-weight: bold; }
+.ctl.send:not(:disabled) { animation: glow 1.2s ease-in-out infinite; }
+@keyframes glow { 50% { filter: brightness(1.25) drop-shadow(0 0 8px rgba(255,210,120,.9)); } }
+.ctl:hover:not(:disabled) { filter: brightness(1.1); }
+.ctl:active:not(:disabled) { transform: translateY(1px); filter: brightness(.92); }
+.ctl:disabled { opacity: .38; filter: grayscale(.4); animation: none; }
+#btn-fast.on { filter: brightness(1.3) sepia(.4); }
+#status { min-height: 38px; font-size: 13px; line-height: 1.35; color: var(--muted); padding: 2px 6px; text-shadow: 0 1px 2px #000; }
+#status b { color: var(--ivory); font-weight: 600; }
+
+/* ---- portrait: title on top, hand and controls at the bottom ---- */
+@media (max-aspect-ratio: 1/1) {
+  :root { --bottom-h: 228px; }
+  #topbar { left: calc(8px + var(--safe-l)); right: calc(8px + var(--safe-r)); width: auto; top: calc(6px + var(--safe-t)); }
+  .badge { width: 52px; height: 52px; font-size: 18px; }
+  .plaque { height: 54px; }
+  #level-name { font-size: 16px; }
+  .top-icons { flex-direction: row; }
+  #panel { top: auto; left: calc(6px + var(--safe-l)); right: calc(6px + var(--safe-r)); bottom: calc(4px + var(--safe-b)); width: auto; height: var(--bottom-h); gap: 4px; }
+  #goals { display: none; }
+  #hand-wrap { flex: 0 0 auto; border-width: 10px 14px; border-image-width: 10px 14px; }
+  #hand-title { display: none; }
+  #hand { display: flex; overflow-x: auto; overflow-y: hidden; gap: 6px; padding: 0; scrollbar-width: none; }
+  #hand::-webkit-scrollbar { display: none; }
+  .hcard { flex: 0 0 74px; min-height: 0; padding: 2px; }
+  .hcard canvas { width: 66px; height: 44px; }
+  .hcard .nm { font-size: 10px; }
+  .ctl { height: 48px; }
+  .ctl.alt, .row.small .ctl { height: 40px; font-size: 13px; border-width: 9px 11px; border-image-width: 9px 11px; }
+  #status { position: fixed; left: 10px; right: 10px; top: calc(66px + var(--safe-t)); min-height: 0; text-align: center; font-size: 12px; pointer-events: none; }
+}
+
+/* ---- modals ---- */
+.modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(4,12,16,.55); z-index: 10; padding: 16px; }
+#toast { background: transparent; pointer-events: none; align-items: flex-end; padding-bottom: 12vh; }
+#toast .sheet { pointer-events: auto; }
+.sheet { border-style: solid; border-color: transparent; border-width: 24px 30px; border-image: url(art/panel.png) 40 70 fill / 24px 30px stretch; max-height: 100%; overflow: auto; padding: 4px 6px; }
+.small-sheet { width: min(440px, 100%); }
+.wide-sheet { width: min(860px, 100%); }
+.sheet-title { font-family: var(--serif); font-size: 26px; color: #f6e2b0; text-align: center; margin-bottom: 8px; text-shadow: 0 2px 3px #000; }
+.sheet p { font-size: 15px; line-height: 1.45; margin: 6px 2px; }
+.tip { color: var(--mint); font-style: italic; }
+.sheet-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.sheet-buttons .ctl { flex: 0 1 170px; }
+#win-stars { text-align: center; font-size: 46px; letter-spacing: 10px; color: #33504b; }
+#win-stars span { display: inline-block; transition: color .4s, transform .4s; }
+#win-stars span.on { color: #ffd76a; text-shadow: 0 0 18px rgba(255,200,80,.9); transform: scale(1.15); }
+#win-lines { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.6; }
+#win-lines b { color: var(--ivory); }
+.title-art { display: block; width: min(360px, 80%); margin: -10px auto 4px; border-radius: 8px; }
+#levels-progress { text-align: center; color: var(--amber); margin-bottom: 10px; font-family: var(--serif); }
+.chapter { margin-bottom: 12px; }
+.chapter h3 { font-family: var(--serif); font-weight: normal; color: #f2dfb0; margin: 4px 0 6px; font-size: 17px; }
+.chapter .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.tile { border: 1px solid rgba(221,173,99,.5); border-radius: 10px; background: rgba(5,27,32,.8); padding: 7px 8px; text-align: left; font-family: var(--sans); }
+.tile .tn { font-size: 11px; color: var(--amber); }
+.tile .tt { font-family: var(--serif); font-size: 14px; display: block; margin: 2px 0; }
+.tile .ts { font-size: 13px; color: #3d5652; letter-spacing: 2px; }
+.tile .ts .on { color: #ffd76a; }
+.tile.current { border-color: #ffd76a; box-shadow: 0 0 12px rgba(255,215,106,.45); }
+.tile:disabled { opacity: .4; }
+.tile:not(:disabled):hover { background: rgba(24,52,44,.9); }
+#guide-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 16px; }
+.gitem { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.4; }
+.gitem canvas { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 6px; }
+.gitem b { color: #f6e2b0; font-family: var(--serif); font-size: 15px; }
+.guide-wide { grid-column: 1 / -1; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.guide-wide b { color: var(--ivory); }
+
+#loading { position: fixed; inset: 0; background: #0b1a1f; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; z-index: 20; transition: opacity .5s; }
+#loading img { width: min(420px, 80vw); border-radius: 10px; }
+#loading-bar { width: min(300px, 60vw); height: 6px; background: #1d3a3a; border-radius: 3px; overflow: hidden; }
+#loading-bar div { height: 100%; width: 0; background: var(--amber); transition: width .2s; }
+
+</style>
+</head>
+<body>
+<canvas id="board" aria-label="Kindred Crossing board"></canvas>
+
+<div id="ui">
+  <header id="topbar">
+    <button id="badge" class="badge" title="Crossings (L)" aria-label="Open the crossings list"><span id="badge-num">01</span></button>
+    <div id="plaque" class="plaque">
+      <div id="level-name">Kindred Crossing</div>
+      <div id="level-sub">First Light</div>
+    </div>
+    <div class="top-icons">
+      <button id="btn-guide" class="icon-btn" title="Field guide (G)" aria-label="Field guide">?</button>
+      <button id="btn-sound" class="icon-btn" title="Sound (M)" aria-label="Sound">&#9835;</button>
+    </div>
+  </header>
+
+  <aside id="panel">
+    <section id="goals" class="card">
+      <div class="goal" id="goal-cross"><span class="star">&#9733;</span><span class="goal-text">Bring everyone to the lantern</span></div>
+      <div class="goal" id="goal-flies"><span class="star">&#9733;</span><span class="goal-text">Gather every firefly</span></div>
+      <div class="goal" id="goal-par"><span class="star">&#9733;</span><span class="goal-text">Use 2 pieces or fewer</span></div>
+    </section>
+    <section id="hand-wrap" class="card">
+      <div id="hand-title"><span>Hand</span><span id="piece-info"></span></div>
+      <div id="hand"></div>
+    </section>
+    <section id="controls">
+      <div class="row">
+        <button id="btn-left" class="ctl" title="Move left (&larr; / A)" aria-label="Move left">&#9664;</button>
+        <button id="btn-ccw" class="ctl" title="Rotate back (Z / Q)" aria-label="Rotate counter-clockwise">&#10226;</button>
+        <button id="btn-drop" class="ctl primary" title="Drop (Space)">Drop</button>
+        <button id="btn-cw" class="ctl" title="Rotate (&uarr; / X / E)" aria-label="Rotate clockwise">&#10227;</button>
+        <button id="btn-right" class="ctl" title="Move right (&rarr; / D)" aria-label="Move right">&#9654;</button>
+      </div>
+      <div class="row small">
+        <button id="btn-undo" class="ctl alt" title="Undo (U)">Undo</button>
+        <button id="btn-restart" class="ctl alt" title="Restart (R)">Restart</button>
+        <button id="btn-hint" class="ctl alt" title="Hint (H)">Hint</button>
+        <button id="btn-fast" class="ctl alt" title="Hurry the reactions (F)" aria-label="Fast forward">&#9193;</button>
+        <button id="btn-send" class="ctl send" title="Send the lanternling (Enter)">Send</button>
+      </div>
+    </section>
+    <div id="status" aria-live="polite"></div>
+  </aside>
+</div>
+
+<div id="toast" class="modal hidden" role="dialog" aria-modal="false">
+  <div class="sheet small-sheet">
+    <div id="toast-title" class="sheet-title"></div>
+    <p id="toast-body"></p>
+    <p id="toast-tip" class="tip"></p>
+    <div class="sheet-buttons"><button id="toast-ok" class="ctl primary">Begin</button></div>
+  </div>
+</div>
+
+<div id="win" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet small-sheet">
+    <div class="sheet-title" id="win-title">Across!</div>
+    <div id="win-stars"><span>&#9733;</span><span>&#9733;</span><span>&#9733;</span></div>
+    <div id="win-lines"></div>
+    <div class="sheet-buttons">
+      <button id="win-replay" class="ctl alt">Replay</button>
+      <button id="win-next" class="ctl primary">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="levels" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet wide-sheet">
+    <img class="title-art" src="art/title.png" alt="Kindred Crossing">
+    <div id="levels-progress"></div>
+    <div id="chapters"></div>
+    <div class="sheet-buttons"><button id="levels-reset" class="ctl alt">Reset progress</button><button id="levels-close" class="ctl primary">Close</button></div>
+  </div>
+</div>
+
+<div id="guide" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet wide-sheet">
+    <div class="sheet-title">Field Guide</div>
+    <div id="guide-body"></div>
+    <div class="sheet-buttons"><button id="guide-close" class="ctl primary">Close</button></div>
+  </div>
+</div>
+
+<div id="loading"><img src="art/title.png" alt="Kindred Crossing"><div id="loading-bar"><div></div></div></div>
+
+<script id="kc-core">
+// ---------------------------------------------------------------------------
+// Kindred Crossing simulation. Pure logic, no DOM: the level checker in
+// tools/verify-levels.js runs this same block under Node.
+// Ported from the Godot simulation.gd (v19) and extended with kin, fireflies,
+// seeds that grow branches when wet, and fire baking mud into brick.
+// ---------------------------------------------------------------------------
+const Kindred = (() => {
+'use strict';
+const W = 12, H = 16, N = W * H;
+const WATER_CAPACITY = 4, FIRE_LIFETIME = 7, MAX_TICKS = 72, GROW_LENGTH = 4;
+const ACTOR_HALF_WIDTH = 0.48, ACTOR_HEIGHT = 0.85;
+
+// Material codes. 0 = empty.
+const M = { none: 0, stone: 1, iron: 2, wood: 3, straw: 4, ice: 5, dirt: 6, mud: 7, log: 8, brick: 9, seed: 10, branch: 11 };
+const NAMES = Object.keys(M);
+const FUEL = new Set([M.wood, M.straw, M.log, M.seed, M.branch]);
+const STRIKER = new Set([M.stone, M.brick]);
+// Seed directions follow the piece rotation order (x,y) -> (-y,x): right, down, left, up.
+const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+const ORTHO = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+const inside = (x, y) => x >= 0 && x < W && y >= 0 && y < H;
+const K = (x, y) => y * W + x;
+const pairKey = (a, b) => a < b ? a * 65536 + b : b * 65536 + a;
+const popcount = n => { let c = 0; while (n) { c += n & 1; n >>= 1; } return c; };
+
+// ---- Log runs (LogGeometry.partition) -------------------------------------
+// points: Map key->index, orientations: Map key->rotation
+function logPartition(points, orientations) {
+  const pending = new Map(points);
+  const runs = [];
+  const ok = (k, axisVertical) => !orientations.has(k) || ((orientations.get(k) % 2) === (axisVertical ? 1 : 0));
+  while (pending.size) {
+    let anchor = -1;
+    for (const k of pending.keys()) if (anchor < 0 || k < anchor) anchor = k; // row-major min = top-left
+    const ax = anchor % W, ay = (anchor / W) | 0;
+    const cands = [];
+    for (const vertical of [false, true]) {
+      const dx = vertical ? 0 : 1, dy = vertical ? 1 : 0;
+      let sx = ax, sy = ay;
+      while (pending.has(K(sx - dx, sy - dy)) && inside(sx - dx, sy - dy) && ok(K(sx - dx, sy - dy), vertical)) { sx -= dx; sy -= dy; }
+      const line = [];
+      let px = sx, py = sy;
+      while (inside(px, py) && pending.has(K(px, py)) && (K(px, py) === anchor || ok(K(px, py), vertical))) { line.push(K(px, py)); px += dx; py += dy; }
+      cands.push(line);
+    }
+    const pref = orientations.has(anchor) ? orientations.get(anchor) : -1;
+    const vertical = pref >= 0 ? (pref % 2 === 1) : cands[1].length > cands[0].length;
+    const line = cands[vertical ? 1 : 0];
+    const indices = line.map(k => pending.get(k));
+    for (const k of line) pending.delete(k);
+    runs.push({ points: line, length: line.length, rotation: pref >= 0 ? pref : (vertical ? 1 : 0), indices });
+  }
+  return runs;
+}
+
+// ---- Pieces ---------------------------------------------------------------
+// A piece is {name, cells:[[x,y,material,dir?]]}. Built from mini-maps.
+const CHAR_MAT = { s: 'stone', i: 'iron', w: 'wood', h: 'straw', c: 'ice', d: 'dirt', m: 'mud', '=': 'log', '|': 'log', b: 'brick', r: 'branch', '>': 'seed', 'v': 'seed', '<': 'seed', '^': 'seed' };
+const SEED_DIR = { '>': 0, 'v': 1, '<': 2, '^': 3 };
+function piece(name, rows) {
+  const cells = [];
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '.' || ch === ' ') return;
+    const mat = CHAR_MAT[ch];
+    if (!mat) throw new Error('Unknown piece char ' + ch + ' in ' + name);
+    const c = [x, y, mat];
+    if (mat === 'seed') c.push(SEED_DIR[ch]);
+    if (ch === '|') c.push('v');
+    cells.push(c);
+  }));
+  return { name, cells };
+}
+
+function rotatedPiece(pc, rotations) {
+  const r = ((rotations % 4) + 4) % 4;
+  const out = pc.cells.map(c => {
+    let x = c[0], y = c[1];
+    for (let i = 0; i < r; i++) { const t = x; x = -y; y = t; }
+    return { x, y, m: M[c[2]], dir: c[2] === 'seed' ? (c[3] + r) % 4 : -1 };
+  });
+  let mx = 1e9, my = 1e9;
+  for (const o of out) { mx = Math.min(mx, o.x); my = Math.min(my, o.y); }
+  for (const o of out) { o.x -= mx; o.y -= my; }
+  return out;
+}
+function pieceExtent(pc, rot) {
+  let ex = 0, ey = 0;
+  for (const o of rotatedPiece(pc, rot)) { ex = Math.max(ex, o.x + 1); ey = Math.max(ey, o.y + 1); }
+  return [ex, ey];
+}
+// Log runs inside a piece, oriented after rotation (simulation.gd piece_log_runs).
+function pieceLogRuns(pc, rot) {
+  const pts = new Map(), orient = new Map();
+  pc.cells.forEach((c, i) => {
+    if (c[2] !== 'log') return;
+    const k = (c[1] + 8) * 64 + (c[0] + 8); // local key space, wide enough
+    pts.set(k, i);
+    if (c[3] === 'v') orient.set(k, 1);
+  });
+  // logPartition works on board keys; remap through a local board.
+  const local = new Map(), lorient = new Map();
+  for (const [k, i] of pts) { const x = (k % 64) - 8, y = ((k / 64) | 0) - 8; local.set(K(x, y), i); }
+  for (const [k, r] of orient) { const x = (k % 64) - 8, y = ((k / 64) | 0) - 8; lorient.set(K(x, y), r); }
+  const rotated = rotatedPiece(pc, rot);
+  return logPartition(local, lorient).map(run => ({ indices: run.indices, length: run.length, rotation: (run.rotation + rot) % 4, cells: run.indices.map(i => [rotated[i].x, rotated[i].y]) }));
+}
+function shapeKey(pc, rot) {
+  return rotatedPiece(pc, rot).map(o => `${o.x},${o.y},${o.m},${o.dir}`).sort().join(';') + '|' + pieceLogRuns(pc, rot).map(r => r.rotation % 2).join('');
+}
+function distinctRotations(pc) {
+  const seen = new Set(), out = [];
+  for (let r = 0; r < 4; r++) { const k = shapeKey(pc, r); if (!seen.has(k)) { seen.add(k); out.push(r); } }
+  return out;
+}
+
+// ---- Simulation -----------------------------------------------------------
+class Sim {
+  constructor() {
+    this.mat = new Uint8Array(N); this.id = new Int32Array(N); this.fire = new Uint8Array(N);
+    this.fixed = new Uint8Array(N); this.rot = new Uint8Array(N); this.dir = new Int8Array(N).fill(-1);
+    this.grow = new Int8Array(N); // seeds: -1 sprouted & finished, 0 dormant, >0 cells still to grow
+    this.tip = new Int32Array(N); // seeds: id of the current branch tip
+    this.water = new Int16Array(N);
+    this.bonds = new Set(); this.contacts = new Set();
+    this.nextId = 1; this.tick = 0; this.resolving = false; this.timedOut = false;
+    this.events = []; this.drained = 0; this.waterCreated = 0;
+    this.entry = [-1, 7]; this.exit = [W, 7]; this.ledges = []; this.kin = []; this.flies = [];
+  }
+  clone() {
+    const s = new Sim();
+    for (const f of ['mat', 'id', 'fire', 'fixed', 'rot', 'dir', 'grow', 'tip', 'water']) s[f].set(this[f]);
+    s.bonds = new Set(this.bonds); s.contacts = new Set(this.contacts);
+    s.nextId = this.nextId; s.tick = this.tick; s.resolving = this.resolving; s.timedOut = this.timedOut;
+    s.drained = this.drained; s.waterCreated = this.waterCreated;
+    s.entry = this.entry; s.exit = this.exit; s.ledges = this.ledges; s.kin = this.kin; s.flies = this.flies;
+    s.events = [];
+    return s;
+  }
+  has(x, y) { return inside(x, y) && this.mat[K(x, y)] !== 0; }
+  m(x, y) { return inside(x, y) ? this.mat[K(x, y)] : 0; }
+  addCell(x, y, m, fixed = false, dir = -1) {
+    const k = K(x, y);
+    this.mat[k] = m; this.id[k] = this.nextId++; this.fire[k] = 0; this.fixed[k] = fixed ? 1 : 0;
+    this.rot[k] = 0; this.dir[k] = m === M.seed ? dir : -1; this.grow[k] = 0; this.tip[k] = 0;
+    return this.id[k];
+  }
+  clearCell(k) { this.mat[k] = 0; this.id[k] = 0; this.fire[k] = 0; this.fixed[k] = 0; this.rot[k] = 0; this.dir[k] = -1; this.grow[k] = 0; this.tip[k] = 0; }
+
+  loadLevel(lv) {
+    this.mat.fill(0); this.id.fill(0); this.fire.fill(0); this.fixed.fill(0); this.rot.fill(0); this.dir.fill(-1);
+    this.grow.fill(0); this.tip.fill(0); this.water.fill(0);
+    this.bonds.clear(); this.contacts.clear();
+    this.nextId = 1; this.tick = 0; this.resolving = false; this.timedOut = false; this.drained = 0; this.waterCreated = 0;
+    this.events = [];
+    const map = lv.map;
+    if (map.length !== H || map.some(r => r.length !== W)) throw new Error(`Level ${lv.id}: map must be ${H} rows of ${W}`);
+    const movable = [];
+    const groupOf = new Map();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const ch = map[y][x];
+      if (ch === '.' || ch === 'k' || ch === '*') continue;
+      if (ch === '~') { this.water[K(x, y)] = WATER_CAPACITY; continue; }
+      if (ch === '#') { this.addCell(x, y, M.stone, true); continue; }
+      const lower = ch.toLowerCase();
+      const fixed = ch !== lower && ch in FIXED_CHARS;
+      const mc = fixed ? FIXED_CHARS[ch] : CHAR_MAT[ch];
+      if (!mc) throw new Error(`Level ${lv.id}: unknown map char ${ch}`);
+      const dir = mc === 'seed' ? SEED_DIR[ch] : -1;
+      this.addCell(x, y, M[mc], fixed, dir);
+      if (!fixed) { movable.push(K(x, y)); if (lv.groups) groupOf.set(K(x, y), lv.groups[y][x]); }
+      if (ch === '|') this.rot[K(x, y)] = 1;
+    }
+    // Movable authored cells bond to orthogonal movable neighbours (same group char when a group map is given).
+    const mov = new Set(movable);
+    for (const k of movable) {
+      const x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const q = K(x + dx, y + dy);
+        if (!inside(x + dx, y + dy) || !mov.has(q)) continue;
+        if (lv.groups && groupOf.get(k) !== groupOf.get(q)) continue;
+        if (this.mat[k] === M.mud || this.mat[q] === M.mud) continue; // mud never holds a bond
+        this.bonds.add(pairKey(this.id[k], this.id[q]));
+      }
+    }
+    // Pins hang a loose cell from a rooted neighbour (drawn as a brass hook).
+    for (const [x1, y1, x2, y2] of lv.pins || []) {
+      const a = K(x1, y1), b = K(x2, y2);
+      if (!this.mat[a] || !this.mat[b] || this.fixed[a] === this.fixed[b] || Math.abs(x1 - x2) + Math.abs(y1 - y2) !== 1) throw new Error(`Level ${lv.id}: pin must join a loose cell to a rooted neighbour`);
+      this.bonds.add(pairKey(this.id[a], this.id[b]));
+    }
+    // Authored log orientation: '|' cells are vertical, others partition into runs.
+    const logs = new Map(), orient = new Map();
+    for (let k = 0; k < N; k++) if (this.mat[k] === M.log) { logs.set(k, k); if (this.rot[k] === 1) orient.set(k, 1); }
+    for (const run of logPartition(logs, orient)) for (const k of run.points) this.rot[k] = run.rotation;
+    this.entry = [-1, lv.entry];
+    this.exit = lv.exit.slice();
+    this.ledges = (lv.ledges || []).map(p => p.slice());
+    this.kin = [];
+    this.flies = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (map[y][x] === 'k') this.kin.push([x, y]);
+      if (map[y][x] === '*') this.flies.push([x, y]);
+    }
+    for (const p of lv.kin || []) this.kin.push(p.slice());
+    for (const p of lv.flies || []) this.flies.push(p.slice());
+    // Kin or fireflies placed beyond the board edge stand on their own small ledge.
+    for (const p of this.kin.concat(this.flies)) if ((p[0] < 0 || p[0] >= W) && !this.isLedge(p[0], p[1])) this.ledges.push(p.slice());
+    this.contacts = this.contactPairs();
+  }
+
+  // ---- placement ----
+  canPlace(items, ox, oy) {
+    for (const o of items) { const x = o.x + ox, y = o.y + oy; if (!inside(x, y) || this.mat[K(x, y)]) return false; }
+    return true;
+  }
+  canPlaceAt(pc, x, y, rot) { return this.canPlace(rotatedPiece(pc, rot), x, y); }
+  landingY(pc, x, rot, y = 0) {
+    const items = rotatedPiece(pc, rot);
+    if (!this.canPlace(items, x, y)) return -1;
+    while (this.canPlace(items, x, y + 1)) y++;
+    return y;
+  }
+  placePiece(pc, x, rot) {
+    if (this.resolving) return false;
+    const y = this.landingY(pc, x, rot);
+    if (y < 0) return false;
+    const items = rotatedPiece(pc, rot);
+    const ids = [];
+    const placed = new Map();
+    for (const o of items) {
+      const id = this.addCell(o.x + x, o.y + y, o.m, false, o.dir);
+      ids.push(id); placed.set(K(o.x + x, o.y + y), id);
+    }
+    for (const [k, id] of placed) {
+      const px = k % W, py = (k / W) | 0;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const q = K(px + dx, py + dy);
+        if (inside(px + dx, py + dy) && placed.has(q)) this.bonds.add(pairKey(id, placed.get(q)));
+      }
+    }
+    for (const run of pieceLogRuns(pc, rot)) for (const [cx, cy] of run.cells) this.rot[K(cx + x, cy + y)] = run.rotation;
+    this.events = [{ kind: 'drop', x, y, text: `${pc.name} placed` }];
+    this.lastDrop = { x, y, items: items.map(o => [o.x + x, o.y + y]) };
+    this.detectSparks();
+    this.tick = 0; this.resolving = true; this.timedOut = false;
+    return true;
+  }
+
+  // ---- stepping ----
+  step() {
+    if (!this.resolving) return [];
+    this.tick++;
+    this.events = [];
+    let changed = false;
+    changed = this.waterReactions() || changed;
+    changed = this.heat() || changed;
+    changed = this.waterReactions() || changed;
+    changed = this.flowWater() || changed;
+    changed = this.waterReactions() || changed;
+    changed = this.growBranches() || changed;
+    changed = this.gravity() || changed;
+    this.detectSparks();
+    if (this.tick >= MAX_TICKS) {
+      this.resolving = false; this.timedOut = changed;
+      if (changed) this.events.push({ kind: 'settled', text: 'Water rests after the settling window.' });
+    } else if (!changed && !this.pending()) this.resolving = false;
+    return this.events;
+  }
+  settle() { let guard = 0; while (this.resolving && guard++ < 1000) this.step(); }
+  pending() {
+    for (let k = 0; k < N; k++) {
+      if (this.fire[k] > 0) return true;
+      if (this.mat[k] === M.seed && this.grow[k] > 0) return true;
+    }
+    return false;
+  }
+  isWet(x, y) {
+    if (inside(x, y) && this.water[K(x, y)] > 0) return true;
+    for (const [dx, dy] of ORTHO) if (inside(x + dx, y + dy) && this.water[K(x + dx, y + dy)] > 0) return true;
+    return false;
+  }
+  breakBonds(id) { for (const key of [...this.bonds]) if (Math.floor(key / 65536) === id || key % 65536 === id) this.bonds.delete(key); }
+  removeCell(k) { if (this.mat[k]) { this.breakBonds(this.id[k]); this.clearCell(k); } }
+
+  waterReactions() {
+    let changed = false;
+    for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) {
+      const k = K(x, y);
+      if (!this.mat[k] || !this.isWet(x, y)) continue;
+      if (this.fire[k] > 0) { this.fire[k] = 0; this.events.push({ kind: 'water', x, y, text: 'Water put out the fire.' }); changed = true; }
+      if (this.mat[k] === M.dirt) {
+        this.mat[k] = M.mud; this.breakBonds(this.id[k]);
+        this.events.push({ kind: 'mud', x, y, text: 'Dirt turned to mud; its bonds let go.' }); changed = true;
+      }
+      if (this.mat[k] === M.seed && this.grow[k] === 0) {
+        this.grow[k] = GROW_LENGTH; this.tip[k] = this.id[k];
+        this.events.push({ kind: 'sprout', x, y, text: 'The seed drank and sprouted.' }); changed = true;
+      }
+    }
+    return changed;
+  }
+
+  heat() {
+    let changed = false;
+    const ignition = [], removal = [], melting = [], baking = [];
+    for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) {
+      const k = K(x, y), m = this.mat[k];
+      if (!m) continue;
+      if (m === M.ice || m === M.mud) {
+        let hot = false;
+        for (const [dx, dy] of ORTHO) if (inside(x + dx, y + dy) && this.fire[K(x + dx, y + dy)] > 0) hot = true;
+        if (hot && m === M.ice) melting.push(k);
+        if (hot && m === M.mud && !this.isWet(x, y)) baking.push(k);
+      }
+      if (this.fire[k] > 0) {
+        for (const [dx, dy] of ORTHO) {
+          const qx = x + dx, qy = y + dy;
+          if (!inside(qx, qy)) continue;
+          const q = K(qx, qy);
+          if (FUEL.has(this.mat[q]) && this.fire[q] === 0 && !this.isWet(qx, qy)) ignition.push(q);
+        }
+        this.fire[k]++; changed = true;
+        if (this.fire[k] > FIRE_LIFETIME) removal.push(k);
+      }
+    }
+    for (const q of ignition) if (this.mat[q] && this.fire[q] === 0) {
+      this.fire[q] = 1; this.events.push({ kind: 'fire', x: q % W, y: (q / W) | 0, text: 'Fire spread through touching fuel.' });
+    }
+    for (const k of removal) {
+      const material = NAMES[this.mat[k]];
+      this.removeCell(k);
+      this.events.push({ kind: 'ash', x: k % W, y: (k / W) | 0, material, text: 'Burned fuel crumbled away.' });
+    }
+    for (const k of melting) {
+      this.removeCell(k);
+      this.water[k] += WATER_CAPACITY; this.waterCreated += WATER_CAPACITY;
+      this.events.push({ kind: 'melt', x: k % W, y: (k / W) | 0, text: 'Ice melted into flowing water.' });
+      changed = true;
+    }
+    for (const k of baking) {
+      if (this.mat[k] !== M.mud) continue;
+      this.mat[k] = M.brick;
+      this.events.push({ kind: 'bake', x: k % W, y: (k / W) | 0, text: 'Fire baked the mud into brick.' });
+      changed = true;
+    }
+    return changed;
+  }
+
+  flowWater() {
+    let changed = false;
+    const list = [];
+    for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) if (this.water[K(x, y)] > 0) list.push(K(x, y));
+    for (const p of list) {
+      let amount = this.water[p];
+      if (amount <= 0) continue;
+      const x = p % W, y = (p / W) | 0;
+      if (y === H - 1) { this.drained += amount; this.water[p] = 0; changed = true; continue; }
+      const below = K(x, y + 1);
+      if (!this.mat[below]) {
+        const transfer = Math.min(amount, WATER_CAPACITY - this.water[below]);
+        if (transfer > 0) { this.water[below] += transfer; amount -= transfer; changed = true; }
+      }
+      this.water[p] = amount;
+      if (amount === 0) continue;
+      const sides = (x + this.tick) % 2 === 0 ? [-1, 1] : [1, -1];
+      for (const dx of sides) {
+        const qx = x + dx;
+        if (qx < 0 || qx >= W) { if (amount > 0) { amount--; this.drained++; changed = true; } continue; }
+        const q = K(qx, y);
+        if (this.mat[q]) continue;
+        const other = this.water[q];
+        const transfer = Math.min(2, Math.trunc((amount - other) / 2));
+        if (transfer > 0) { this.water[q] = other + transfer; amount -= transfer; changed = true; }
+      }
+      this.water[p] = amount;
+    }
+    return changed;
+  }
+
+  growBranches() {
+    let changed = false;
+    const seeds = [];
+    for (let k = 0; k < N; k++) if (this.mat[k] === M.seed && this.grow[k] > 0) seeds.push(k);
+    for (const s of seeds) {
+      if (this.mat[s] !== M.seed || this.grow[s] <= 0) continue;
+      let tipK = -1;
+      for (let k = 0; k < N; k++) if (this.mat[k] && this.id[k] === this.tip[s]) { tipK = k; break; }
+      if (tipK < 0 || this.fire[tipK] > 0) { this.grow[s] = -1; continue; }
+      const [dx, dy] = DIRS[this.dir[s]];
+      const tx = tipK % W + dx, ty = ((tipK / W) | 0) + dy;
+      if (!inside(tx, ty) || this.mat[K(tx, ty)]) { this.grow[s] = -1; this.events.push({ kind: 'grown', x: s % W, y: (s / W) | 0, text: 'The branch stopped growing.' }); continue; }
+      const nid = this.addCell(tx, ty, M.branch, false);
+      this.rot[K(tx, ty)] = dx !== 0 ? 0 : 1;
+      this.bonds.add(pairKey(this.tip[s], nid));
+      this.tip[s] = nid;
+      this.grow[s]--;
+      if (this.grow[s] === 0) this.grow[s] = -1;
+      this.displaceWater(K(tx, ty));
+      this.events.push({ kind: 'grow', x: tx, y: ty, text: 'A branch grew from the seed.' });
+      changed = true;
+    }
+    return changed;
+  }
+
+  components() {
+    const pos = new Map();
+    for (let y = H - 1; y >= 0; y--) for (let x = 0; x < W; x++) { const k = K(x, y); if (this.mat[k] && !this.fixed[k]) pos.set(this.id[k], k); }
+    const adj = new Map();
+    for (const id of pos.keys()) adj.set(id, []);
+    for (const key of this.bonds) {
+      const a = Math.floor(key / 65536), b = key % 65536;
+      if (adj.has(a) && adj.has(b)) { adj.get(a).push(b); adj.get(b).push(a); }
+    }
+    const seen = new Set(), out = [];
+    for (const id of pos.keys()) {
+      if (seen.has(id)) continue;
+      const stack = [id], group = [];
+      seen.add(id);
+      while (stack.length) {
+        const c = stack.pop(); group.push(pos.get(c));
+        for (const n of adj.get(c)) if (!seen.has(n)) { seen.add(n); stack.push(n); }
+      }
+      out.push(group);
+    }
+    const bottom = g => { let b = 0; for (const k of g) b = Math.max(b, (k / W) | 0); return b; };
+    out.sort((a, b) => bottom(b) - bottom(a));
+    return out;
+  }
+
+  pinnedIds() {
+    const fixedIds = new Set();
+    for (let k = 0; k < N; k++) if (this.mat[k] && this.fixed[k]) fixedIds.add(this.id[k]);
+    const pinned = new Set();
+    if (!fixedIds.size) return pinned;
+    for (const key of this.bonds) {
+      const a = Math.floor(key / 65536), b = key % 65536;
+      if (fixedIds.has(a) && !fixedIds.has(b)) pinned.add(b);
+      if (fixedIds.has(b) && !fixedIds.has(a)) pinned.add(a);
+    }
+    return pinned;
+  }
+  gravity() {
+    let changed = false;
+    const pinned = this.pinnedIds();
+    for (const group of this.components()) {
+      const own = new Set(group);
+      let canFall = !group.some(k => pinned.has(this.id[k]));
+      for (const k of group) {
+        const x = k % W, y = (k / W) | 0;
+        if (y + 1 >= H || (this.mat[K(x, y + 1)] && !own.has(K(x, y + 1)))) { canFall = false; break; }
+      }
+      if (!canFall) continue;
+      const moved = group.map(k => [k, this.mat[k], this.id[k], this.fire[k], this.fixed[k], this.rot[k], this.dir[k], this.grow[k], this.tip[k]]);
+      for (const k of group) this.clearCell(k);
+      for (const [k, ...v] of moved) {
+        const q = k + W;
+        [this.mat[q], this.id[q], this.fire[q], this.fixed[q], this.rot[q], this.dir[q], this.grow[q], this.tip[q]] = v;
+      }
+      for (const [k] of moved) this.displaceWater(k + W);
+      changed = true;
+    }
+    return changed;
+  }
+
+  displaceWater(p) {
+    if (!this.water[p]) return;
+    let amount = this.water[p];
+    this.water[p] = 0;
+    const queue = [p], visited = new Set([p]);
+    while (queue.length && amount > 0) {
+      const c = queue.shift(), cx = c % W, cy = (c / W) | 0;
+      for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) {
+        const qx = cx + dx, qy = cy + dy;
+        if (!inside(qx, qy)) continue;
+        const q = K(qx, qy);
+        if (visited.has(q)) continue;
+        visited.add(q);
+        if (!this.mat[q]) {
+          queue.push(q);
+          const t = Math.min(amount, WATER_CAPACITY - this.water[q]);
+          if (t > 0) { this.water[q] += t; amount -= t; }
+          if (amount === 0) break;
+        }
+      }
+    }
+    this.drained += amount;
+  }
+
+  contactPairs() {
+    const out = new Set();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const k = K(x, y), a = this.mat[k];
+      if (!a) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        if (!inside(x + dx, y + dy)) continue;
+        const q = K(x + dx, y + dy), b = this.mat[q];
+        if ((STRIKER.has(a) && b === M.iron) || (a === M.iron && STRIKER.has(b))) out.add(pairKey(this.id[k], this.id[q]) * 2 + (dx ? 0 : 1));
+      }
+    }
+    return out;
+  }
+  detectSparks() {
+    const current = this.contactPairs();
+    for (const key of current) {
+      if (this.contacts.has(key)) continue;
+      const pk = Math.floor(key / 2); const ids = [Math.floor(pk / 65536), pk % 65536];
+      const cells = [];
+      for (let k = 0; k < N; k++) if (this.mat[k] && ids.includes(this.id[k])) cells.push(k);
+      if (cells.length !== 2) continue;
+      this.events.push({ kind: 'spark', x: cells[0] % W, y: (cells[0] / W) | 0, x2: cells[1] % W, y2: (cells[1] / W) | 0, text: 'Stone struck iron and sparked.' });
+      for (const p of cells) {
+        const px = p % W, py = (p / W) | 0;
+        for (const [dx, dy] of ORTHO) {
+          const qx = px + dx, qy = py + dy;
+          if (!inside(qx, qy)) continue;
+          const q = K(qx, qy);
+          if (this.mat[q] === M.straw && this.fire[q] === 0 && !this.isWet(qx, qy)) {
+            this.fire[q] = 1;
+            this.events.push({ kind: 'fire', x: qx, y: qy, text: 'The spark caught the straw.' });
+          }
+        }
+      }
+    }
+    this.contacts = current;
+  }
+
+  // ---- the lanternling's route ----
+  isLedge(x, y) {
+    if ((x === this.entry[0] && y === this.entry[1]) || (x === this.exit[0] && y === this.exit[1])) return true;
+    for (const p of this.ledges) if (p[0] === x && p[1] === y) return true;
+    return false;
+  }
+  actorBlocked(x, y) {
+    if (!inside(x, y)) return false;
+    const k = K(x, y);
+    return this.mat[k] !== 0 && (this.mat[k] !== M.log || this.fire[k] > 0 || this.rot[k] % 2 === 1);
+  }
+  safeFoot(x, y) {
+    if (this.isLedge(x, y)) return true;
+    if (!inside(x, y) || this.actorBlocked(x, y)) return false;
+    if (y + 1 >= H) return false;
+    const s = K(x, y + 1);
+    return this.mat[s] !== 0 && this.fire[s] === 0;
+  }
+  cardinalLeg(ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    if (Math.abs(dx) + Math.abs(dy) !== 1) return false;
+    const sx = ax + 0.5, sy = ay + 1, fx = bx + 0.5, fy = by + 1;
+    const x0 = Math.min(sx, fx) - ACTOR_HALF_WIDTH, y0 = Math.min(sy, fy) - (ACTOR_HEIGHT + 0.05);
+    const x1 = Math.max(sx, fx) + ACTOR_HALF_WIDTH, y1 = Math.max(sy, fy);
+    for (let y = Math.max(0, Math.floor(y0)); y < Math.min(H, Math.ceil(y1)); y++) for (let x = Math.max(0, Math.floor(x0)); x < Math.min(W, Math.ceil(x1)); x++) {
+      const k = K(x, y);
+      if (!this.mat[k]) continue;
+      if (!(x0 < x + 1 && x1 > x && y0 < y + 1 && y1 > y)) continue;
+      if (dy === 0 && this.mat[k] === M.log && this.fire[k] === 0 && this.rot[k] % 2 === 0) continue;
+      return false;
+    }
+    return true;
+  }
+  edgeWaypoints(ax, ay, bx, by) {
+    if (Math.abs(bx - ax) !== 1 || Math.abs(by - ay) > 1 || !this.safeFoot(ax, ay) || !this.safeFoot(bx, by)) return null;
+    const pts = [[ax, ay]];
+    if (by < ay) pts.push([ax, by]); else if (by > ay) pts.push([bx, ay]);
+    pts.push([bx, by]);
+    for (let i = 0; i < pts.length - 1; i++) if (!this.cardinalLeg(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])) return null;
+    return pts;
+  }
+  // Breadth-first over (cell, kin gathered, fireflies gathered). The lanternling needs
+  // every kin before the lantern; among those routes it takes the most fireflies, then the shortest.
+  routeReport() {
+    const [ex, ey] = this.exit;
+    const nk = this.kin.length, nf = this.flies.length;
+    const kinAt = new Map(), flyAt = new Map();
+    this.kin.forEach((p, i) => kinAt.set(p[0] + ',' + p[1], i));
+    this.flies.forEach((p, i) => flyAt.set(p[0] + ',' + p[1], i));
+    const fullKin = (1 << nk) - 1;
+    const enc = (x, y, km, fm) => ((((x + 1) * 20 + (y + 1)) * 256 + km) * 256 + fm);
+    const tag = (x, y, km, fm) => {
+      const s = x + ',' + y;
+      if (kinAt.has(s)) km |= 1 << kinAt.get(s);
+      if (flyAt.has(s)) fm |= 1 << flyAt.get(s);
+      return [km, fm];
+    };
+    const [k0, f0] = tag(this.entry[0], this.entry[1], 0, 0);
+    const start = enc(this.entry[0], this.entry[1], k0, f0);
+    const prev = new Map([[start, -1]]);
+    const queue = [[this.entry[0], this.entry[1], k0, f0]];
+    let best = null, furthest = this.entry[0];
+    const edgeCache = new Map();
+    const edge = (ax, ay, bx, by) => {
+      const key = ((ax + 1) * 20 + ay + 1) * 1000 + (bx + 1) * 20 + by + 1;
+      if (!edgeCache.has(key)) edgeCache.set(key, this.edgeWaypoints(ax, ay, bx, by) !== null);
+      return edgeCache.get(key);
+    };
+    for (let qi = 0; qi < queue.length; qi++) {
+      const [x, y, km, fm] = queue[qi];
+      furthest = Math.max(furthest, x);
+      if (x === ex && y === ey && km === fullKin && !(this.entry[0] === ex && this.entry[1] === ey)) {
+        if (!best || popcount(fm) > popcount(best[3])) best = queue[qi];
+        if (popcount(fm) === nf) break;
+        continue; // the lantern ends the walk
+      }
+      for (const dx of [1, -1]) for (const dy of [0, -1, 1]) {
+        const qx = x + dx, qy = y + dy;
+        if (qx < -1 || qx > W || qy < 0 || qy >= H) continue;
+        const [nkm, nfm] = tag(qx, qy, km, fm);
+        const code = enc(qx, qy, nkm, nfm);
+        if (prev.has(code)) continue;
+        if (!edge(x, y, qx, qy)) continue;
+        prev.set(code, enc(x, y, km, fm));
+        queue.push([qx, qy, nkm, nfm]);
+      }
+    }
+    if (!best) {
+      // Report how far the lanternling could get and which kin it could reach.
+      let reachKin = 0;
+      for (const [, , km] of queue) reachKin |= km;
+      return { ok: false, path: [], motion: [], kin: reachKin, flies: 0, reason: nk && reachKin !== fullKin ? 'Some kin cannot be reached.' : 'There is no safe way to the lantern yet.', blocked: Math.max(0, Math.min(W - 1, furthest + 1)) };
+    }
+    const decode = c => { const fm = c % 256; c = Math.floor(c / 256); const km = c % 256; c = Math.floor(c / 256); return [Math.floor(c / 20) - 1, (c % 20) - 1, km, fm]; };
+    const path = [];
+    let c = enc(...best);
+    while (c !== -1) { const d = decode(c); path.unshift([d[0], d[1]]); c = prev.get(c); }
+    const motion = [path[0]];
+    for (let i = 0; i < path.length - 1; i++) motion.push(...this.edgeWaypoints(path[i][0], path[i][1], path[i + 1][0], path[i + 1][1]).slice(1));
+    return { ok: true, path, motion, kin: best[2], flies: best[3], fliesCount: popcount(best[3]), reason: 'A safe route reaches the lantern.' };
+  }
+
+  signature() {
+    let s = '';
+    for (let k = 0; k < N; k++) if (this.mat[k] || this.water[k]) s += k + ':' + this.mat[k] + ':' + this.fire[k] + ':' + this.rot[k] + ':' + this.grow[k] + ':' + this.water[k] + ';';
+    // Bond topology by position (ids differ between equivalent orders).
+    const posOf = new Map();
+    for (let k = 0; k < N; k++) if (this.mat[k]) posOf.set(this.id[k], k);
+    const edges = [];
+    for (const key of this.bonds) { const a = posOf.get(Math.floor(key / 65536)), b = posOf.get(key % 65536); if (a !== undefined && b !== undefined) edges.push(Math.min(a, b) * 512 + Math.max(a, b)); }
+    edges.sort((a, b) => a - b);
+    return s + '|' + edges.join(',');
+  }
+  waterVolume() { let t = 0; for (let k = 0; k < N; k++) t += this.water[k]; return t; }
+}
+const FIXED_CHARS = { S: 'stone', I: 'iron', W: 'wood', H: 'straw', C: 'ice', D: 'dirt', B: 'brick', L: 'log' };
+
+// Play a list of moves [pieceIndex, x, rot] and report the outcome.
+function playMoves(level, moves, opts = {}) {
+  const sim = new Sim();
+  sim.loadLevel(level);
+  const used = new Set();
+  for (const [pi, x, rot] of moves) {
+    if (used.has(pi)) return { ok: false, error: `piece ${pi} used twice`, sim };
+    used.add(pi);
+    if (!sim.placePiece(level.hand[pi], x, rot)) return { ok: false, error: `piece ${pi} cannot drop at x=${x} rot=${rot}`, sim };
+    sim.settle();
+    if (sim.timedOut && !opts.allowTimeout) return { ok: false, error: 'timed out', sim };
+  }
+  const route = sim.routeReport();
+  return { ok: route.ok, route, sim, used: used.size };
+}
+
+return { W, H, M, NAMES, DIRS, Sim, piece, rotatedPiece, pieceExtent, pieceLogRuns, distinctRotations, shapeKey, playMoves, logPartition, popcount, WATER_CAPACITY, FIRE_LIFETIME, GROW_LENGTH, CHAR_MAT, FIXED_CHARS };
+})();
+if (typeof module !== "undefined") module.exports = Kindred;
+
+// ---------------------------------------------------------------------------
+// Kindred Crossing campaign. Each map is 16 rows of 12 characters.
+//   .  air            #  rooted stone (fixed)      ~  water
+//   s stone  i iron  w wood  h straw  c ice  d dirt  m mud  b brick  r branch
+//   = hollow log (horizontal run)   | hollow log standing upright
+//   > v < ^  seed, pointing the way its branch will grow
+//   Upper-case material letters are rooted (fixed) cells; lower-case cells are
+//   loose and bond to touching loose neighbours.
+//   k  stranded kin (must be gathered)   *  firefly (bonus star)
+// solution: [handIndex, column, rotation] drops that the checker replays.
+// par: the fewest pieces the solver found that still get everyone across.
+// ---------------------------------------------------------------------------
+const KINDRED_LEVELS = (() => {
+const P = Kindred.piece;
+const CHAPTERS = ['First Light', 'Sparks and Straw', 'Thaw', 'Hollow Ways', 'Green Growth', 'The Kiln', 'Lantern Mastery'];
+const L = [];
+const lvl = o => { o.chapterName = CHAPTERS[o.chapter]; L.push(o); };
+const air = n => Array(n).fill('............');
+
+// ===== Chapter 1: First Light ==============================================
+lvl({ id: 'first-footfall', name: 'First Footfall', chapter: 0,
+  lesson: 'Pick a piece, slide it over the pit and drop it. The lanternling sets off once every piece is down, or press Send as soon as a safe path shows.',
+  map: [...air(12),
+    '####.*..####',
+    '####....####',
+    '####....####',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Stone slab', ['ssss']), P('Stone slab', ['ssss']), P('Stone slab', ['ssss'])],
+  solution: [[0, 4, 0], [1, 4, 0]], par: 2,
+  tip: 'Each step can rise or fall by one block. You may not need every piece.' });
+
+lvl({ id: 'turning-leaf', name: 'Turning Leaf', chapter: 0,
+  lesson: 'Rotate a piece to stand it upright. A narrow well takes a narrow piece, and a tall one makes a step.',
+  map: [...air(9),
+    '............',
+    '...###..####',
+    '...###..####',
+    '##.###..####',
+    '##.#########',
+    '##.#########',
+    '##.#########'],
+  flies: [[2, 10]],
+  entry: 11, exit: [12, 9],
+  hand: [P('Timber pole', ['wwwww']), P('Stone block', ['sss', 'sss'])],
+  solution: [[0, 2, 1], [1, 6, 1]], par: 2 });
+
+lvl({ id: 'climbing-light', name: 'Climbing Light', chapter: 0,
+  lesson: 'The far lantern sits high. Build a stair where every rise is a single block.',
+  map: [...air(9),
+    '........####',
+    '........####',
+    '........####',
+    '...*....####',
+    '........####',
+    '############',
+    '############'],
+  entry: 13, exit: [12, 8],
+  hand: [P('Stone stair', ['s..', 'ss.', 'sss']), P('Base slab', ['ssss']), P('Pebble', ['s'])],
+  solution: [[1, 4, 0], [0, 5, 3], [2, 3, 0]], par: 2 });
+
+lvl({ id: 'kin-on-the-shelf', name: 'Kin on the Shelf', chapter: 0,
+  lesson: 'A little one is stranded on the high shelf. The lanternling will not leave without its kin.',
+  map: [...air(7),
+    '.....k......',
+    '.....##.....',
+    '............',
+    '............',
+    '*...........',
+    '............',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Long stair', ['...s', '..ss', '.sss', 'ssss']), P('Long stair', ['...s', '..ss', '.sss', 'ssss']), P('Pebble', ['s'])],
+  solution: [[0, 1, 0], [1, 7, 1], [2, 0, 0]], par: 2,
+  tip: 'Kin must be gathered before the lantern. Fireflies are a bonus.' });
+
+lvl({ id: 'held-together', name: 'Held Together', chapter: 0,
+  lesson: 'Cells in one piece are bonded. A single leg can hold a whole span out over the drop.',
+  map: [...air(8),
+    '....*.......',
+    '............',
+    '............',
+    '##........##',
+    '##........##',
+    '##...##...##',
+    '##...##...##',
+    '############'],
+  entry: 10, exit: [12, 10],
+  hand: [P('Left arm', ['wwww', '...w', '...w']), P('Right arm', ['wwww', 'w...', 'w...']), P('Plank', ['wwww']), P('Pebble', ['s'])],
+  solution: [[0, 2, 0], [1, 6, 0], [3, 4, 0]], par: 2 });
+
+// ===== Chapter 2: Sparks and Straw =========================================
+lvl({ id: 'first-spark', name: 'First Spark', chapter: 1,
+  lesson: 'Stone touching iron for the first time throws sparks. Sparks light straw, and burnt straw crumbles away.',
+  map: [...air(9),
+    '......hh....',
+    '......hh....',
+    '......hh....',
+    '......hh....',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  flies: [[7, 11]],
+  hand: [P('Iron striker', ['i']), P('Stone striker', ['s'])],
+  solution: [[1, 7, 0], [0, 6, 0]], par: 1,
+  tip: 'Rooted ground is stone too.' });
+
+lvl({ id: 'lower-the-bridge', name: 'Lower the Bridge', chapter: 1,
+  lesson: 'The iron bridge rests on straw. Strike it with stone and let the fire bring it down.',
+  map: [...air(5),
+    '.iiiiiiiiii.',
+    '..hhhhhhhh..',
+    '..h......h..',
+    '..h......h..',
+    '..h......h..',
+    '..h......h..',
+    '###......###',
+    '###......###',
+    '###......###',
+    '###......###',
+    '############'],
+  entry: 10, exit: [12, 10],
+  flies: [[3, 8], [4, 8], [5, 8]],
+  hand: [P('Stone pebble', ['s']), P('Timber plank', ['wwww'])],
+  solution: [[0, 6, 0]], par: 1,
+  alt: { flies: [[1, 3, 0], [0, 7, 0]] } });
+
+lvl({ id: 'slow-fuse', name: 'Slow Fuse', chapter: 1,
+  lesson: 'Fire walks along touching straw and wood. Sparks only catch straw, and only at the moment stone first meets iron.',
+  map: [...air(8),
+    '.........###',
+    '.........w..',
+    '.........w..',
+    '.........w..',
+    '.........w..',
+    '#####DDDDDDD',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Iron striker', ['i']), P('Straw bale', ['h']), P('Timber fuse', ['wwww'])],
+  solution: [[2, 5, 0], [1, 4, 0], [0, 3, 0]], par: 3,
+  tip: 'Order matters: a spark only happens when the contact is new.' });
+
+lvl({ id: 'clear-cut', name: 'Clear Cut', chapter: 1,
+  lesson: 'Straw fills the pit and towers over the path. Burn it out, and let something better settle in its place.',
+  map: [...air(9),
+    '....hhhh....',
+    '....hhhh....',
+    '....hhhh....',
+    '####hhhh####',
+    '####hhhh####',
+    '############',
+    '############'],
+  flies: [[5, 10], [6, 10]],
+  entry: 11, exit: [12, 11],
+  hand: [P('Iron striker', ['i']), P('Stone block', ['ssss', 'ssss']), P('Timber span', ['wwwwww'])],
+  solution: [[1, 4, 0], [0, 3, 0]], par: 2,
+  alt: { flies: [[0, 3, 0], [2, 4, 0]] },
+  tip: 'A piece can sit on straw now and settle when the straw is gone.' });
+
+// ===== Chapter 3: Thaw =====================================================
+lvl({ id: 'thawing-light', name: 'Thawing Light', chapter: 2,
+  lesson: 'Fire melts the ice it touches. Meltwater runs, and it puts out any fire it reaches.',
+  map: [...air(9),
+    '......c.....',
+    '......c.....',
+    '......c.....',
+    '.....#c.....',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Straw bale', ['h']), P('Straw bale', ['h']), P('Iron striker', ['i']), P('Stone step', ['s'])],
+  solution: [[0, 7, 0], [1, 7, 0], [2, 8, 0]], par: 3,
+  tip: 'One burning bale melts every ice block it touches, then the meltwater puts it out.' });
+
+lvl({ id: 'water-remembers', name: 'Water Remembers', chapter: 2,
+  lesson: 'The bridge hangs from a hook by a dirt joint. Wet dirt turns to mud and lets go of every bond.',
+  map: [...air(2),
+    '.....#......',
+    '.....d......',
+    '..ssssssss..',
+    ...air(4),
+    '........*...',
+    '............',
+    '##........##',
+    '###......###',
+    '##........##',
+    '##........##',
+    '############'],
+  pins: [[5, 3, 5, 2]],
+  entry: 10, exit: [12, 10],
+  hand: [P('Ice block', ['c']), P('Straw bale', ['h']), P('Iron striker', ['i']), P('Pebble', ['s'])],
+  solution: [[0, 4, 0], [1, 3, 0], [2, 2, 0]], par: 3,
+  alt: { flies: [[0, 4, 0], [1, 3, 0], [2, 2, 0], [3, 8, 0]] } });
+
+lvl({ id: 'patience', name: 'Patience', chapter: 2,
+  lesson: 'Ice makes a fine step, until fire touches it. Some things must wait their turn.',
+  map: [...air(9),
+    '....hh......',
+    '....hh.DDDDD',
+    '....hh.DDDDD',
+    '....hh.DDDDD',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 9],
+  hand: [P('Ice step', ['c']), P('Iron striker', ['i']), P('Ice step', ['c']), P('Ice step', ['c'])],
+  solution: [[1, 3, 0], [0, 6, 0], [2, 6, 0], [3, 5, 0]], par: 3,
+  alt: { lean: [[1, 6, 0], [0, 5, 0], [2, 6, 0]] },
+  tip: 'Wait for the fire to burn out before you set down anything that melts.' });
+
+// ===== Chapter 4: Hollow Ways =============================================
+lvl({ id: 'hollow-ways', name: 'Hollow Ways', chapter: 3,
+  lesson: 'A hollow log lying flat is a tunnel and a floor at once. The lantern waits up high, back where you started.',
+  map: [...air(9),
+    '............',
+    '....*.......',
+    '............',
+    '.........k..',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [-1, 9],
+  hand: [P('Hollow log', ['====']), P('Long slab', ['ssssss']), P('Short log', ['==']), P('Pebble', ['s'])],
+  solution: [[0, 0, 0], [2, 0, 0]], par: 2,
+  alt: { flies: [[0, 0, 0], [1, 0, 0], [2, 6, 0]] },
+  tip: 'Upright logs are walls. Lying flat, the lanternling can walk right through.' });
+
+lvl({ id: 'kin-under-the-shelf', name: 'Kin Under the Shelf', chapter: 3,
+  lesson: 'One little one waits up on the shelf and another below it. Leave a way in and a way up.',
+  map: [...air(7),
+    '.....k......',
+    '.....##.....',
+    '........*...',
+    '............',
+    '............',
+    '......k.....',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Hollow log', ['====']), P('Stone stair', ['..s', '.ss', 'sss']), P('Long stair', ['...s', '..ss', '.sss', 'ssss'])],
+  solution: [[0, 1, 0], [1, 2, 0], [2, 7, 1]], par: 2,
+  alt: { lean: [[0, 0, 0], [1, 2, 0]] },
+  tip: 'The firefly waits on the far side of the shelf.' });
+
+// ===== Chapter 5: Green Growth =============================================
+lvl({ id: 'seedling', name: 'Seedling', chapter: 4,
+  lesson: 'A seed that drinks sprouts a branch, four blocks long, in the direction it points. Turn it before you drop it.',
+  map: [...air(10),
+    '......*.....',
+    '............',
+    '###~....####',
+    '####....####',
+    '####....####',
+    '####....####'],
+  entry: 11, exit: [12, 11],
+  hand: [P('Seed', ['^']), P('Timber span', ['www']), P('Pebble', ['s'])],
+  solution: [[0, 3, 1]], par: 1,
+  alt: { flies: [[0, 3, 1], [2, 6, 0]] } });
+
+lvl({ id: 'thirsty-roots', name: 'Thirsty Roots', chapter: 4,
+  lesson: 'The seed on the far shore is dry. Bring it water and it will reach back to you.',
+  map: [...air(12),
+    '####....<###',
+    '####....####',
+    '####....####',
+    '####....####'],
+  entry: 11, exit: [12, 11],
+  hand: [P('Ice block', ['c']), P('Straw bale', ['h']), P('Iron striker', ['i'])],
+  solution: [[0, 8, 0], [1, 9, 0], [2, 10, 0]], par: 3 });
+
+lvl({ id: 'meet-in-the-middle', name: 'Meet in the Middle', chapter: 4,
+  lesson: 'Two seeds face each other across the gap. Each can only grow four blocks.',
+  map: [...air(12),
+    '##>......<##',
+    '###......###',
+    '###......###',
+    '###......###'],
+  entry: 11, exit: [12, 11],
+  hand: [P('Frozen bale', ['hc']), P('Frozen bale', ['hc']), P('Iron striker', ['i']), P('Iron striker', ['i'])],
+  solution: [[0, 1, 0], [2, 0, 0], [1, 9, 2], [3, 11, 0]], par: 4 });
+
+// ===== Chapter 6: The Kiln =================================================
+lvl({ id: 'kiln', name: 'The Kiln', chapter: 5,
+  lesson: 'Fire bakes dry mud into brick. Brick is a striker: it sparks the first time it touches iron.',
+  map: [...air(8),
+    '........DDDD',
+    '.........hh.',
+    '.........hh.',
+    '.........hh.',
+    '........mhh.',
+    '########I###',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Straw stack', ['h', 'h']), P('Iron striker', ['i']), P('Stone striker', ['s'])],
+  solution: [[0, 7, 0], [1, 6, 0]], par: 2,
+  tip: 'Fire cannot cross stone, but a spark can start fresh on the other side.' });
+
+lvl({ id: 'kiln-relay', name: 'Kiln Relay', chapter: 5,
+  lesson: 'Two kilns stand under the roof. One fire bakes the first brick; its spark must find fuel to carry on.',
+  map: [...air(8),
+    '......D.DDDD',
+    '.........hh.',
+    '.........hh.',
+    '.........hh.',
+    '......m.mhh.',
+    '######I#I###',
+    '############',
+    '############'],
+  entry: 12, exit: [12, 12],
+  hand: [P('Straw bale', ['h']), P('Straw bale', ['h']), P('Iron striker', ['i']), P('Mud clod', ['m'])],
+  solution: [[0, 7, 0], [1, 5, 0], [2, 4, 0]], par: 3,
+  tip: 'Only one gap in the roof. Choose what falls through it.' });
+
+// ===== Chapter 7: Lantern Mastery ==========================================
+// ===== Chapter 7: Lantern Mastery ==========================================
+lvl({ id: 'frozen-hollow', name: 'Frozen Hollow', chapter: 6,
+  lesson: 'The little one is shut behind the ice, and the lantern waits up high behind you. Keep your fire away from your logs.',
+  map: [...air(11),
+    '........c...',
+    '........ck..',
+    '############',
+    '############',
+    '############'],
+  entry: 12, exit: [-1, 9],
+  hand: [P('Hollow log', ['====']), P('Short log', ['==']), P('Straw bale', ['h']), P('Iron striker', ['i']), P('Pebble', ['s'])],
+  solution: [[0, 0, 0], [1, 0, 0], [2, 7, 0], [3, 6, 0]], par: 4 });
+
+lvl({ id: 'hook-and-seed', name: 'Hook and Seed', chapter: 6,
+  lesson: 'Half a bridge hangs from the hook; the other half is still a seed. Both are thirsty.',
+  map: [...air(3),
+    '...#........',
+    '...d........',
+    '..sssss.....',
+    ...air(6),
+    '##.......<##',
+    '###..#...###',
+    '##.......###',
+    '############'],
+  pins: [[3, 4, 3, 3]],
+  entry: 11, exit: [12, 11],
+  hand: [P('Frozen bale', ['hc']), P('Frozen bale', ['hc']), P('Iron striker', ['i']), P('Iron striker', ['i'])],
+  solution: [[0, 4, 2], [2, 6, 0], [1, 9, 2], [3, 11, 0]], par: 4 });
+
+lvl({ id: 'lantern-mastery', name: 'Lantern Mastery', chapter: 6,
+  lesson: 'The iron bridge sleeps under a roof of earth. Bake the brick that wakes it, and bring the little one home.',
+  map: [...air(4),
+    '.DDDDDDDDDD.',
+    '.iiiiiiiiiim',
+    '..hhhhhhhhh#',
+    '..h......h.#',
+    '..h......h.#',
+    '..h...k..h..',
+    '..h......h..',
+    '###......###',
+    '###......###',
+    '###......###',
+    '###......###',
+    '############'],
+  entry: 10, exit: [12, 10],
+  hand: [P('Straw bale', ['h']), P('Stone striker', ['s']), P('Iron striker', ['i']), P('Timber plank', ['wwww'])],
+  solution: [[0, 11, 0], [1, 11, 0], [2, 11, 0]], par: 3 });
+
+return L;
+})();
+
+</script>
+<script>
+// ---------------------------------------------------------------------------
+// Kindred Crossing: presentation, input, audio, progress and the test API.
+// Gameplay rules live in the kc-core script above (Kindred + KINDRED_LEVELS).
+// ---------------------------------------------------------------------------
+(() => {
+'use strict';
+const { W, H, M, NAMES, Sim, rotatedPiece, pieceExtent, pieceLogRuns, distinctRotations, logPartition, popcount } = Kindred;
+const LEVELS = KINDRED_LEVELS;
+const params = new URLSearchParams(location.search);
+const TEST = params.has('test');
+const SAVE_KEY = 'kindred-crossing-v1';
+const STEP_TIME = 0.11, FAST_STEP = 0.028, WALK_SPEED = 4.2;
+const $ = id => document.getElementById(id);
+const canvas = $('board');
+let ctx = canvas.getContext('2d');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ---- assets ---------------------------------------------------------------
+const ART_FILES = ['background.jpg', 'materials.png', 'lanternling.png', 'kin.png', 'ledge.png', 'log-front.png', 'log-inside.png',
+  'wood.png', 'limestone.png', 'branch.png', 'fire.png', 'sparks.png', 'water.png', 'ice-melt.png', 'straw-burn.png', 'wood-burn.png'];
+const ART = {};
+function loadArt(onProgress) {
+  let done = 0;
+  return Promise.all(ART_FILES.map(f => new Promise(res => {
+    const img = new Image();
+    img.onload = () => { ART[f.replace(/\.\w+$/, '')] = img; onProgress(++done / ART_FILES.length); res(); };
+    img.onerror = () => { console.warn('Missing art', f); onProgress(++done / ART_FILES.length); res(); };
+    img.src = 'art/' + f;
+  })));
+}
+
+// ---- persistence ----------------------------------------------------------
+let save = { stars: {}, best: {}, last: 0, sound: 2, seenGuide: false };
+function loadSave() {
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s && typeof s === 'object') save = Object.assign(save, s); } catch (e) { /* storage blocked */ }
+}
+function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* storage blocked */ } }
+const starsOf = id => save.stars[id] || 0;
+function unlockedThrough() {
+  // Crossing a level opens the next two, so one stubborn puzzle never walls off the rest.
+  let last = -1;
+  LEVELS.forEach((lv, i) => { if (starsOf(lv.id) & 1) last = i; });
+  let open = last + 2;
+  let skipped = 0;
+  for (let i = 0; i <= Math.min(open, LEVELS.length - 1); i++) if (!(starsOf(LEVELS[i].id) & 1)) skipped++;
+  if (skipped < 2) open++;
+  return Math.min(LEVELS.length - 1, Math.max(1, open));
+}
+
+// ---- audio ----------------------------------------------------------------
+const Audio = (() => {
+  let ac = null, master = null, musicGain = null, fxGain = null, musicSrc = null, musicBuf = null, loadingMusic = false;
+  const lastPlay = {};
+  function ensure() {
+    if (ac) { if (ac.state === 'suspended') ac.resume(); return true; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    ac = new AC();
+    master = ac.createGain(); master.connect(ac.destination);
+    musicGain = ac.createGain(); musicGain.gain.value = 0; musicGain.connect(master);
+    fxGain = ac.createGain(); fxGain.gain.value = 0.55; fxGain.connect(master);
+    apply();
+    return true;
+  }
+  function apply() {
+    if (!ac) return;
+    const t = ac.currentTime;
+    musicGain.gain.cancelScheduledValues(t);
+    musicGain.gain.setTargetAtTime(save.sound >= 2 && !document.hidden ? 0.32 : 0, t, save.sound >= 2 ? 0.6 : 0.08);
+    fxGain.gain.setTargetAtTime(save.sound >= 1 ? 0.55 : 0, t, 0.05);
+    if (save.sound >= 2) startMusic();
+  }
+  function startMusic() {
+    if (musicSrc || !ac) return;
+    if (!musicBuf) {
+      if (loadingMusic) return;
+      loadingMusic = true;
+      fetch('art/woodland.mp3').then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(buf => { musicBuf = buf; loadingMusic = false; startMusic(); })
+        .catch(() => { loadingMusic = false; });
+      return;
+    }
+    musicSrc = ac.createBufferSource();
+    musicSrc.buffer = musicBuf; musicSrc.loop = true;
+    musicSrc.loopStart = 0; musicSrc.loopEnd = Math.min(musicBuf.duration, 64);
+    musicSrc.connect(musicGain); musicSrc.start();
+  }
+  function tone(freq, dur, type = 'sine', vol = 0.3, glide = 0, delay = 0) {
+    if (!ac || save.sound < 1) return;
+    const t = ac.currentTime + delay;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (glide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * glide), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(fxGain); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(dur, freq, q = 1, vol = 0.25, delay = 0) {
+    if (!ac || save.sound < 1) return;
+    const t = ac.currentTime + delay;
+    const len = Math.ceil(ac.sampleRate * dur), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = buf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(fxGain); src.start(t);
+  }
+  function play(kind) {
+    if (!ac || save.sound < 1) return;
+    const now = performance.now();
+    if (now - (lastPlay[kind] || 0) < 70) return; // reaction bursts stay pleasant
+    lastPlay[kind] = now;
+    switch (kind) {
+      case 'drop': tone(150, 0.12, 'triangle', 0.35, 0.6); noise(0.08, 300, 0.8, 0.15); break;
+      case 'select': tone(520, 0.05, 'sine', 0.12); break;
+      case 'rotate': tone(380, 0.05, 'triangle', 0.1, 1.3); break;
+      case 'move': tone(300, 0.03, 'sine', 0.06); break;
+      case 'spark': tone(1800, 0.06, 'square', 0.08, 0.5); noise(0.12, 4200, 2, 0.25); break;
+      case 'fire': noise(0.35, 900, 0.6, 0.12); break;
+      case 'ash': noise(0.2, 500, 0.7, 0.08); break;
+      case 'melt': tone(700, 0.18, 'sine', 0.12, 0.55); tone(950, 0.12, 'sine', 0.08, 0.6, 0.06); break;
+      case 'water': noise(0.25, 1600, 1.2, 0.08); break;
+      case 'mud': tone(110, 0.2, 'sine', 0.2, 0.7); break;
+      case 'sprout': tone(520, 0.14, 'sine', 0.15, 1.5); break;
+      case 'grow': tone(620 + Math.random() * 120, 0.09, 'sine', 0.1, 1.2); break;
+      case 'bake': tone(90, 0.4, 'sawtooth', 0.06, 1.1); noise(0.3, 700, 0.5, 0.1); break;
+      case 'kin': tone(784, 0.15, 'sine', 0.2); tone(988, 0.2, 'sine', 0.18, 1, 0.08); break;
+      case 'fly': tone(1320, 0.08, 'sine', 0.12); tone(1760, 0.1, 'sine', 0.1, 1, 0.05); break;
+      case 'win': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.35, 'sine', 0.2, 1, i * 0.11)); break;
+      case 'fail': tone(220, 0.3, 'triangle', 0.2, 0.7); break;
+      case 'step': tone(240 + Math.random() * 40, 0.04, 'sine', 0.05); break;
+    }
+  }
+  document.addEventListener('visibilitychange', apply);
+  return { ensure, apply, play };
+})();
+
+// ---- tiles ------------------------------------------------------------------
+// Material tiles are rendered once per cell size into offscreen canvases.
+const TILE = {};
+let tileSize = 0;
+function offscreen(w, h) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
+function tinted(img, sx, sy, sw, sh, size, tint, alphaMul = 1) {
+  const c = offscreen(size, size), g = c.getContext('2d');
+  g.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+  if (tint) {
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = tint; g.fillRect(0, 0, size, size);
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+  }
+  if (alphaMul !== 1) { g.globalCompositeOperation = 'source-over'; }
+  return c;
+}
+function seedTile(size, dir, sprouted) {
+  const c = offscreen(size, size), g = c.getContext('2d');
+  g.drawImage(TILE.dirt, 0, 0);
+  g.fillStyle = 'rgba(30,18,8,.35)'; g.fillRect(0, 0, size, size);
+  g.translate(size / 2, size / 2); g.rotate(dir * Math.PI / 2);
+  const s = size / 40;
+  // sprout pointing along +x
+  g.strokeStyle = sprouted ? '#b8f08a' : '#7cc45a'; g.lineWidth = 2.6 * s; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(-6 * s, 2 * s); g.quadraticCurveTo(4 * s, -4 * s, 15 * s, 0); g.stroke();
+  g.fillStyle = sprouted ? '#c8ff9a' : '#8fd66a';
+  g.beginPath(); g.moveTo(16 * s, 0); g.lineTo(9 * s, -6 * s); g.lineTo(10 * s, 5 * s); g.closePath(); g.fill();
+  g.beginPath(); g.ellipse(2 * s, -7 * s, 6 * s, 3 * s, -0.6, 0, Math.PI * 2); g.fill();
+  // the seed itself
+  g.fillStyle = '#7a4a22'; g.beginPath(); g.ellipse(-8 * s, 4 * s, 7 * s, 9 * s, 0.4, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#5a3416'; g.beginPath(); g.ellipse(-10 * s, -2 * s, 6 * s, 4 * s, 0.4, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,230,180,.35)'; g.beginPath(); g.ellipse(-6 * s, 6 * s, 2 * s, 3.5 * s, 0.4, 0, Math.PI * 2); g.fill();
+  return c;
+}
+function buildTiles(size) {
+  if (size === tileSize || !ART.materials) return;
+  tileSize = size;
+  const at = ART.materials, T = at.width / 3;
+  const tile = (cx, cy, tint) => tinted(at, cx * T, cy * T, T, T, size, tint);
+  TILE.ice_atlas = tile(0, 0); TILE.straw_atlas = tile(1, 0);
+  TILE.dirt = tile(2, 0); TILE.stone = tile(0, 1); TILE.iron = tile(1, 1);
+  TILE.rooted = tile(0, 1, '#7d8a80'); TILE.rootedTop = tile(0, 1, '#b9bfa6');
+  TILE.ironRooted = tile(1, 1, '#a9b5bd'); TILE.dirtRooted = tile(2, 0, '#b49a86');
+  TILE.mud = tile(2, 0, '#9fb17f');
+  const ww = ART.wood.width;
+  TILE.wood = tinted(ART.wood, ww * 0.067, ww * 0.06, ww * 0.87, ww * 0.87, size);
+  TILE.woodRooted = tinted(ART.wood, ww * 0.067, ww * 0.06, ww * 0.87, ww * 0.87, size, '#b59a80');
+  TILE.brick = tinted(ART.limestone, 0, 0, ART.limestone.width, ART.limestone.height, size, '#d98a62');
+  TILE.brickRooted = tinted(ART.limestone, 0, 0, ART.limestone.width, ART.limestone.height, size, '#b4705a');
+  // Branch cells use the middle of the side-on log, inset a little so a grown run reads as one limb.
+  const bh = offscreen(size, size), bhg = bh.getContext('2d');
+  bhg.drawImage(ART.branch, 70, 10, 244, 104, -size * 0.02, size * 0.08, size * 1.04, size * 0.86);
+  TILE.branchH = bh;
+  const v = offscreen(size, size), vg = v.getContext('2d');
+  vg.translate(size / 2, size / 2); vg.rotate(Math.PI / 2); vg.drawImage(TILE.branchH, -size / 2, -size / 2);
+  TILE.branchV = v;
+  for (let d = 0; d < 4; d++) { TILE['seed' + d] = seedTile(size, d, false); TILE['seedS' + d] = seedTile(size, d, true); }
+}
+
+// ---- layout -----------------------------------------------------------------
+let dpr = 1, cssW = 0, cssH = 0, cell = 32, bx = 0, by = 0, portrait = false;
+function layout() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cssW = window.innerWidth; cssH = window.innerHeight;
+  canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+  portrait = cssW / cssH <= 1;
+  let area;
+  if (!portrait) {
+    const pw = $('panel').getBoundingClientRect().width + 24;
+    area = { x: 8, y: 8, w: cssW - pw - 16, h: cssH - 16 };
+  } else {
+    const topH = $('topbar').getBoundingClientRect().bottom + 26;
+    const bottomH = cssH - $('panel').getBoundingClientRect().top + 4;
+    area = { x: 2, y: topH, w: cssW - 4, h: cssH - topH - bottomH };
+  }
+  const cols = W + (portrait ? 3 : 4.4), rows = H + 0.4;
+  cell = Math.max(10, Math.floor(Math.min(area.w / cols, area.h / rows)));
+  bx = Math.round(area.x + (area.w - W * cell) / 2);
+  by = Math.round(area.y + (area.h - H * cell) / 2 + cell * 0.2);
+  buildTiles(Math.round(cell * dpr));
+}
+
+// ---- game state -------------------------------------------------------------
+const G = {
+  index: 0, level: null, sim: new Sim(), remaining: [], selected: -1, cursorX: 4, rot: 0, used: 0,
+  phase: 'build', // build | falling | settle | walk | won
+  fall: null, stepClock: 0, fast: false, undo: [], route: null, walker: null, effects: [], particles: [],
+  hint: null, hintBusy: false, hintToken: 0, status: '', statusTime: 0, failed: false, gathered: { kin: 0, flies: 0 },
+  clock: 0, sparkleSeed: 0, toastOpen: false,
+};
+
+function loadLevel(i, opts = {}) {
+  G.index = clamp(i, 0, LEVELS.length - 1);
+  G.level = LEVELS[G.index];
+  G.sim = new Sim(); G.sim.loadLevel(G.level);
+  G.remaining = G.level.hand.map((_, k) => k);
+  G.selected = 0; G.rot = 0; G.used = 0; G.undo = []; G.phase = 'build'; G.fall = null;
+  G.walker = null; G.effects = []; G.particles = []; G.hint = null; G.hintToken++; G.hintBusy = false; G.failed = false;
+  G.cursorX = Math.floor((W - pieceExtent(G.level.hand[0], 0)[0]) / 2);
+  G.gathered = { kin: 0, flies: 0 };
+  save.last = G.index; writeSave();
+  G.route = G.sim.routeReport();
+  $('badge-num').textContent = String(G.index + 1).padStart(2, '0');
+  $('level-name').textContent = G.level.name;
+  const inChapter = LEVELS.filter(l => l.chapter === G.level.chapter);
+  $('level-sub').textContent = `${G.level.chapterName} · ${inChapter.indexOf(G.level) + 1} of ${inChapter.length}`;
+  hideModal('win');
+  buildHand();
+  setStatus(G.route.ok ? '<b>A safe way is already open.</b>' : 'Choose a piece, slide it into place and drop it.');
+  refreshUI();
+  if (!opts.quiet && !TEST) showToast();
+}
+
+function showToast() {
+  const lv = G.level;
+  $('toast-title').textContent = lv.name;
+  $('toast-body').textContent = lv.lesson;
+  $('toast-tip').textContent = lv.tip || '';
+  $('toast-tip').classList.toggle('hidden', !lv.tip);
+  $('toast').classList.remove('hidden');
+  G.toastOpen = true;
+}
+function closeToast() { $('toast').classList.add('hidden'); G.toastOpen = false; }
+
+function activePiece() { return G.selected >= 0 && G.remaining.includes(G.selected) ? G.level.hand[G.selected] : null; }
+function clampCursor() {
+  const pc = activePiece();
+  if (pc) G.cursorX = clamp(G.cursorX, 0, W - pieceExtent(pc, G.rot)[0]);
+}
+function canAct() { return G.phase === 'build' && !anyModal(); }
+function anyModal() { return ['win', 'levels', 'guide'].some(id => !$(id).classList.contains('hidden')); }
+
+function selectPiece(k) {
+  if (!canAct() || !G.remaining.includes(k)) return;
+  if (G.selected !== k) { G.selected = k; G.rot = 0; Audio.play('select'); }
+  clampCursor(); refreshUI();
+}
+function cyclePiece(d) {
+  if (!G.remaining.length) return;
+  const i = G.remaining.indexOf(G.selected);
+  selectPiece(G.remaining[(i + d + G.remaining.length) % G.remaining.length]);
+}
+function move(dx) { if (!canAct() || !activePiece()) return; const before = G.cursorX; G.cursorX += dx; clampCursor(); if (G.cursorX !== before) Audio.play('move'); }
+function setCursor(x) { if (!canAct() || !activePiece()) return; const before = G.cursorX; G.cursorX = x; clampCursor(); if (before !== G.cursorX) Audio.play('move'); }
+function rotate(d) {
+  if (!canAct() || !activePiece()) return;
+  const pc = activePiece();
+  // Keep the piece's centre steady as it turns.
+  const [ew] = pieceExtent(pc, G.rot);
+  const centre = G.cursorX + ew / 2;
+  G.rot = (G.rot + d + 4) % 4;
+  const [nw] = pieceExtent(pc, G.rot);
+  G.cursorX = Math.round(centre - nw / 2);
+  clampCursor(); Audio.play('rotate'); refreshUI();
+}
+
+function drop() {
+  if (!canAct()) return;
+  const pc = activePiece();
+  if (!pc) return;
+  const y = G.sim.landingY(pc, G.cursorX, G.rot);
+  if (y < 0) { setStatus('That piece cannot enter here. Move or rotate it.'); Audio.play('fail'); return; }
+  G.undo.push({ sim: G.sim.clone(), remaining: G.remaining.slice(), selected: G.selected, used: G.used, rot: G.rot, cursorX: G.cursorX });
+  G.hint = null; G.hintToken++; G.hintBusy = false;
+  G.phase = 'falling';
+  G.fall = { piece: pc, k: G.selected, x: G.cursorX, rot: G.rot, y: 0, target: y, t: 0 };
+  if (G.instant) finishFall();
+  refreshUI();
+}
+function finishFall() {
+  const f = G.fall;
+  G.fall = null;
+  G.sim.placePiece(f.piece, f.x, f.rot);
+  G.remaining = G.remaining.filter(k => k !== f.k);
+  G.used++;
+  G.selected = G.remaining.length ? G.remaining[0] : -1;
+  G.rot = 0;
+  clampCursor();
+  Audio.play('drop');
+  dust(f);
+  consume(G.sim.events);
+  G.phase = 'settle'; G.stepClock = 0;
+  if (G.instant) { while (G.sim.resolving) consume(G.sim.step()); afterSettle(); }
+  refreshUI();
+}
+function afterSettle() {
+  G.phase = 'build';
+  G.route = G.sim.routeReport();
+  G.failed = false;
+  if (!G.remaining.length) {
+    if (G.route.ok) { sendCreature(true); return; }
+    G.failed = true;
+    setStatus(`<b>No safe way across.</b> ${G.route.reason} Undo or restart.`);
+    Audio.play('fail');
+  } else if (G.route.ok) {
+    setStatus('<b>A safe way is open.</b> Send the lanternling now, or keep building.');
+  } else if (G.status.startsWith('<b>A safe way')) {
+    setStatus('The way is closed again.');
+  }
+  refreshUI();
+}
+
+function undo() {
+  if (G.phase !== 'build' || anyModal() || !G.undo.length) return;
+  const u = G.undo.pop();
+  G.sim = u.sim; G.remaining = u.remaining; G.selected = u.selected; G.used = u.used; G.rot = u.rot; G.cursorX = u.cursorX;
+  G.effects = []; G.particles = []; G.hint = null; G.hintToken++; G.hintBusy = false; G.failed = false;
+  G.route = G.sim.routeReport();
+  setStatus('Took back the last piece.');
+  Audio.play('rotate');
+  refreshUI();
+}
+function restart() {
+  if (anyModal() && $('win').classList.contains('hidden')) return;
+  loadLevel(G.index, { quiet: true });
+  setStatus('Crossing restarted. Every piece is back in your hand.');
+}
+
+function sendCreature(auto) {
+  if (G.phase !== 'build') return;
+  const r = G.sim.routeReport();
+  if (!r.ok) { setStatus(r.reason); return; }
+  G.route = r;
+  G.hint = null; G.hintToken++; G.hintBusy = false;
+  G.phase = 'walk';
+  G.walker = { motion: r.motion, path: r.path, t: 0, trail: [], kinGot: new Set(), fliesGot: new Set(), facing: 1, auto };
+  setStatus(auto ? 'Every piece is down and the way is safe. The lanternling sets off.' : 'The lanternling sets off.');
+  if (G.instant) { G.walker.t = r.motion.length - 1; advanceWalk(0); }
+  refreshUI();
+}
+
+function win() {
+  const w = G.walker;
+  G.phase = 'won';
+  const nFlies = G.sim.flies.length;
+  const fliesAll = w.fliesGot.size >= nFlies;
+  const thrift = G.used <= G.level.par;
+  const bits = 1 | (fliesAll ? 2 : 0) | (thrift ? 4 : 0);
+  const before = starsOf(G.level.id);
+  save.stars[G.level.id] = before | bits;
+  save.best[G.level.id] = Math.min(save.best[G.level.id] ?? 99, G.used);
+  writeSave();
+  Audio.play('win');
+  if (TEST) { refreshUI(); return; }
+  setTimeout(() => {
+    const spans = $('win-stars').children;
+    [1, 2, 4].forEach((b, i) => { spans[i].classList.remove('on'); setTimeout(() => spans[i].classList.toggle('on', !!(bits & b)), 250 + i * 260); });
+    const kin = G.sim.kin.length;
+    $('win-title').textContent = G.index === LEVELS.length - 1 ? 'Home at last!' : 'Across!';
+    $('win-lines').innerHTML = [
+      kin ? `Kin gathered <b>${w.kinGot.size}/${kin}</b>` : '',
+      nFlies ? `Fireflies <b>${w.fliesGot.size}/${nFlies}</b>` : 'No fireflies here',
+      `Pieces used <b>${G.used}</b> · lantern-wise is <b>${G.level.par}</b> or fewer`,
+      (before | bits) !== before ? '<span style="color:#ffd76a">New stars saved</span>' : '',
+    ].filter(Boolean).join('<br>');
+    $('win-next').textContent = G.index === LEVELS.length - 1 ? 'Crossings' : 'Next';
+    showModal('win');
+  }, 700);
+  refreshUI();
+}
+
+// ---- events and effects -------------------------------------------------------
+const EVENT_SOUND = { spark: 'spark', fire: 'fire', ash: 'ash', melt: 'melt', water: 'water', mud: 'mud', sprout: 'sprout', grow: 'grow', bake: 'bake' };
+function consume(events) {
+  for (const e of events) {
+    if (e.kind === 'drop') continue;
+    if (EVENT_SOUND[e.kind]) Audio.play(EVENT_SOUND[e.kind]);
+    if (['spark', 'melt', 'mud', 'sprout', 'bake', 'water', 'ash'].includes(e.kind)) setStatus(e.text, true);
+    if (e.kind === 'spark') G.effects.push({ kind: 'spark', x: (e.x + e.x2) / 2 + 0.5, y: (e.y + e.y2) / 2 + 0.5, age: 0, life: 0.75 });
+    else if (e.kind === 'ash') G.effects.push({ kind: 'ash', x: e.x, y: e.y, material: e.material, age: 0, life: 0.75 });
+    else if (e.kind === 'melt') G.effects.push({ kind: 'melt', x: e.x, y: e.y, age: 0, life: 0.48 });
+    else if (e.kind === 'mud') burst(e.x + 0.5, e.y + 0.5, 10, ['#6b4a2f', '#8a6a48', '#5b6b45'], 1.4);
+    else if (e.kind === 'sprout' || e.kind === 'grow') burst(e.x + 0.5, e.y + 0.5, e.kind === 'sprout' ? 14 : 6, ['#9be37a', '#c8ff9a', '#5fb043'], 1.6);
+    else if (e.kind === 'bake') { G.effects.push({ kind: 'glow', x: e.x + 0.5, y: e.y + 0.5, age: 0, life: 0.9 }); burst(e.x + 0.5, e.y + 0.5, 8, ['#ffb070', '#ff8a4a', '#ffd9a0'], 1.2); }
+    else if (e.kind === 'water') burst(e.x + 0.5, e.y + 0.3, 5, ['#bff2ff', '#7fd6e6'], 1);
+  }
+}
+function burst(x, y, n, colors, speed = 1) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (0.6 + Math.random()) * speed;
+    G.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: 0.5 + Math.random() * 0.5, age: 0, color: colors[i % colors.length], size: 0.06 + Math.random() * 0.06 });
+  }
+}
+function dust(f) {
+  const items = rotatedPiece(f.piece, f.rot);
+  for (const o of items) burst(f.x + o.x + 0.5, f.target + o.y + 1, 2, ['rgba(230,220,190,.7)', 'rgba(180,170,150,.6)'], 0.8);
+}
+
+// ---- hint search ---------------------------------------------------------------
+// First tries the authored plan from the live state, then a bounded straight-drop search.
+function* hintSearch(level, base, remaining) {
+  const authored = level.solution.filter(m => remaining.includes(m[0]));
+  {
+    const s = base.clone();
+    let ok = true;
+    for (let i = 0; i < authored.length && ok; i++) {
+      const [pi, x, rot] = authored[i];
+      if (!s.placePiece(level.hand[pi], x, rot)) { ok = false; break; }
+      s.settle();
+      if (s.routeReport().ok) return { piece: authored[0][0], x: authored[0][1], rot: authored[0][2], depth: i + 1 };
+    }
+  }
+  const seen = new Set();
+  for (let depth = 1; depth <= remaining.length; depth++) {
+    seen.clear();
+    const stack = [{ s: base, rem: remaining, first: null, d: 0 }];
+    while (stack.length) {
+      const node = stack.pop();
+      if (node.d === depth) continue;
+      const key = node.s.signature() + '#' + node.rem.join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const tried = new Set();
+      for (const pi of node.rem) {
+        const pc = level.hand[pi];
+        const sig = pc.name + JSON.stringify(pc.cells);
+        if (tried.has(sig)) continue;
+        tried.add(sig);
+        for (const rot of distinctRotations(pc)) {
+          const [ew] = pieceExtent(pc, rot);
+          for (let x = 0; x <= W - ew; x++) {
+            if (node.s.landingY(pc, x, rot) < 0) continue;
+            const s = node.s.clone();
+            s.placePiece(pc, x, rot); s.settle();
+            yield null; // let the page breathe
+            if (s.timedOut) continue;
+            const first = node.first || { piece: pi, x, rot };
+            if (s.routeReport().ok) return Object.assign({ depth: node.d + 1 }, first);
+            stack.push({ s, rem: node.rem.filter(k => k !== pi), first, d: node.d + 1 });
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+function requestHint() {
+  if (G.phase !== 'build' || anyModal()) return;
+  if (G.hintBusy) { G.hintToken++; G.hintBusy = false; setStatus('Hint cancelled.'); refreshUI(); return; }
+  if (G.hint) { G.hint = null; refreshUI(); return; }
+  if (G.route && G.route.ok) { setStatus('<b>A safe way is already open.</b> Press Send.'); return; }
+  if (!G.remaining.length) { setStatus('No pieces left. Undo or restart to try another way.'); return; }
+  const token = ++G.hintToken;
+  G.hintBusy = true;
+  setStatus('Thinking about it…');
+  refreshUI();
+  const gen = hintSearch(G.level, G.sim, G.remaining.slice());
+  const started = performance.now();
+  const tick = () => {
+    if (token !== G.hintToken) return;
+    const sliceEnd = performance.now() + 10;
+    let r;
+    do { r = gen.next(); } while (!r.done && performance.now() < sliceEnd);
+    if (!r.done && performance.now() - started < 6000) { setTimeout(tick, 0); return; }
+    G.hintBusy = false;
+    if (r.done && r.value) {
+      G.hint = r.value;
+      G.selected = r.value.piece; G.rot = r.value.rot; G.cursorX = r.value.x; clampCursor();
+      setStatus(`<b>Hint:</b> drop the ${G.level.hand[r.value.piece].name.toLowerCase()} on the gold outline.`);
+    } else if (r.done) {
+      setStatus('There is no way across from here. Undo or restart.');
+    } else {
+      setStatus('That one needs more thought than a quick hint. Try undoing a piece.');
+    }
+    refreshUI();
+  };
+  if (G.instant) { let r; do { r = gen.next(); } while (!r.done); G.hintBusy = false; G.hint = r.value || null; if (G.hint) { G.selected = G.hint.piece; G.rot = G.hint.rot; G.cursorX = G.hint.x; } refreshUI(); return; }
+  setTimeout(tick, 30);
+}
+
+// ---- update ------------------------------------------------------------------
+function update(dt) {
+  G.clock += dt;
+  for (const e of G.effects) e.age += dt;
+  G.effects = G.effects.filter(e => e.age < e.life);
+  for (const p of G.particles) { p.age += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 2.4 * dt; }
+  G.particles = G.particles.filter(p => p.age < p.life);
+  if (anyModal() && G.phase !== 'walk') return;
+  if (G.phase === 'falling' && G.fall) {
+    const f = G.fall;
+    f.t += dt;
+    f.y = Math.min(f.target, 0.5 * 90 * f.t * f.t + 6 * f.t);
+    if (f.y >= f.target) finishFall();
+  } else if (G.phase === 'settle') {
+    G.stepClock += dt;
+    const interval = G.fast ? FAST_STEP : STEP_TIME;
+    let guard = 0;
+    while (G.stepClock >= interval && G.sim.resolving && guard++ < 20) { G.stepClock -= interval; consume(G.sim.step()); }
+    if (!G.sim.resolving) afterSettle();
+  } else if (G.phase === 'walk') advanceWalk(dt);
+}
+function footPoint(p) { return [p[0] + 0.5, p[1] + 1]; }
+function advanceWalk(dt) {
+  const w = G.walker;
+  const last = w.motion.length - 1;
+  const before = Math.floor(w.t);
+  w.t = Math.min(last, w.t + dt * WALK_SPEED * (G.fast ? 2.5 : 1));
+  // Gather whatever the lanternling passes.
+  for (let i = Math.max(0, before); i <= Math.floor(w.t); i++) {
+    const [x, y] = w.motion[i];
+    G.sim.kin.forEach((k, j) => { if (k[0] === x && k[1] === y && !w.kinGot.has(j)) { w.kinGot.add(j); Audio.play('kin'); burst(x + 0.5, y + 0.5, 12, ['#ffe9a8', '#fff', '#ffd76a'], 1.2); setStatus('A little one joins the crossing.', true); } });
+    G.sim.flies.forEach((f, j) => { if (f[0] === x && f[1] === y && !w.fliesGot.has(j)) { w.fliesGot.add(j); Audio.play('fly'); burst(x + 0.5, y + 0.5, 10, ['#f6ff9a', '#d9ff5a', '#fff'], 1.4); } });
+    if (i > before) Audio.play('step');
+  }
+  const i = Math.floor(w.t), f = w.t - i;
+  const a = footPoint(w.motion[i]), b = footPoint(w.motion[Math.min(last, i + 1)]);
+  const pos = [lerp(a[0], b[0], f), lerp(a[1], b[1], f)];
+  if (b[0] !== a[0]) w.facing = b[0] > a[0] ? 1 : -1;
+  w.pos = pos;
+  const tr = w.trail;
+  if (!tr.length || Math.hypot(tr[tr.length - 1][0] - pos[0], tr[tr.length - 1][1] - pos[1]) > 0.05) tr.push([pos[0], pos[1], w.facing]);
+  G.gathered.kin = w.kinGot.size; G.gathered.flies = w.fliesGot.size;
+  if (w.t >= last) win();
+}
+
+// ---- drawing -------------------------------------------------------------------
+const px = gx => bx + gx * cell, py = gy => by + gy * cell;
+function frameOf(sheet, frame, n) { return [frame * (sheet.width / n), 0, sheet.width / n, sheet.height]; }
+function drawSheet(sheet, n, frame, x, y, w, h, crop) {
+  if (!sheet) return;
+  const fw = sheet.width / n;
+  if (crop) ctx.drawImage(sheet, frame * fw + crop[0], crop[1], crop[2], crop[3], x, y, w, h);
+  else ctx.drawImage(sheet, frame * fw, 0, fw, sheet.height, x, y, w, h);
+}
+// Draw the intact body of a 128px effect frame so it fills one cell (flames above stay visible).
+function drawBody(sheet, n, frame, x, y, size, uv) {
+  const s = size / uv[2];
+  drawSheet(sheet, n, frame, x - uv[0] * s, y - uv[1] * (size / uv[3]), 128 * s, 128 * (size / uv[3]));
+}
+const STRAW_UV = [9, 25, 110, 100], ICE_UV = [12, 21, 104, 105];
+
+function drawMaterial(mat, x, y, size, o = {}) {
+  const k = o.fixed;
+  switch (mat) {
+    case M.stone: ctx.drawImage(k ? (o.top ? TILE.rootedTop : TILE.rooted) : TILE.stone, x, y, size, size); break;
+    case M.iron: ctx.drawImage(k ? TILE.ironRooted : TILE.iron, x, y, size, size); break;
+    case M.dirt: ctx.drawImage(k ? TILE.dirtRooted : TILE.dirt, x, y, size, size); break;
+    case M.mud: ctx.drawImage(TILE.mud, x, y, size, size); break;
+    case M.brick: ctx.drawImage(k ? TILE.brickRooted : TILE.brick, x, y, size, size); break;
+    case M.straw: drawBody(ART['straw-burn'], 5, o.fire ? (o.fire <= 2 ? 1 : 2) : 0, x, y, size, STRAW_UV); break;
+    case M.ice: drawBody(ART['ice-melt'], 4, 0, x, y, size, ICE_UV); break;
+    case M.wood:
+      if (o.fire) drawSheet(ART['wood-burn'], 5, o.fire <= 2 ? 1 : 2, x, y, size, size);
+      else ctx.drawImage(k ? TILE.woodRooted : TILE.wood, x, y, size, size);
+      break;
+    case M.branch: ctx.drawImage(o.rot % 2 ? TILE.branchV : TILE.branchH, x, y, size, size); break;
+    case M.seed: ctx.drawImage(TILE[(o.grow ? 'seedS' : 'seed') + Math.max(0, o.dir)], x, y, size, size); break;
+    case M.log: drawLogRun(x, y, size, 1, o.rot || 0, 'log-inside'); drawLogRun(x, y, size, 1, o.rot || 0, 'log-front'); break;
+  }
+  if (o.fire && (mat === M.branch || mat === M.log || mat === M.seed)) { ctx.fillStyle = 'rgba(255,110,30,.28)'; ctx.fillRect(x, y, size, size); }
+}
+function drawLogRun(x, y, size, length, rot, img) {
+  const im = ART[img];
+  if (!im) return;
+  ctx.save();
+  if (rot % 2) {
+    ctx.translate(x + size / 2, y + size / 2); ctx.rotate(Math.PI / 2);
+    ctx.drawImage(im, -size / 2, -size / 2 - size * 0.06, size * length, size * 1.12);
+  } else ctx.drawImage(im, x, y - size * 0.06, size * length, size * 1.12);
+  ctx.restore();
+}
+function cellOpts(sim, k) {
+  const x = k % W, y = (k / W) | 0;
+  return { fixed: sim.fixed[k], fire: sim.fire[k], rot: sim.rot[k], dir: sim.dir[k], grow: sim.grow[k], top: !(y > 0 && sim.mat[k - W]) };
+}
+function logRunsOf(sim) {
+  const pts = new Map(), orient = new Map();
+  for (let k = 0; k < W * H; k++) if (sim.mat[k] === M.log) { pts.set(k, k); orient.set(k, sim.rot[k] % 2); }
+  return logPartition(pts, orient);
+}
+function bonded(sim, a, b) {
+  const ia = sim.id[a], ib = sim.id[b];
+  const key = ia < ib ? ia * 65536 + ib : ib * 65536 + ia;
+  return sim.bonds.has(key);
+}
+
+function drawBackground() {
+  const bg = ART.background;
+  if (bg) {
+    const s = Math.max(cssW / bg.width, cssH / bg.height);
+    ctx.drawImage(bg, (cssW - bg.width * s) / 2, (cssH - bg.height * s) / 2, bg.width * s, bg.height * s);
+  } else { ctx.fillStyle = '#0b1a1f'; ctx.fillRect(0, 0, cssW, cssH); }
+  const g = ctx.createRadialGradient(cssW / 2, cssH / 2, Math.min(cssW, cssH) * 0.3, cssW / 2, cssH / 2, Math.max(cssW, cssH) * 0.75);
+  g.addColorStop(0, 'rgba(4,14,18,0)'); g.addColorStop(1, 'rgba(4,14,18,.55)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, cssW, cssH);
+}
+function drawBoardSurface() {
+  ctx.fillStyle = 'rgba(5,27,32,.62)';
+  roundRect(bx - 4, by - 4, W * cell + 8, H * cell + 8, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(41,72,75,.55)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= W; x++) { ctx.moveTo(px(x) + 0.5, py(0)); ctx.lineTo(px(x) + 0.5, py(H)); }
+  for (let y = 0; y <= H; y++) { ctx.moveTo(px(0), py(y) + 0.5); ctx.lineTo(px(W), py(y) + 0.5); }
+  ctx.stroke();
+}
+function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+// Ledges: the authored plank-and-lantern plate. Entry and side ledges skip the lantern.
+const LEDGE = { tip: [91.2, 274.4], lamp: [292, 75, 152, 180], plank: [16, 250, 440, 120] };
+function drawLedge(gx, gy, kind) {
+  const im = ART.ledge;
+  if (!im) return;
+  const left = gx < 0;
+  const footX = px(gx + 0.5), footY = py(gy + 1);
+  const edgeX = left ? px(0) : px(W);
+  const room = left ? edgeX - 0 : cssW - edgeX;
+  const f = Math.max(cell / 320, Math.min(cell / 134.4, (room - 4) / (LEDGE.lamp[0] + LEDGE.lamp[2] - LEDGE.tip[0])));
+  const anchor = [LEDGE.tip[0] + (cell * 0.5) / f, LEDGE.tip[1]];
+  ctx.save();
+  ctx.translate(footX, footY);
+  if (left) ctx.scale(-1, 1);
+  ctx.translate(-anchor[0] * f, -anchor[1] * f);
+  if (kind === 'exit') {
+    ctx.drawImage(im, 0, 0, im.width * f, im.height * f);
+    const flick = 0.75 + 0.25 * Math.sin(G.clock * 7) * Math.sin(G.clock * 3.1);
+    const lit = G.phase === 'won' ? 1.8 : 1;
+    const lx = (LEDGE.lamp[0] + LEDGE.lamp[2] / 2) * f, ly = (LEDGE.lamp[1] + LEDGE.lamp[3] * 0.62) * f;
+    const g = ctx.createRadialGradient(lx, ly, 2, lx, ly, cell * 2.6 * lit);
+    g.addColorStop(0, `rgba(255,214,130,${0.45 * flick * lit})`); g.addColorStop(1, 'rgba(255,190,90,0)');
+    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(lx - cell * 5, ly - cell * 5, cell * 10, cell * 10);
+    ctx.globalCompositeOperation = 'source-over';
+  } else {
+    const p = LEDGE.plank;
+    ctx.drawImage(im, p[0], p[1], p[2], p[3], p[0] * f, p[1] * f, p[2] * f, p[3] * f);
+  }
+  ctx.restore();
+}
+
+function drawCreature(gx, gy, facing, scale = 1, bob = 0, img = 'lanternling', alpha = 1) {
+  const im = ART[img];
+  if (!im) return;
+  const foot = img === 'lanternling' ? [151, 256] : [124, 250];
+  const h = cell * (img === 'lanternling' ? 1.32 : 0.98) * scale;
+  const s = h / im.height;
+  const x = px(gx), y = py(gy) + bob;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y);
+  if (facing < 0) ctx.scale(-1, 1);
+  ctx.drawImage(im, -foot[0] * s, -foot[1] * s, im.width * s, im.height * s);
+  if (img === 'lanternling') {
+    const lx = (232 - foot[0]) * s, ly = (220 - foot[1]) * s;
+    const g = ctx.createRadialGradient(lx, ly, 1, lx, ly, cell * 1.4);
+    g.addColorStop(0, 'rgba(255,210,120,.42)'); g.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(lx - cell * 2, ly - cell * 2, cell * 4, cell * 4);
+  }
+  ctx.restore();
+}
+function drawFirefly(gx, gy, t, alpha = 1) {
+  const x = px(gx + 0.5) + Math.sin(t * 2.1 + gx) * cell * 0.12, y = py(gy + 0.5) + Math.cos(t * 1.7 + gy) * cell * 0.14;
+  const pulse = 0.7 + 0.3 * Math.sin(t * 5 + gx * 3);
+  const g = ctx.createRadialGradient(x, y, 0, x, y, cell * 0.55);
+  g.addColorStop(0, `rgba(250,255,170,${alpha * pulse})`); g.addColorStop(0.25, `rgba(210,255,90,${0.55 * alpha * pulse})`); g.addColorStop(1, 'rgba(180,255,60,0)');
+  ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(x - cell, y - cell, cell * 2, cell * 2);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = `rgba(255,255,220,${alpha})`; ctx.beginPath(); ctx.arc(x, y, Math.max(1.5, cell * 0.06), 0, Math.PI * 2); ctx.fill();
+}
+
+function drawCells(sim) {
+  const runs = logRunsOf(sim);
+  const covered = new Set();
+  for (const r of runs) for (const k of r.points) covered.add(k);
+  // log interiors behind everything that walks
+  for (const r of runs) { const k = r.points[0]; drawLogRun(px(k % W), py((k / W) | 0), cell, r.length, r.rotation, 'log-inside'); }
+  for (let k = 0; k < W * H; k++) {
+    const m = sim.mat[k];
+    if (!m || covered.has(k)) continue;
+    drawMaterial(m, px(k % W), py((k / W) | 0), cell, cellOpts(sim, k));
+  }
+  // seams: dark edges where neighbours are not bonded, so bonded clusters read as one piece
+  ctx.lineWidth = Math.max(1, cell / 24);
+  ctx.strokeStyle = 'rgba(6,12,12,.78)';
+  ctx.beginPath();
+  for (let k = 0; k < W * H; k++) {
+    if (!sim.mat[k] || sim.mat[k] === M.log || sim.mat[k] === M.straw || sim.mat[k] === M.ice) continue;
+    const x = k % W, y = (k / W) | 0, X = px(x), Y = py(y);
+    const edge = (nx, ny) => { if (nx < 0 || nx >= W || ny < 0 || ny >= H) return true; const q = ny * W + nx; if (!sim.mat[q]) return true; if (sim.fixed[k] && sim.fixed[q]) return false; return !bonded(sim, k, q); };
+    if (edge(x, y - 1)) { ctx.moveTo(X, Y + 0.5); ctx.lineTo(X + cell, Y + 0.5); }
+    if (edge(x, y + 1)) { ctx.moveTo(X, Y + cell - 0.5); ctx.lineTo(X + cell, Y + cell - 0.5); }
+    if (edge(x - 1, y)) { ctx.moveTo(X + 0.5, Y); ctx.lineTo(X + 0.5, Y + cell); }
+    if (edge(x + 1, y)) { ctx.moveTo(X + cell - 0.5, Y); ctx.lineTo(X + cell - 0.5, Y + cell); }
+  }
+  ctx.stroke();
+  // brass pins where a loose cell hangs from rooted stone
+  const posOf = new Map();
+  for (let k = 0; k < W * H; k++) if (sim.mat[k]) posOf.set(sim.id[k], k);
+  for (const key of sim.bonds) {
+    const a = posOf.get(Math.floor(key / 65536)), b = posOf.get(key % 65536);
+    if (a === undefined || b === undefined || sim.fixed[a] === sim.fixed[b]) continue;
+    const cx = (px(a % W) + px(b % W)) / 2 + cell / 2, cy = (py((a / W) | 0) + py((b / W) | 0)) / 2 + cell / 2;
+    ctx.fillStyle = '#e7b45a'; ctx.strokeStyle = '#5a3a10'; ctx.lineWidth = Math.max(1, cell / 20);
+    ctx.beginPath(); ctx.arc(cx, cy, cell * 0.16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff3c4'; ctx.beginPath(); ctx.arc(cx - cell * 0.05, cy - cell * 0.05, cell * 0.05, 0, Math.PI * 2); ctx.fill();
+  }
+  return runs;
+}
+function drawWater(sim) {
+  const frame = Math.floor(G.clock * 6) % 4;
+  for (let k = 0; k < W * H; k++) {
+    const a = sim.water[k];
+    if (!a || sim.mat[k]) continue;
+    const h = cell * Math.min(1, a / 4) * 0.86;
+    ctx.globalAlpha = 0.9;
+    drawSheet(ART.water, 4, frame, px(k % W) + 1, py(((k / W) | 0) + 1) - h, cell - 2, h, [0, 20, 128, 104]);
+    ctx.globalAlpha = 1;
+  }
+}
+function drawFire(sim) {
+  const frame = Math.floor(G.clock * 6) % 4;
+  for (let k = 0; k < W * H; k++) {
+    if (!sim.fire[k]) continue;
+    const s = cell * 1.5, x = px(k % W) + cell / 2, y = py(((k / W) | 0) + 1);
+    drawSheet(ART.fire, 4, (frame + k) % 4, x - s * 0.5, y - s * 0.94, s, s);
+  }
+}
+function drawEffects() {
+  for (const e of G.effects) {
+    const t = e.age / e.life;
+    if (e.kind === 'spark') {
+      const s = cell * 2.1; ctx.globalAlpha = 1 - t;
+      drawSheet(ART.sparks, 4, clamp(Math.floor(t * 4), 0, 3), px(e.x) - s / 2, py(e.y) - s / 2, s, s); ctx.globalAlpha = 1;
+    } else if (e.kind === 'ash') {
+      ctx.globalAlpha = 1 - t;
+      drawSheet(ART[e.material === 'straw' ? 'straw-burn' : 'wood-burn'], 5, e.age < 0.25 ? 3 : 4, px(e.x), py(e.y), cell, cell); ctx.globalAlpha = 1;
+    } else if (e.kind === 'melt') {
+      ctx.globalAlpha = 0.85 * (1 - t);
+      drawBody(ART['ice-melt'], 4, Math.min(3, 1 + Math.floor(e.age / 0.16)), px(e.x), py(e.y), cell, ICE_UV); ctx.globalAlpha = 1;
+    } else if (e.kind === 'glow') {
+      const g = ctx.createRadialGradient(px(e.x), py(e.y), 0, px(e.x), py(e.y), cell * 1.2);
+      g.addColorStop(0, `rgba(255,150,70,${0.7 * (1 - t)})`); g.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.fillRect(px(e.x) - cell * 1.5, py(e.y) - cell * 1.5, cell * 3, cell * 3); ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+  for (const p of G.particles) {
+    ctx.globalAlpha = 1 - p.age / p.life;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(px(p.x) - p.size * cell / 2, py(p.y) - p.size * cell / 2, p.size * cell, p.size * cell);
+  }
+  ctx.globalAlpha = 1;
+}
+function drawPiece(pc, gx, gy, rot, alpha) {
+  const items = rotatedPiece(pc, rot);
+  const runs = pieceLogRuns(pc, rot);
+  const inRun = new Set();
+  ctx.globalAlpha = alpha;
+  for (const r of runs) {
+    r.indices.forEach(i => inRun.add(i));
+    const minX = Math.min(...r.cells.map(c => c[0])), minY = Math.min(...r.cells.map(c => c[1]));
+    drawLogRun(px(gx + minX), py(gy + minY), cell, r.length, r.rotation, 'log-inside');
+    drawLogRun(px(gx + minX), py(gy + minY), cell, r.length, r.rotation, 'log-front');
+  }
+  items.forEach((o, i) => { if (!inRun.has(i)) drawMaterial(o.m, px(gx + o.x), py(gy + o.y), cell, { dir: o.dir }); });
+  ctx.globalAlpha = 1;
+}
+function outlineCells(cells, fill, stroke, width) {
+  for (const [x, y] of cells) {
+    ctx.fillStyle = fill; ctx.fillRect(px(x) + 3, py(y) + 3, cell - 6, cell - 6);
+    ctx.strokeStyle = stroke; ctx.lineWidth = width; ctx.strokeRect(px(x) + 3, py(y) + 3, cell - 6, cell - 6);
+  }
+}
+function drawRoutePreview() {
+  if (G.phase !== 'build' || !G.route || !G.route.ok) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(170,242,186,.75)'; ctx.lineWidth = Math.max(2, cell / 12); ctx.setLineDash([cell * 0.18, cell * 0.16]);
+  ctx.lineDashOffset = -G.clock * cell * 0.8;
+  ctx.beginPath();
+  G.route.motion.forEach((p, i) => { const x = px(p[0] + 0.5), y = py(p[1] + 1) - cell * 0.12; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.stroke(); ctx.restore();
+}
+function drawBlocked() {
+  if (!G.failed || !G.route || G.route.ok) return;
+  const x = px(G.route.blocked + 0.5), y = py(1.2);
+  ctx.save(); ctx.globalAlpha = 0.6 + 0.3 * Math.sin(G.clock * 4);
+  ctx.strokeStyle = '#ff8a6a'; ctx.lineWidth = Math.max(2, cell / 10); ctx.setLineDash([cell * 0.2, cell * 0.2]);
+  ctx.beginPath(); ctx.moveTo(x, py(0.4)); ctx.lineTo(x, py(H - 0.2)); ctx.stroke(); ctx.restore();
+  void y;
+}
+
+function render() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawBackground();
+  if (!G.level) return;
+  const sim = G.sim;
+  drawBoardSurface();
+  // ledges
+  const entry = sim.entry, exit = sim.exit;
+  drawLedge(entry[0], entry[1], 'entry');
+  drawLedge(exit[0], exit[1], 'exit');
+  for (const l of sim.ledges) drawLedge(l[0], l[1], 'side');
+  const runs = drawCells(sim);
+  drawWater(sim);
+  drawRoutePreview();
+  // fireflies and waiting kin
+  const w = G.walker;
+  sim.flies.forEach((f, j) => { if (!(w && w.fliesGot.has(j))) drawFirefly(f[0], f[1], G.clock); });
+  sim.kin.forEach((k, j) => {
+    if (w && w.kinGot.has(j)) return;
+    drawCreature(k[0] + 0.5, k[1] + 1, -1, 1, -Math.abs(Math.sin(G.clock * 2.2 + j)) * cell * 0.06, 'kin');
+  });
+  // the lanternling and the kin trailing behind it
+  if (w && w.pos) {
+    const gathered = [...w.kinGot];
+    gathered.forEach((j, n) => {
+      const back = Math.max(0, w.trail.length - 1 - Math.round((n + 1) * 14));
+      const p = w.trail[back] || w.pos;
+      drawCreature(p[0], p[1], p[2] || w.facing, 0.82, -Math.abs(Math.sin(G.clock * 9 + n)) * cell * 0.08, 'kin');
+    });
+    const moving = G.phase === 'walk';
+    drawCreature(w.pos[0], w.pos[1], w.facing, 1, moving ? -Math.abs(Math.sin(G.clock * 10)) * cell * 0.1 : 0);
+  } else {
+    drawCreature(entry[0] + 0.5, entry[1] + 1, entry[0] < 0 ? 1 : -1, 1, -Math.abs(Math.sin(G.clock * 1.6)) * cell * 0.03);
+  }
+  // log fronts occlude the lanternling inside a tunnel
+  for (const r of runs) { const k = r.points[0]; drawLogRun(px(k % W), py((k / W) | 0), cell, r.length, r.rotation, 'log-front'); }
+  drawFire(sim);
+  drawEffects();
+  // the piece in hand, its landing outline and any hint
+  if ((G.phase === 'build' || G.phase === 'falling') && !anyModal()) {
+    if (G.phase === 'falling' && G.fall) drawPiece(G.fall.piece, G.fall.x, G.fall.y, G.fall.rot, 1);
+    else {
+      const pc = activePiece();
+      if (pc) {
+        const y = sim.landingY(pc, G.cursorX, G.rot);
+        const items = rotatedPiece(pc, G.rot);
+        if (y >= 0) outlineCells(items.map(o => [o.x + G.cursorX, o.y + y]), 'rgba(194,230,202,.16)', 'rgba(210,240,205,.8)', Math.max(1.5, cell / 18));
+        drawPiece(pc, G.cursorX, 0, G.rot, y >= 0 ? 0.82 : 0.4);
+        if (y < 0) outlineCells(items.map(o => [o.x + G.cursorX, o.y]), 'rgba(255,90,60,.18)', 'rgba(255,120,90,.8)', 2);
+      }
+      if (G.hint) {
+        const hp = G.level.hand[G.hint.piece];
+        const hy = sim.landingY(hp, G.hint.x, G.hint.rot);
+        if (hy >= 0) {
+          const a = 0.55 + 0.45 * Math.sin(G.clock * 5);
+          outlineCells(rotatedPiece(hp, G.hint.rot).map(o => [o.x + G.hint.x, o.y + hy]), `rgba(255,215,106,${0.12 * a})`, `rgba(255,215,106,${a})`, Math.max(2, cell / 12));
+        }
+      }
+    }
+  }
+  drawBlocked();
+}
+
+// ---- DOM: hand, goals, buttons ----------------------------------------------------
+function pieceThumb(pc, cw, ch, rot = 0) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(cw * dpr); c.height = Math.round(ch * dpr);
+  const [ew, eh] = pieceExtent(pc, rot);
+  const s = Math.min((cw - 6) / ew, (ch - 6) / eh, 22) * dpr;
+  withCanvas(c.getContext('2d'), s, (c.width - ew * s) / 2, (c.height - eh * s) / 2, () => {
+    drawPiece(pc, 0, 0, rot, 1);
+    ctx.strokeStyle = 'rgba(6,12,12,.8)'; ctx.lineWidth = 1;
+    for (const o of rotatedPiece(pc, rot)) if (o.m !== M.log && o.m !== M.straw && o.m !== M.ice) ctx.strokeRect(bx + o.x * s + 0.5, by + o.y * s + 0.5, s - 1, s - 1);
+  });
+  return c;
+}
+// Run a painter against another canvas, borrowing the board's drawing functions.
+function withCanvas(g, size, ox, oy, fn) {
+  const saved = [ctx, cell, bx, by];
+  ctx = g; cell = size; bx = ox; by = oy;
+  try { fn(); } finally { [ctx, cell, bx, by] = saved; }
+}
+
+function buildHand() {
+  const hand = $('hand');
+  hand.innerHTML = '';
+  G.level.hand.forEach((pc, k) => {
+    const b = document.createElement('button');
+    b.className = 'hcard'; b.dataset.k = k;
+    b.title = `${pc.name} (${k + 1})`;
+    const thumb = portrait ? [66, 44] : [76, 58];
+    b.appendChild(pieceThumb(pc, thumb[0], thumb[1]));
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = pc.name; b.appendChild(nm);
+    const key = document.createElement('div'); key.className = 'key'; key.textContent = k + 1; b.appendChild(key);
+    b.addEventListener('click', () => { b.blur(); Audio.ensure(); if (G.toastOpen) closeToast(); selectPiece(k); });
+    hand.appendChild(b);
+  });
+}
+function materialsOf(pc) { return [...new Set(pc.cells.map(c => c[2]))].map(m => m === 'log' ? 'hollow log' : m).join(' · '); }
+function refreshUI() {
+  if (!G.level) return;
+  const building = G.phase === 'build' && !anyModal();
+  const pc = activePiece();
+  document.querySelectorAll('.hcard').forEach(b => {
+    const k = +b.dataset.k;
+    b.classList.toggle('used', !G.remaining.includes(k));
+    b.classList.toggle('sel', k === G.selected && G.remaining.includes(k));
+    b.classList.toggle('hinted', !!(G.hint && G.hint.piece === k));
+  });
+  $('piece-info').textContent = pc ? materialsOf(pc) : (G.remaining.length ? '' : 'Hand empty');
+  for (const id of ['btn-left', 'btn-right', 'btn-ccw', 'btn-cw', 'btn-drop']) $(id).disabled = !building || !pc;
+  $('btn-undo').disabled = !(G.phase === 'build') || !G.undo.length;
+  $('btn-hint').disabled = !(G.phase === 'build');
+  $('btn-hint').textContent = G.hintBusy ? 'Cancel' : (G.hint ? 'Hide hint' : 'Hint');
+  $('btn-send').disabled = !(building && G.route && G.route.ok);
+  $('btn-fast').classList.toggle('on', G.fast);
+  // goals
+  const stars = starsOf(G.level.id);
+  const nF = G.sim.flies.length, par = G.level.par;
+  const g1 = $('goal-cross'), g2 = $('goal-flies'), g3 = $('goal-par');
+  const kin = G.sim.kin.length;
+  g1.querySelector('.goal-text').textContent = kin ? `Bring the lanternling and ${kin} kin to the lantern` : 'Bring the lanternling to the lantern';
+  g2.querySelector('.goal-text').textContent = nF ? `Gather all ${nF} firefl${nF > 1 ? 'ies' : 'y'}` + (G.route && G.route.ok && G.phase === 'build' ? ` (this path: ${G.route.fliesCount}/${nF})` : '') : 'No fireflies here: a free star';
+  g3.querySelector('.goal-text').textContent = `Cross using ${par} piece${par > 1 ? 's' : ''} or fewer (used ${G.used})`;
+  g1.classList.toggle('earned', !!(stars & 1)); g2.classList.toggle('earned', !!(stars & 2)); g3.classList.toggle('earned', !!(stars & 4));
+  g3.classList.toggle('live', G.used <= par && !(stars & 4));
+  const sound = ['Muted', 'Effects only', 'Music and effects'][save.sound];
+  $('btn-sound').title = `Sound: ${sound} (M)`; $('btn-sound').classList.toggle('off', save.sound === 0);
+  $('btn-sound').innerHTML = save.sound === 1 ? '&#9834;' : '&#9835;';
+}
+function setStatus(html, transient) {
+  G.status = html;
+  $('status').innerHTML = html;
+  void transient;
+}
+
+// ---- modals: levels, guide -------------------------------------------------------
+function showModal(id) { $(id).classList.remove('hidden'); refreshUI(); }
+function hideModal(id) { $(id).classList.add('hidden'); refreshUI(); }
+function openLevels() {
+  closeToast();
+  const open = unlockedThrough();
+  const total = LEVELS.reduce((n, l) => n + popcount(starsOf(l.id)), 0);
+  $('levels-progress').textContent = `${total} of ${LEVELS.length * 3} stars · ${LEVELS.filter(l => starsOf(l.id) & 1).length} of ${LEVELS.length} crossings`;
+  const box = $('chapters');
+  box.innerHTML = '';
+  const chapters = [...new Set(LEVELS.map(l => l.chapter))];
+  for (const ch of chapters) {
+    const div = document.createElement('div'); div.className = 'chapter';
+    const h = document.createElement('h3'); h.textContent = `${ch + 1}. ${LEVELS.find(l => l.chapter === ch).chapterName}`; div.appendChild(h);
+    const tiles = document.createElement('div'); tiles.className = 'tiles';
+    LEVELS.forEach((lv, i) => {
+      if (lv.chapter !== ch) return;
+      const t = document.createElement('button'); t.className = 'tile' + (i === G.index ? ' current' : '');
+      const st = starsOf(lv.id);
+      t.innerHTML = `<span class="tn">${String(i + 1).padStart(2, '0')}</span><span class="tt">${lv.name}</span><span class="ts">${[1, 2, 4].map(b => `<span class="${st & b ? 'on' : ''}">&#9733;</span>`).join('')}</span>`;
+      t.disabled = i > open;
+      t.addEventListener('click', () => { hideModal('levels'); loadLevel(i); });
+      tiles.appendChild(t);
+    });
+    div.appendChild(tiles); box.appendChild(div);
+  }
+  showModal('levels');
+}
+const GUIDE = [
+  ['stone', 'Stone', 'Solid footing. The first time it touches iron it throws sparks. Rooted ground is stone too.'],
+  ['iron', 'Iron', 'Sparks against stone or brick on first contact. Sparks light straw beside either block.'],
+  ['straw', 'Straw', 'Catches sparks and fire, burns for a few moments, then crumbles away.'],
+  ['wood', 'Timber', 'Burns when fire touches it, but sparks alone will not light it.'],
+  ['ice', 'Ice', 'Solid until fire touches it. Melts into four measures of running water.'],
+  ['dirt', 'Dirt', 'When wet it turns to mud, and every bond touching it lets go.'],
+  ['mud', 'Mud', 'Loose and unbonded. Dry mud touched by fire bakes into brick.'],
+  ['brick', 'Brick', 'Baked mud. A striker like stone: it sparks when it first meets iron.'],
+  ['seed', 'Seed', 'When water reaches it, a branch grows four blocks the way it points. Turn the piece to aim it.'],
+  ['log', 'Hollow log', 'Lying flat it is a tunnel and a floor. Standing upright it is a wall. Logs burn.'],
+];
+function openGuide() {
+  closeToast();
+  const body = $('guide-body');
+  body.innerHTML = '';
+  const intro = document.createElement('div'); intro.className = 'guide-wide';
+  intro.innerHTML = '<b>The crossing.</b> Drop every piece straight down. Bonded cells move together, and loose groups fall when nothing holds them. Each piece settles before the next. The lanternling walks across once the hand is empty, or whenever you press <b>Send</b> while a safe path shows. Every step can rise or fall a single block, needs solid footing that is not burning, and a clear space to stand in. Kin must be gathered on the way. Fireflies are a bonus.';
+  body.appendChild(intro);
+  for (const [mat, name, text] of GUIDE) {
+    const d = document.createElement('div'); d.className = 'gitem';
+    const c = document.createElement('canvas'); c.width = c.height = Math.round(44 * dpr);
+    withCanvas(c.getContext('2d'), 44 * dpr, 0, 0, () => drawMaterial(M[mat], 0, 0, cell, { dir: 0 }));
+    d.appendChild(c);
+    const t = document.createElement('div'); t.innerHTML = `<b>${name}</b><br>${text}`; d.appendChild(t);
+    body.appendChild(d);
+  }
+  const keys = document.createElement('div'); keys.className = 'guide-wide';
+  keys.innerHTML = '<b>Keys.</b> ← → or A D move · ↑ X E rotate, Z Q rotate back · Space or ↓ drop · 1–9 or Tab choose a piece · Enter send · U undo · R restart · H hint · F hurry · L crossings · G guide · M sound. With a mouse, point at a column and click to drop; the wheel rotates. On touch, drag across the board to aim and tap Drop.';
+  body.appendChild(keys);
+  showModal('guide');
+}
+
+// ---- input ------------------------------------------------------------------------
+function boardColumn(clientX) {
+  const pc = activePiece();
+  if (!pc) return null;
+  const [ew] = pieceExtent(pc, G.rot);
+  return Math.round((clientX - bx) / cell - ew / 2);
+}
+let touchAim = null;
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') { const c = boardColumn(e.clientX); if (c !== null && e.clientY > by - cell * 2 && e.clientY < by + H * cell) setCursor(c); }
+  else if (touchAim) setCursor(boardColumn(e.clientX));
+});
+canvas.addEventListener('pointerdown', e => {
+  Audio.ensure();
+  if (G.toastOpen) { closeToast(); return; }
+  if (e.pointerType === 'mouse') {
+    if (e.button !== 0) return;
+    if (e.clientX >= bx && e.clientX <= bx + W * cell && e.clientY >= by - cell && e.clientY <= by + H * cell) { setCursor(boardColumn(e.clientX)); drop(); }
+  } else { touchAim = { id: e.pointerId }; setCursor(boardColumn(e.clientX)); }
+});
+window.addEventListener('pointerup', () => { touchAim = null; });
+canvas.addEventListener('wheel', e => { e.preventDefault(); rotate(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); rotate(1); });
+
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  Audio.ensure();
+  const k = e.key;
+  if (G.toastOpen && (k === 'Enter' || k === ' ' || k === 'Escape')) { closeToast(); e.preventDefault(); return; }
+  if (!$('win').classList.contains('hidden')) {
+    if (k === 'Enter' || k === ' ' || k === 'n' || k === 'N') { e.preventDefault(); $('win-next').click(); }
+    else if (k === 'r' || k === 'R') { e.preventDefault(); $('win-replay').click(); }
+    return;
+  }
+  if (k === 'Escape') { ['levels', 'guide'].forEach(hideModal); return; }
+  if (anyModal()) return;
+  const map = {
+    ArrowLeft: () => move(-1), a: () => move(-1), A: () => move(-1), ArrowRight: () => move(1), d: () => move(1), D: () => move(1),
+    ArrowUp: () => rotate(1), x: () => rotate(1), X: () => rotate(1), e: () => rotate(1), E: () => rotate(1),
+    z: () => rotate(-1), Z: () => rotate(-1), q: () => rotate(-1), Q: () => rotate(-1),
+    ' ': drop, ArrowDown: drop, s: drop, S: drop, Enter: () => sendCreature(false), Tab: () => cyclePiece(e.shiftKey ? -1 : 1),
+    u: undo, U: undo, Backspace: undo, r: restart, R: restart, h: requestHint, H: requestHint, f: toggleFast, F: toggleFast,
+    l: openLevels, L: openLevels, g: openGuide, G: openGuide, m: cycleSound, M: cycleSound,
+  };
+  if (/^[1-9]$/.test(k)) { selectPiece(+k - 1); e.preventDefault(); return; }
+  if (map[k]) { e.preventDefault(); if (G.toastOpen) closeToast(); map[k](); refreshUI(); }
+});
+function toggleFast() { G.fast = !G.fast; refreshUI(); }
+function cycleSound() { Audio.ensure(); save.sound = (save.sound + 2) % 3; writeSave(); Audio.apply(); refreshUI(); }
+
+// Buttons give focus back to the board so Space and Enter never fire a stale button.
+const click = (id, fn) => $(id).addEventListener('click', e => { e.currentTarget.blur(); Audio.ensure(); if (G.toastOpen && !id.startsWith('toast')) closeToast(); fn(); refreshUI(); });
+click('btn-left', () => move(-1)); click('btn-right', () => move(1));
+click('btn-cw', () => rotate(1)); click('btn-ccw', () => rotate(-1));
+click('btn-drop', drop); click('btn-undo', undo); click('btn-restart', restart);
+click('btn-hint', requestHint); click('btn-fast', toggleFast); click('btn-send', () => sendCreature(false));
+click('btn-guide', openGuide); click('btn-sound', cycleSound); click('badge', openLevels);
+click('toast-ok', closeToast);
+click('levels-close', () => hideModal('levels')); click('guide-close', () => hideModal('guide'));
+click('levels-reset', () => {
+  if (!confirmReset) { confirmReset = true; $('levels-reset').textContent = 'Tap again to reset'; setTimeout(() => { confirmReset = false; $('levels-reset').textContent = 'Reset progress'; }, 2500); return; }
+  confirmReset = false; save.stars = {}; save.best = {}; writeSave(); $('levels-reset').textContent = 'Reset progress'; openLevels();
+});
+let confirmReset = false;
+click('win-replay', () => { hideModal('win'); loadLevel(G.index, { quiet: true }); });
+click('win-next', () => { hideModal('win'); if (G.index === LEVELS.length - 1) openLevels(); else loadLevel(G.index + 1); });
+// Hand row: let a horizontal swipe scroll without selecting.
+$('hand').addEventListener('wheel', e => { if (portrait) { $('hand').scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+
+window.addEventListener('resize', () => { layout(); if (G.level) buildHand(); refreshUI(); });
+
+// ---- main loop ------------------------------------------------------------------------
+let lastT = performance.now();
+function frame(t) {
+  const dt = Math.min(0.05, (t - lastT) / 1000);
+  lastT = t;
+  if (!G.paused) update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ---- test API ---------------------------------------------------------------------------
+window.KC = {
+  levels: () => LEVELS.map((l, i) => ({ i, id: l.id, name: l.name, chapter: l.chapterName, hand: l.hand.length, par: l.par, flies: (l.map.join('').match(/\*/g) || []).length + (l.flies || []).length })),
+  load: i => { loadLevel(typeof i === 'string' ? LEVELS.findIndex(l => l.id === i) : i, { quiet: true }); return KC.state(); },
+  state: () => ({ index: G.index, id: G.level.id, phase: G.phase, remaining: G.remaining.slice(), selected: G.selected, x: G.cursorX, rot: G.rot, used: G.used,
+    route: G.route ? { ok: G.route.ok, flies: G.route.fliesCount || 0, kin: G.route.kin, reason: G.route.reason } : null, failed: G.failed, stars: starsOf(G.level.id),
+    gathered: Object.assign({}, G.gathered), hint: G.hint, status: $('status').textContent, cell, board: [bx, by] }),
+  instant: on => { G.instant = on !== false; return G.instant; },
+  select: k => { selectPiece(k); return KC.state(); },
+  aim: (x, rot = G.rot) => { if (activePiece()) { G.rot = rot; G.cursorX = x; clampCursor(); } refreshUI(); return KC.state(); },
+  drop: () => { drop(); return KC.state(); },
+  send: () => { sendCreature(false); return KC.state(); },
+  undo: () => { undo(); return KC.state(); },
+  restart: () => { restart(); return KC.state(); },
+  hint: () => { requestHint(); return KC.state(); },
+  play: moves => { const was = G.instant; G.instant = true; for (const [k, x, rot] of moves) { selectPiece(k); KC.aim(x, rot); drop(); } G.instant = was; return KC.state(); },
+  step: seconds => { const n = Math.round(seconds / (1 / 60)); for (let i = 0; i < n; i++) update(1 / 60); render(); return KC.state(); },
+  pause: on => { G.paused = on !== false; },
+  render: () => { render(); },
+  save: () => JSON.parse(JSON.stringify(save)),
+  clearSave: () => { save.stars = {}; save.best = {}; writeSave(); },
+  open: what => { ({ levels: openLevels, guide: openGuide, toast: showToast })[what](); },
+  close: () => { ['levels', 'guide', 'win'].forEach(hideModal); closeToast(); },
+  sim: () => G.sim,
+  core: Kindred,
+};
+if (TEST) window.KC._eval = src => eval(src); // eslint-disable-line no-eval
+
+// ---- start ------------------------------------------------------------------------------
+loadSave();
+layout();
+loadArt(p => { $('loading-bar').firstElementChild.style.width = Math.round(p * 100) + '%'; }).then(() => {
+  layout();
+  const start = params.has('level') ? clamp(+params.get('level') - 1, 0, LEVELS.length - 1) : clamp(save.last || 0, 0, LEVELS.length - 1);
+  loadLevel(start);
+  $('loading').style.opacity = '0';
+  setTimeout(() => $('loading').classList.add('hidden'), 500);
+  window.KC.ready = true;
+  requestAnimationFrame(frame);
+});
+})();
+
+</script>
+</body>
+</html>

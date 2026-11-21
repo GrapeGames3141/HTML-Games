@@ -1,0 +1,7 @@
+{
+  "title": "Kindred Crossing",
+  "description": "A falling-block puzzle of chain reactions. Drop stone, iron, straw, ice, dirt, seeds and hollow logs, let sparks, fire, meltwater and growing branches play out, and guide the lanternling and its stranded kin home across 22 crossings.",
+  "category": "Puzzle",
+  "controls": "Arrow keys or A/D move, Up/X rotate, Space drops, 1-9 picks a piece, Enter sends the lanternling, U undoes, H gives a hint. With a mouse, point at a column and click to drop; the wheel rotates. On touch, drag across the board and tap Drop.",
+  "requirements": "Any modern browser"
+}

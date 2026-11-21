@@ -26,6 +26,9 @@ class PagesTests(unittest.TestCase):
             source = self.root / destination
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text('<!doctype html><title>Promoted experiment</title>', encoding='utf-8')
+        opus = self.root / 'experiments' / 'opus'
+        opus.mkdir(parents=True, exist_ok=True)
+        (opus / 'opus.html').write_text('<!doctype html><title>Not promoted</title>', encoding='utf-8')
     def tearDown(self): self.temp.cleanup()
     def test_discovery_metadata_assets_and_rebuild(self):
         game = self.root / 'future fields'
@@ -47,18 +50,18 @@ class PagesTests(unittest.TestCase):
         self.assertIn('Clouds &lt;&amp;&gt; &quot;Sky&quot;', lobby)
         self.assertIn('future%20fields/launch.html', lobby)
         self.assertIn('data-filter="puzzle"', lobby)
-        self.assertIn('SHOWING ALL 12 GAMES', lobby)
-        self.assertIn('THE ARCADE SHELF · 12 PLAYABLE WORLDS', lobby)
+        self.assertIn('SHOWING ALL 13 GAMES', lobby)
+        self.assertIn('THE ARCADE SHELF · 13 PLAYABLE WORLDS', lobby)
         self.assertIn('<title>The Arcade Shelf</title>', lobby)
         self.assertIn('href="privacy.html"', lobby)
         self.assertTrue((out / 'privacy.html').exists())
         self.assertIn('aria-label="The Arcade Shelf home"', lobby)
         self.assertIn('https://thearcadeshelf.com/', lobby)
-        self.assertIn('content="Explore 12 free browser games at The Arcade Shelf."', lobby)
+        self.assertIn('content="Explore 13 free browser games at The Arcade Shelf."', lobby)
         self.assertIn('Littoral — Astra 6.2', lobby)
         self.assertIn('Beach to Cave — Fable 5.2', lobby)
         self.assertIn('data-filter="experiments"', lobby)
-        self.assertIn('12 · PUZZLE', lobby)
+        self.assertIn('13 · PUZZLE', lobby)
         self.assertLess(lobby.index('Beach to Cave — Fable 5.2'), lobby.index('Clouds &lt;&amp;&gt; &quot;Sky&quot;'))
         self.assertNotIn('Not an arcade game', lobby)
         self.assertTrue((out / 'future fields/nested/game.js').exists())
@@ -67,8 +70,11 @@ class PagesTests(unittest.TestCase):
         self.assertFalse((out / 'tools/tools.html').exists())
         self.assertTrue((out / 'experiments/Astra-demo/Astra-demo.html').exists())
         self.assertTrue((out / 'experiments/demo/demo.html').exists())
+        self.assertTrue((out / 'experiments/procedural-demo/procedural-demo.html').exists())
         self.assertFalse((out / 'experiments/humanoid-model-experiment').exists())
         self.assertFalse((out / 'experiments/Astra-demo/evidence').exists())
+        self.assertFalse((out / 'experiments/procedural-demo/evidence').exists())
+        self.assertFalse((out / 'experiments/opus').exists())
         self.assertTrue((out / 'assets/arcade/quick-hide.js').exists())
         for page in [out / 'index.html', out / 'future fields/launch.html'] + [out / name / (name + '.html') for name in builder.CURATED]:
             html = page.read_text(encoding='utf-8')
@@ -82,11 +88,14 @@ class PagesTests(unittest.TestCase):
         shutil.rmtree(game)
         builder.build(self.root)
         self.assertFalse((out / 'future fields').exists())
-        self.assertIn('SHOWING ALL 11 GAMES', (out / 'index.html').read_text(encoding='utf-8'))
+        self.assertIn('SHOWING ALL 12 GAMES', (out / 'index.html').read_text(encoding='utf-8'))
     def test_gold_entry_and_new_curated_card(self):
         game = self.root / 'gold-rush'
         game.mkdir()
         (game / 'gold-rush.html').write_text('<title>Gold Rush</title>', encoding='utf-8')
+        puzzle = self.root / 'kindred-crossing'
+        puzzle.mkdir()
+        (puzzle / 'kindred-crossing.html').write_text('<title>Kindred Crossing</title>', encoding='utf-8')
         index = self.root / 'index.html'
         source = index.read_text(encoding='utf-8')
         custom = '<article class="game-card" data-id="custom-id" data-category="action" data-search="gold"><a class="play-link" href="gold-rush/gold-rush.html">Custom Gold</a></article>'
@@ -97,6 +106,8 @@ class PagesTests(unittest.TestCase):
         lobby = (out / 'index.html').read_text(encoding='utf-8')
         self.assertIn('Custom Gold', lobby)
         self.assertIn('data-id="custom-id"', lobby)
+        self.assertIn('data-filter="puzzle"', lobby)
+        self.assertIn('href="kindred-crossing/kindred-crossing.html"', lobby)
         self.assertEqual(lobby.count('href="gold-rush/gold-rush.html"'), 1)
         self.assertLess(lobby.index('Littoral — Astra 6.2'), lobby.index('Custom Gold'))
         self.assertLess(lobby.index('Beach to Cave — Fable 5.2'), lobby.index('Custom Gold'))

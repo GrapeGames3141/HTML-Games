@@ -4,7 +4,7 @@ Start every session by reading this file, the root `AGENTS.md`, and the target g
 
 ## Repository layout
 
-The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `splat`, `dustdevil`, `merlin`, `spearfish`, `firstlight`, `tricktype`, `deckvolution`, `guildmaster`, and `empire-rush` are root-owned game folders. Development prototypes live under `experiments/`; never auto-list them in the arcade or include them in the Pages build unless the user explicitly promotes one. Local commits are useful history, not an off-machine backup.
+The root repository uses branch `main` and has origin `https://github.com/GrapeGames3141/HTML-Games`. It tracks every game as ordinary files, so GitHub `main` holds all source and a fresh clone works as a plain monorepo. On this machine only, `appalachian-eagle` and `prism-swarm` retain their old nested repositories on `master`; they are not submodules. `ashgrove`, `splat`, `dustdevil`, `merlin`, `spearfish`, `firstlight`, `tricktype`, `deckvolution`, `guildmaster`, `empire-rush`, `aquarium`, `woolrampage`, and `kindred-crossing` are root-owned game folders. Development prototypes live under `experiments/`; never auto-list them in the arcade or include them in the Pages build unless the user explicitly promotes one. Local commits are useful history, not an off-machine backup.
 
 | Source game | Source file | Drive release copy |
 | --- | --- | --- |
@@ -26,8 +26,12 @@ The root repository uses branch `main` and has origin `https://github.com/GrapeG
 | Ridiculous Wars | `ridiculous-wars\ridiculous-wars.html` | none yet |
 | Heroes Sold Separately | `guildmaster\guildmaster.html` | none yet |
 | Empire Rush | `empire-rush\empire-rush.html` | none yet |
+| Axolotl Aquarium | `aquarium\aquarium.html` | none yet |
+| Wool Rampage | `woolrampage\woolrampage.html` | none yet |
+| Kindred Crossing | `kindred-crossing\kindred-crossing.html` | none yet |
+| Volcanic Island Walk | `experiments\procedural-demo\procedural-demo.html` | none yet |
 
-`experiments\Astra-demo\Astra-demo.html` and `experiments\demo\demo.html` are explicitly curated nested arcade and Pages entrypoints. Their evidence, plans, build notes, and sibling experiments stay excluded. `experiments\humanoid-model-experiment\humanoid-model-experiment.html` remains a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks.
+`experiments\Astra-demo\Astra-demo.html`, `experiments\demo\demo.html`, and `experiments\procedural-demo\procedural-demo.html` are explicitly curated nested arcade and Pages entrypoints. Their evidence, plans, build notes, and sibling experiments stay excluded. `experiments\humanoid-model-experiment\humanoid-model-experiment.html` remains a development prototype, not an arcade entry. Its historical Drive export is `human.html`; do not update that copy unless the user asks.
 
 Drive releases belong in `H:\My Drive\AI Projects\Prism Swarm`. Do not publish or update Drive copies unless the user asks. When asked, copy the source file to the mapped release name, then verify both byte length and SHA-256. Each game's source file is named after its folder, `<game>\<game>.html`; keep that name and do not add an `index.html`. The root `index.html` is the intentional arcade lobby, not a game source.
 

@@ -1,0 +1,7 @@
+{
+  "title": "Wool Rampage",
+  "description": "Stand on your haystack and hold off a flock of furious sheep with a paintball marker and a garden hose. Wet sheep shrink, wet grass is slick, and slipping sheep roll back down the hill and bowl over the rest.",
+  "category": "Action",
+  "controls": "Mouse aims; click or hold to fire; 1, 2, Q or the wheel switch paintball and hose; R reloads; WASD shuffles about on the stack. On touch, drag to aim, hold FIRE and tap SWAP.",
+  "requirements": "WebGL2 browser"
+}

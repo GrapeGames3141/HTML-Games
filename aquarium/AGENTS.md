@@ -1,0 +1,52 @@
+# Axolotl Aquarium
+
+A realistic planted aquarium with a pet axolotl, fish, shrimp and snails. The player feeds and pets the axolotl, adds or removes animals, and aquascapes the tank: plants, stone, driftwood, decor, sand type and sculpted sand. Single-file WebGL2 with meshes (no splats). Read the "Realistic mesh scenes" section of the root `SPLAT-GUIDE.md` first.
+
+## Map of `aquarium.html`
+
+Sections are marked by `// ===` banners, in this order:
+
+1. **Core**: math (`V`, `M4`, `m3rot`), CPU noise, GL helpers (`mkProg`, `U`, `mkMesh`, `addInstancing`), the mesh builder `MB`, `grid`, `tube`, `icosphere`, `box`.
+2. **Shaders**: shared chunks `C_UNI` / `C_FN` (water fog, shadows, caustics, `lighting`, `roomLit`, `envColor`) and `C_FS` (`perturb` bump), then one program per family: static meshes (`FS_STD`, material switch on `uMat`), plants, axolotl, instanced fish, instanced critters, billboards, water surface, glass, caustics, light shafts, resolve, bloom, final tonemap.
+3. **Geometry**: tank constants `TK`, `leaf()` and the plant generators, `genRock`, `genWood`, decor, tank, stand and room, `genAxolotl` (straight-space build, see the guide), `genFish` with `FISHP` profiles, `genShrimp`, `genSnail`, food.
+4. **World**: sand height map and its dynamic mesh, `CAT` (the item catalog), items (`addItem`, `updateItem`, containment inside the glass), `rebuildTop` (top and walk grids, contact AO), `buildSDF` / `sdfAt` / `sdfDir` / `pushOut` (signed distance to anything the axolotl cannot walk over), picking, sculpting.
+5. **Life**: `MORPHS`, `FISHSP`, `SHRIMPSP`, `SNAILSP`, `FOODS`, pet stats `PET`, the axolotl state machine (`axUpdate`), spine from trail (`axComputeSpine`), legs, fish boids, shrimp, snails, food, bubbles, ripples, particles, floating plants, `simStep`.
+6. **Render**: quality presets `QUAL`, `SETTINGS`, light presets `LIGHTS`, programs with fixed sampler units, render targets, shadow map, camera (`CAM`, limits `CLIM`, `setView` presets, `fitDist` / `fillDist`, `zoomBy`, `panCam`, keyboard and flick inertia in `updateCamera`), `render()` pass order, thumbnails.
+7. **UI**: default tank, save and load (`localStorage` key `axolotl-aquarium.v1`), pet card, Decorate / Animals / Tank sheets, feed bar, selection panel, fullscreen (`toggleFs`, fallback to the fill view, auto-hiding interface), pointer, wheel and keyboard input, views menu and help panel, the `window.AQ` test API, main loop and `init`.
+
+## Design rules
+
+- Realism first: real species and sizes in cm, cold-water notes, axolotl-safe advice (gravel warning, warm-water fish flagged). Nothing cartoony.
+- The axolotl is the pet. It rests, walks, hides, swims up to gulp air and sinks back, hunts sinking food, comes to the glass when you tap the sand, and flares its gills when petted.
+- Care is gentle: hunger empties over about 11 hours, water quality drops over days and from rotting leftovers, and offline time is applied on load (capped at 3 days). Nothing dies.
+- Every placed item must stay inside the glass (`updateItem` clamps its bounding box).
+- The axolotl never passes through solids: its whole body is pushed clear with the distance field every frame, it steers and lands with the same field, and it walks (never swims) out from under a hide roof. Hides and caves block with their walls only, so it can walk through them. Plants are soft and bend away from its body; marimo balls are solid.
+
+## Controls
+
+- Mouse: drag to orbit (a flick keeps gliding), right-drag or Shift-drag to pan, wheel zooms toward the cursor, double-click flies to a spot and double-click again goes back.
+- Touch: drag to orbit, pinch to zoom, two fingers to pan and twist, double-tap to fly to a spot.
+- Keys: W/S or arrows zoom and pan, A/D pan, Q/E rotate, R/C raise or lower, PageUp/PageDown tilt, 1–7 views (front, fill screen, close-up, left, right, above, follow), 0 reset, F fullscreen, H hide interface, ? help.
+- Fullscreen switches to the fill view and hides the interface after 2.8 s without input; where fullscreen is blocked (sandboxed previews) it falls back to the fill view.
+
+## Tuning knobs
+
+- Light presets in `LIGHTS` (intensity, ambient, fog colour, exposure); water clarity in `updateLight` (`fogD`, `abs`).
+- Caustic strength in `causAt`; shaft strength `LIGHT.scat`; bloom in `render()`.
+- Catalog sizes and ranges in `CAT` (`scale`, `smin`, `smax`); default layout in `defaultTank()`.
+- Axolotl speeds and timers in `axUpdate`; bend limit in `axComputeSpine`; fish speeds and zones in `FISHSP`.
+- Quality: `QUAL` (render scale, pixel-ratio cap, MSAA, shadow size, shaft steps). Auto-downgrade runs after 3 s if frames average over 38 ms.
+
+## Testing
+
+Load `aquarium.html?test&seed=1&q=med` headless (see the guide's headless setup). In test mode nothing is saved and the sim only advances through `AQ.step(seconds)`; call `AQ.frame()` before a screenshot (`AQ.snap()` first if you just changed the view, since the camera eases toward its target). Useful calls: `AQ.cam({ target, yaw, pitch, dist })`, `AQ.view(name)`, `AQ.key(k, down)`, `AQ.fs()`, `AQ.axolotl({ at: [x, z], yaw, mode, morph })`, `AQ.feed('pellet' | 'worm' | 'flake' | 'wafer', x, z)`, `AQ.call(x)`, `AQ.pet()`, `AQ.add(kind, x, z, opts)`, `AQ.set('q' | 'bg' | 'light' | 'sub' | 'morph', value)`, `AQ._eval(src)` for internals.
+
+A good regression run: switch every quality level, every sand type and both shapes, add and remove one of each catalog item, drop every food type, add every species, then step 300 s checking the axolotl spine and all fish positions stay finite and inside the tank. It should finish with `AQ.errors.length === 0`.
+
+Collision check: force random walks for 240 s and count spine sample points (centre and four sides at 0.8 x body half-width) whose walk height is more than 2.3 cm above the sand. The fix brought this from 6–17 % to about 0.2 % (millimetre tail-tip overlaps in tight pockets). Also sink it from the surface directly above the big seiryu stone: it should drift off and land with every spine sample above `topH`.
+
+Playwright's synthetic mouse events arrive late under SwiftShader, so test flick inertia with `PointerEvent`s dispatched in-page.
+
+## Not built yet
+
+Sound, breeding, a second axolotl, plant growth and trimming, algae you scrape off.
