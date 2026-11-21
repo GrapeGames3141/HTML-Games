@@ -7,11 +7,11 @@ A realistic planted aquarium with a pet axolotl, fish, shrimp and snails. The pl
 Sections are marked by `// ===` banners, in this order:
 
 1. **Core**: math (`V`, `M4`, `m3rot`), CPU noise, GL helpers (`mkProg`, `U`, `mkMesh`, `addInstancing`), the mesh builder `MB`, `grid`, `tube`, `icosphere`, `box`.
-2. **Shaders**: shared chunks `C_UNI` / `C_FN` (water fog, shadows, caustics, `lighting`, `roomLit`, `envColor`) and `C_FS` (`perturb` bump), then one program per family: static meshes (`FS_STD`, material switch on `uMat`), plants, axolotl, instanced fish, instanced critters, billboards, water surface, glass, caustics, light shafts, resolve, bloom, final tonemap.
+2. **Shaders**: `SWELL` (analytic surface wavelets shared by the surface and the caustic pass), shared chunks `C_UNI` / `C_FN` (depth-tinted water fog, PCSS shadows, `causAt`, `simGrad`, thin-film `film`, `lighting`, `roomLit`, `envColor`) and `C_FS` (`perturb` bump), then one program per family: static meshes (`FS_STD`, material switch on `uMat`), plants, axolotl, instanced fish, instanced critters, billboards, water surface, glass, the fallback caustic texture, the ripple step (`FS_RIPPLE`), the caustic light grid (`VS_CGRID` / `FS_CGRID`), SSAO and its blur, light shafts, resolve, depth of field, bloom, final tonemap.
 3. **Geometry**: tank constants `TK`, `leaf()` and the plant generators, `genRock`, `genWood`, decor, tank, stand and room, `genAxolotl` (straight-space build, see the guide), `genFish` with `FISHP` profiles, `genShrimp`, `genSnail`, food.
 4. **World**: sand height map and its dynamic mesh, `CAT` (the item catalog), items (`addItem`, `updateItem`, containment inside the glass), `rebuildTop` (top and walk grids, contact AO), `buildSDF` / `sdfAt` / `sdfDir` / `pushOut` (signed distance to anything the axolotl cannot walk over), picking, sculpting.
-5. **Life**: `MORPHS`, `FISHSP`, `SHRIMPSP`, `SNAILSP`, `FOODS`, pet stats `PET`, the axolotl state machine (`axUpdate`), spine from trail (`axComputeSpine`), legs, fish boids, shrimp, snails, food, bubbles, ripples, particles, floating plants, `simStep`.
-6. **Render**: quality presets `QUAL`, `SETTINGS`, light presets `LIGHTS`, programs with fixed sampler units, render targets, shadow map, camera (`CAM`, limits `CLIM`, `setView` presets, `fitDist` / `fillDist`, `zoomBy`, `panCam`, keyboard and flick inertia in `updateCamera`), `render()` pass order, thumbnails.
+5. **Life**: `MORPHS`, `FISHSP`, `SHRIMPSP`, `SNAILSP`, `FOODS`, pet stats `PET`, the axolotl state machine (`axUpdate`), spine from trail (`axComputeSpine`), legs, fish boids, shrimp, snails, food, bubbles, ripples (now `simDrop` into the GPU ripple sim), particles, sand dust puffs (`kickDust`, `dustUpdate`: landings, walking, sinking food), oxygen pearling from stiff leaf points in daylight (`pearlUpdate`), floating plants, `simStep`.
+6. **Render**: quality presets `QUAL`, `SETTINGS`, light presets `LIGHTS`, programs with fixed sampler units, render targets, shadow map (plus the raw-depth sampler object for PCSS), the caustic map `CA` / `CMAP`, the ripple simulation `SIM` (`simDrop`, `simStepGPU`, `ambientDrops`, `causticPass`, `ruffle`), `dumpTex` (test readback), camera (`CAM`, limits `CLIM`, `setView` presets, `fitDist` / `fillDist`, `zoomBy`, `panCam`, keyboard and flick inertia in `updateCamera`), `render()` pass order, `DOF` / `updateDOF` (focus eases to the orbit target), thumbnails.
 7. **UI**: default tank, save and load (`localStorage` key `axolotl-aquarium.v1`), pet card, Decorate / Animals / Tank sheets, feed bar, selection panel, fullscreen (`toggleFs`, fallback to the fill view, auto-hiding interface), pointer, wheel and keyboard input, views menu and help panel, the `window.AQ` test API, main loop and `init`.
 
 ## Design rules
@@ -32,10 +32,11 @@ Sections are marked by `// ===` banners, in this order:
 ## Tuning knobs
 
 - Light presets in `LIGHTS` (intensity, ambient, fog colour, exposure); water clarity in `updateLight` (`fogD`, `abs`).
-- Caustic strength in `causAt`; shaft strength `LIGHT.scat`; bloom in `render()`.
+- Caustics: surface wavelets in `SWELL` and `ruffle()` (calmer with the air pump off), reference depth `CDEP`, IORs in `causticPass`, intensity cap in `FS_CGRID`, contrast curve in `causAt`. Ripple damping `uDamp` and drop sizes in `simDrop` callers.
+- Shafts `LIGHT.scat` and the beam mix in `FS_VOL`; SSAO radius and strength (`uRad`, `uAOK`); PCSS penumbra factor (0.055) in `shadowAt`; depth of field aperture in `updateDOF`; bloom in `render()`.
 - Catalog sizes and ranges in `CAT` (`scale`, `smin`, `smax`); default layout in `defaultTank()`.
 - Axolotl speeds and timers in `axUpdate`; bend limit in `axComputeSpine`; fish speeds and zones in `FISHSP`.
-- Quality: `QUAL` (render scale, pixel-ratio cap, MSAA, shadow size, shaft steps). Auto-downgrade runs after 3 s if frames average over 38 ms.
+- Quality: `QUAL` (render scale, pixel-ratio cap, MSAA, shadow size, shaft steps, SSAO taps). Low turns off shafts, SSAO, PCSS and depth of field and updates caustics every other frame. Tank sheet toggles: Camera focus blur (`SETTINGS.dof`) and Contact shading (`SETTINGS.ao`). `?nofloat` disables the ripple simulation and uses procedural caustics while retaining available float-render-target effects; a genuinely missing `EXT_color_buffer_float` extension additionally uses RGBA8 HDR targets and omits SSAO. Auto-downgrade runs after 3 s if frames average over 38 ms.
 
 ## Testing
 
@@ -47,6 +48,8 @@ Collision check: force random walks for 240 s and count spine sample points (cen
 
 Playwright's synthetic mouse events arrive late under SwiftShader, so test flick inertia with `PointerEvent`s dispatched in-page.
 
+Graphics checks: `AQ._eval('dumpTex(SIM.fbo[SIM.cur],SIM.w,SIM.h,0,10,.5)')` returns the ripple heights as a PNG data URL (and logs min, max and mean), `dumpTex(CA.fbo,CA.w,CA.h,-1,1,0)` the caustic map, `dumpTex(RT.fO2,RT.vw,RT.vh,0,1,0)` the SSAO buffer. Heights should stay within a few millimetres; a growing max or a checkerboard means the ripple step went unstable. Compare the six fixed views (front, axolotl, sand, plants, rocks, surface from below) before and after a change, at `med`, `high`, `low` and `?nofloat`.
+
 ## Not built yet
 
-Sound, breeding, a second axolotl, plant growth and trimming, algae you scrape off.
+Sound, breeding, a second axolotl, plant growth and trimming, algae you scrape off, temporal anti-aliasing.
